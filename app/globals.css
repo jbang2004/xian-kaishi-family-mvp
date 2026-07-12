@@ -31,6 +31,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(35, 50, 74, 
 .ambient-two { width: 290px; height: 290px; background: #afcfbd; bottom: -130px; left: -90px; }
 .phone-shell { width: min(430px, 100%); height: min(860px, calc(100vh - 68px)); min-height: min(690px, calc(100vh - 68px)); background: var(--cream); border: 1px solid rgba(255,255,255,.8); border-radius: 40px; overflow-y: auto; position: relative; z-index: 2; box-shadow: 0 34px 90px rgba(62, 48, 28, .22), inset 0 0 0 6px rgba(255,255,255,.42); scrollbar-width: none; }
 .phone-shell::-webkit-scrollbar { display: none; }
+.offline-ribbon { position: absolute; z-index: 45; top: 14px; left: 18px; right: 18px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 7px 12px; border: 1px solid rgba(166,109,13,.28); border-radius: 16px; background: rgba(255,249,230,.96); box-shadow: 0 9px 24px rgba(100,76,38,.12); backdrop-filter: blur(14px); }
+.offline-ribbon > i { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--amber-deep); box-shadow: 0 0 0 5px rgba(245,184,75,.16); }
+.offline-ribbon span, .offline-ribbon strong, .offline-ribbon small { display: block; }
+.offline-ribbon strong { font-size: 12px; }
+.offline-ribbon small { color: var(--muted); font-size: 10px; margin-top: 1px; }
+.phone-shell.is-offline .screen { padding-top: 76px; }
 .screen { min-height: 100%; padding: 26px 24px 36px; position: relative; animation: screen-in .32s ease both; }
 .screen.with-nav { padding-bottom: 112px; }
 @keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -996,6 +1002,8 @@ button.insight-card { cursor: pointer; }
 @media (max-width: 900px) {
   .site-shell { padding: 0; display: block; }
   .phone-shell { width: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .offline-ribbon { top: max(12px, env(safe-area-inset-top)); }
+  .phone-shell.is-offline .screen { padding-top: calc(max(26px, env(safe-area-inset-top)) + 50px); }
   .screen { padding-top: max(26px, env(safe-area-inset-top)); padding-bottom: max(36px, env(safe-area-inset-bottom)); }
   .screen.with-nav { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
   .bottom-nav { position: fixed; left: 18px; right: 18px; bottom: max(14px, env(safe-area-inset-bottom)); }
@@ -1010,6 +1018,19 @@ button.insight-card { cursor: pointer; }
 
 @media (max-width: 380px) {
   .screen { padding-left: 18px; padding-right: 18px; }
+  .home-hero { grid-template-columns: minmax(0,1fr) 86px; }
+  .home-hero h1 { font-size: 28px; }
+  .home-hero .mascot { width: 86px; height: 86px; }
+  .availability-card { grid-template-columns: 46px minmax(0,1fr); padding-right: 16px; }
+  .availability-card .mascot { display: none; }
+  .stage-editor-body { grid-template-columns: 52px minmax(0,1fr); align-items: start; padding-right: 11px; }
+  .stage-icon-button { grid-column: 1; grid-row: 1; min-height: 116px; }
+  .stage-icon-button .app-icon { width: 48px; height: 48px; }
+  .stage-main { grid-column: 2; grid-row: 1; }
+  .stage-actions { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3,1fr); }
+  .stage-actions button { width: 100%; }
+  .reward-idea-grid button { min-height: 90px; }
+  .reward-idea-grid small { display: none; }
   .choice-grid { gap: 8px; }
   .choice-card { padding: 10px; }
   .first-step-card { min-height: 200px; }

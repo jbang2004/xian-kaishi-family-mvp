@@ -7,6 +7,7 @@ import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
+import manifest from "../app/manifest.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
@@ -16,6 +17,9 @@ test("contains the complete 先开始 product shell", async () => {
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(layout, /先开始｜家庭晚间习惯助手/);
+  assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
+  assert.match(layout, /appleWebApp: \{ capable: true/);
+  assert.match(layout, /themeColor: "#fff8ec"/);
   assert.match(page, /<StartApp \/>/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
@@ -135,6 +139,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /transition-duration: \.001ms !important/);
   assert.match(app, /也会跟随系统设置/);
+  assert.match(app, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
+  assert.match(app, /网络已恢复 · 已合并并同步/);
+  assert.match(app, /离线使用中/);
+  assert.match(styles, /\.phone-shell\.is-offline \.screen \{ padding-top:/);
   assert.match(app, /共同商量能量/);
   assert.match(app, /className="task-energy-range branded-range"/);
   assert.match(app, /aria-valuetext=\{`\$\{stage\.energy\}点家庭能量`\}/);
@@ -142,6 +151,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /max=\{rewardMaximumThreshold\}/);
   assert.match(styles, /\.branded-range::-webkit-slider-runnable-track/);
   assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);
+  assert.match(styles, /\.availability-card \.mascot \{ display: none; \}/);
+  assert.match(styles, /\.stage-actions \{ grid-column: 1 \/ -1; grid-row: 2; grid-template-columns: repeat\(3,1fr\); \}/);
+  assert.match(styles, /\.reward-idea-grid small \{ display: none; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
@@ -161,6 +173,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
+});
+
+test("ships an installable, privacy-preserving app manifest", async () => {
+  const appManifest = manifest();
+  assert.equal(appManifest.display, "standalone");
+  assert.equal(appManifest.lang, "zh-CN");
+  assert.equal(appManifest.icons?.[0]?.sizes, "320x320");
+  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  assert.match(serviceWorker, /clients\.claim\(\)/);
+  assert.doesNotMatch(serviceWorker, /caches\.|addEventListener\("fetch"/);
 });
 
 test("ships optimized visual assets and persistent-state migration", async () => {
