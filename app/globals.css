@@ -753,23 +753,60 @@ button.insight-card { cursor: pointer; }
 .reward-save-dock { position: sticky; bottom: 0; z-index: 8; margin: 4px -8px -36px; padding: 12px 8px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(255,248,236,0), rgba(255,248,236,.97) 18%, var(--cream) 44%); }
 .reward-save-dock small { display: block; color: var(--muted); font-size: 10px; text-align: center; margin-top: 7px; }
 
-.achievement-screen { text-align: center; background: radial-gradient(circle at 50% 20%, rgba(245,184,75,.35), transparent 30%), var(--cream); }
-.achievement-energy { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 24px; border: 2px solid rgba(245,184,75,.35); border-radius: 99px; background: rgba(255,255,255,.8); }
-.achievement-energy strong { font-size: 54px; color: var(--amber-deep); }
-.achievement-energy span { font-weight: 900; }
-.achievement-art { height: 330px; border-radius: 28px; overflow: hidden; position: relative; margin: 18px 0; box-shadow: var(--shadow); }
-.achievement-art > img:first-child { width: 100%; height: 100%; object-fit: cover; }
-.achievement-art .mascot { position: absolute; right: 12px; bottom: -5px; width: 170px; height: 170px; }
-.achievement-art > .app-icon { position: absolute; left: 38px; bottom: 24px; width: 126px; height: 126px; filter: drop-shadow(0 12px 18px rgba(70,45,20,.25)); }
-.achievement-card { display: grid; grid-template-columns: 62px 1fr; align-items: center; text-align: left; gap: 10px; border: 1px solid var(--border); border-radius: 22px; padding: 14px; margin-bottom: 14px; background: rgba(255,255,255,.84); }
-.achievement-card .app-icon { width: 58px; height: 58px; }
-.achievement-card p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-.achievement-screen .secondary-button { margin-top: 10px; }
-.redeem-confirm { margin: 0 0 10px; padding: 16px; border: 1px solid rgba(245,184,75,.46); border-radius: 22px; background: rgba(255,249,230,.92); box-shadow: var(--shadow-soft); animation: redeem-confirm-in .28s ease both; }
+.achievement-screen { text-align: center; background: radial-gradient(circle at 78% 16%, rgba(245,184,75,.28), transparent 27%), var(--cream); }
+.achievement-screen .app-header { margin-bottom: 3px; }
+.achievement-hero { min-height: 92px; display: grid; grid-template-columns: 1fr 92px; align-items: center; gap: 8px; text-align: left; }
+.achievement-hero h1 { margin: 3px 0 1px; font-size: 27px; line-height: 1.08; }
+.achievement-hero p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; }
+.achievement-hero p strong { color: var(--amber-deep); font-size: 27px; }
+.achievement-hero .mascot { width: 92px; height: 92px; margin: 0; }
+.achievement-scene { height: 142px; border-radius: 24px; overflow: hidden; position: relative; margin: 7px 0 10px; box-shadow: 0 14px 30px rgba(61,48,27,.13); isolation: isolate; }
+.achievement-scene > img:first-child { width: 100%; height: 100%; object-fit: cover; object-position: center 55%; transform: scale(1.02); }
+.achievement-glow { position: absolute; inset: 0; background: radial-gradient(circle at 28% 54%, rgba(255,229,137,.55), transparent 31%), linear-gradient(90deg, rgba(255,249,224,.15), transparent); animation: achievement-glow 2.8s ease-in-out infinite; }
+.achievement-scene > .app-icon { position: absolute; left: 24px; top: 25px; width: 88px; height: 88px; filter: drop-shadow(0 10px 16px rgba(70,45,20,.25)); animation: reward-float 3s ease-in-out infinite; }
+.achievement-card { display: grid; grid-template-columns: 54px 1fr; align-items: center; text-align: left; gap: 10px; border: 1px solid var(--border); border-radius: 20px; padding: 10px 12px; margin-bottom: 8px; background: rgba(255,255,255,.84); }
+.achievement-card .app-icon { width: 50px; height: 50px; }
+.achievement-card small, .achievement-card strong, .achievement-card p { display: block; }
+.achievement-card small { color: #8c651d; font-size: 9px; margin-bottom: 2px; }
+.achievement-card strong { font-size: 13px; }
+.achievement-card p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+.achievement-boundary, .reward-saved-note { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 9px; text-align: left; padding: 9px 11px; border-radius: 18px; background: #f2f7f2; border: 1px solid rgba(117,184,155,.28); }
+.achievement-boundary .app-icon, .reward-saved-note .app-icon { width: 34px; height: 34px; }
+.achievement-boundary p, .reward-saved-note p { margin: 0; }
+.achievement-boundary strong, .achievement-boundary span, .reward-saved-note strong, .reward-saved-note span { display: block; }
+.achievement-boundary strong, .reward-saved-note strong { font-size: 10px; }
+.achievement-boundary span, .reward-saved-note span { margin-top: 2px; color: var(--muted); font-size: 8px; line-height: 1.35; }
+.achievement-actions { display: grid; gap: 7px; margin-top: 10px; }
+.achievement-actions .primary-button, .achievement-actions .secondary-button { min-height: 48px; }
+.achievement-screen .secondary-button { margin-top: 0; }
+.redeem-confirm { margin: 10px 0 0; padding: 13px; border: 1px solid rgba(245,184,75,.46); border-radius: 20px; background: rgba(255,249,230,.94); box-shadow: var(--shadow-soft); animation: redeem-confirm-in .28s ease both; }
 .redeem-confirm strong { display: block; font-size: 16px; }
-.redeem-confirm p { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 6px 0 12px; }
-.redeem-confirm .text-button { min-height: 42px; padding: 9px; }
+.redeem-confirm p { color: var(--muted); font-size: 10px; line-height: 1.5; margin: 5px 0 9px; }
+.redeem-confirm .primary-button { min-height: 48px; }
+.redeem-confirm .text-button { min-height: 38px; padding: 7px; }
 @keyframes redeem-confirm-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes achievement-glow { 50% { opacity: .7; transform: scale(1.04); } }
+@keyframes reward-float { 50% { transform: translateY(-5px) rotate(2deg); } }
+
+.reward-saved-screen { text-align: center; background: radial-gradient(circle at 78% 12%, rgba(117,184,155,.2), transparent 28%), var(--cream); }
+.reward-saved-hero { min-height: 162px; display: grid; grid-template-columns: 1fr 112px; align-items: center; gap: 4px; text-align: left; }
+.reward-saved-hero h1 { margin: 6px 0; font-size: 27px; line-height: 1.12; }
+.reward-saved-hero p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.reward-saved-hero .mascot { width: 112px; height: 112px; margin: 0; }
+.reward-saved-card { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 12px; min-height: 100px; padding: 13px; border: 1px solid rgba(245,184,75,.35); border-radius: 22px; background: linear-gradient(135deg, #fff8df, rgba(255,255,255,.9)); text-align: left; box-shadow: var(--shadow-soft); }
+.reward-saved-card .app-icon { width: 66px; height: 66px; }
+.reward-saved-card small, .reward-saved-card strong, .reward-saved-card p { display: block; }
+.reward-saved-card small { color: #8c651d; font-size: 9px; }
+.reward-saved-card strong { margin-top: 3px; font-size: 15px; }
+.reward-saved-card p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.reset-story { min-height: 82px; display: grid; grid-template-columns: 1fr 42px 1fr; align-items: center; margin: 10px 0; padding: 8px 18px; border-radius: 20px; background: rgba(255,255,255,.7); border: 1px solid var(--border); }
+.reset-story span { display: grid; place-items: center; }
+.reset-story b { font-size: 29px; line-height: 1; color: var(--amber-deep); }
+.reset-story small { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.reset-story i { color: #9b9589; font-size: 22px; font-style: normal; }
+.reset-story .fresh-zero b { color: #397259; }
+.reward-saved-note { margin-bottom: 10px; }
+.reward-saved-screen .saved-actions { margin-top: auto; }
 
 .calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 11px; margin: -3px 0 12px; }
 .month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin-bottom: 10px; }
