@@ -66,7 +66,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /xian-kaishi-plan-draft-v1/);
   assert.match(app, /xian-kaishi-live-session-v1/);
   assert.match(app, /休息也算照顾计划的一部分/);
-  assert.match(app, /今晚草稿 · 仅保存在这台设备/);
+  assert.match(app, /今晚草稿 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
+  assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
+  assert.match(app, /className="home-plan-cta"/);
+  assert.doesNotMatch(app, /className="draft-summary"/);
+  assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
