@@ -44,6 +44,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /data-screen-heading/);
   assert.match(app, /预计到时间了，可以完成、继续或调整/);
   assert.match(app, /const startRestNow/);
+  assert.match(app, /到时间只是提醒，不代表必须完成/);
+  assert.match(app, /再继续 10 分钟/);
+  assert.match(app, /先休息 10 分钟/);
+  assert.match(app, /setTransitionReason\("completed"\)/);
+  assert.match(app, /className="transition-result"/);
   assert.match(app, /现在休息10分钟，后续时间已顺延/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
@@ -63,7 +68,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const nextPendingStage/);
   assert.match(app, /className="timeline-disclosure"/);
   assert.match(app, /今晚进度/);
-  assert.match(app, /className="running-action-dock"/);
+  assert.match(app, /running-action-dock/);
   assert.match(app, /页面在后台时提醒/);
   assert.match(app, /xian-kaishi-background-reminder-v1/);
   assert.match(app, /关闭浏览器后不承诺提醒送达/);

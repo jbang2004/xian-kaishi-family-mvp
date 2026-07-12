@@ -557,7 +557,7 @@ export function StartApp() {
   }, [activeEndsAt, activeStage.title, backgroundReminder, notificationPermission, screen]);
 
   const stageFinished = () => {
-    setTransitionReason(stageDue ? "due" : "completed");
+    setTransitionReason("completed");
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
     playTone("confirm"); navigator.vibrate?.([20]); go("transition");
   };
@@ -814,13 +814,15 @@ export function StartApp() {
         <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
         <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
         <details className="timeline-disclosure"><summary><span><small>今晚进度</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
-        <div className="running-action-dock"><button className="primary-button" onClick={stageFinished}>{stageDue ? "完成这一段，看看下一步" : "提前完成这一阶段"}</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></div>
+        <div className={`running-action-dock ${stageDue ? "due-action-dock" : ""}`}>{stageDue ? <><div className="due-choice-copy"><strong>到时间只是提醒，不代表必须完成</strong><small>现在更适合哪一步，就选哪一步</small></div><button className="primary-button" onClick={stageFinished}>已经完成这一段</button><div className="due-quick-actions"><button className="secondary-button" onClick={extendCurrent}>再继续 10 分钟</button><button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button></div><button className="text-button" onClick={openAdjust}>更多调整</button></> : <><button className="primary-button" onClick={stageFinished}>提前完成这一阶段</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></>}</div>
       </div>}
 
       {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
-        <span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}已经告一段落` : `${activeStage.title}这一段预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} /></div>
-        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? "进入下一阶段" : "进入今晚收尾"}</button><button className="secondary-button" onClick={extendCurrent}>{transitionReason === "completed" ? "还想继续10分钟" : "再继续10分钟"}</button><button className="soft-button" onClick={startRestNow}>先休息一下</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button>
-        <div className="privacy-note">{transitionReason === "completed" ? "提前完成不是必须；按自己的节奏走，也可以停下来调整。" : "页面保持打开时，会有一次柔和声音或震动提醒；不会连续催促。"}</div>
+        <div className="transition-hero"><div><span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}告一段落` : `${activeStage.title}预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p></div><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} compact /></div></div>
+        <div className="transition-result"><AppIcon name={activeStage.icon} /><span><small>{transitionReason === "completed" ? "已经记下" : "当前阶段"}</small><strong>{activeStage.title}</strong><em>{transitionReason === "completed" ? `+${activeStage.energy} 家庭能量` : "完成、继续或休息都可以"}</em></span></div>
+        <div className="transition-next"><span><small>接下来</small><strong>{nextPendingStage ? nextPendingStage.title : "今晚温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
+        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? `进入${nextPendingStage?.title ?? "下一阶段"}` : "进入今晚收尾"}</button><div><button className="secondary-button" onClick={extendCurrent}>{transitionReason === "completed" ? "还想继续 10 分钟" : "再继续 10 分钟"}</button><button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button></div>
+        <div className="privacy-note">{transitionReason === "completed" ? "提前完成不是必须；按自己的节奏走，也可以停下来调整。" : "只提醒这一次，不会连续催促。"}</div>
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">
