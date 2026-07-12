@@ -712,9 +712,11 @@ export function StartApp() {
 
   const extendCurrent = () => {
     const restartFromNow = activeStage.status === "done";
+    const nextPlanEnd = addMinutes(data.planEnd, 10);
     setStages(items => shiftTimedItemsFrom(items, activeIndex + 1, 10).map((item, index) => index === activeIndex ? { ...item, end: addMinutes(item.end, 10), status: "active" } : item));
+    setData(current => ({ ...current, planEnd: addMinutes(current.planEnd, 10) }));
     setActiveEndsAt(value => restartFromNow ? Date.now() + 10 * 60_000 : Math.max(value, Date.now()) + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
-    setAdjustments(value => value + 1); setToast("当前阶段和后续时间都顺延了10分钟"); go("running");
+    setAdjustments(value => value + 1); setToast(`已顺延10分钟，预计${nextPlanEnd}收尾`); go("running");
   };
 
   const startRestNow = () => {
@@ -725,8 +727,10 @@ export function StartApp() {
       const shifted = shiftTimedItemsFrom(items, insertAt, 10).map((item, index) => index === activeIndex && item.status === "active" ? { ...item, status: "pending" as const } : item);
       return [...shifted.slice(0, insertAt), rest, ...shifted.slice(insertAt)];
     });
+    const nextPlanEnd = addMinutes(data.planEnd, 10);
+    setData(current => ({ ...current, planEnd: addMinutes(current.planEnd, 10) }));
     setActiveIndex(insertAt); setActiveEndsAt(Date.now() + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
-    setAdjustments(value => value + 1); setToast("现在休息10分钟，后续时间已顺延"); go("running");
+    setAdjustments(value => value + 1); setToast(`现在休息10分钟，预计${nextPlanEnd}收尾`); go("running");
   };
 
   const applyAdjustment = () => {
@@ -1017,7 +1021,7 @@ export function StartApp() {
         <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
         <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
         <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
-        <details className="timeline-disclosure"><summary><span><small>今晚进度</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
+        <details className="timeline-disclosure"><summary><span><small>今晚进度 · 预计 {data.planEnd} 收尾</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
         <div className={`running-action-dock ${stageDue ? "due-action-dock" : ""}`}>{stageDue ? <><div className="due-choice-copy"><strong>到时间只是提醒，不代表必须完成</strong><small>现在更适合哪一步，就选哪一步</small></div><button className="primary-button" onClick={stageFinished}>已经完成这一段</button><div className="due-quick-actions"><button className="secondary-button" onClick={extendCurrent}>再继续 10 分钟</button><button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button></div><button className="text-button" onClick={openAdjust}>更多调整</button></> : <><button className="primary-button" onClick={stageFinished}>提前完成这一阶段</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></>}</div>
       </div>}
 
@@ -1035,7 +1039,7 @@ export function StartApp() {
           ["extend", "steps", "延长当前阶段", "后续时间顺延10分钟"], ["rest", "quiet", "现在休息10分钟", "原事项随后继续"], ["swap", "speech", "调换后两项", "时间会自动重排"], ["tomorrow", "moon", "下一项移到明天", "保留已经完成的进展"],
           ["finish", "home-heart", "今晚先到这里", "保留进展，温和收尾"],
         ] as const).map(([id,icon,title,copy]) => <button key={id} aria-pressed={adjustChoice === id} className={`${adjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，后续顺延` : adjustChoice === "rest" ? `现在休息10分钟，再继续${activeStage.title}` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
+        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "rest" ? `先休息10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
         <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{adjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
       </div>}
 
