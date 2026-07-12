@@ -32,6 +32,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
   assert.match(styles, /\.window-inputs input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.match(styles, /\.reward-compact-input input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
+  assert.match(styles, /--type-micro: 10px/);
+  assert.match(styles, /--type-caption: 11px/);
+  assert.doesNotMatch(styles, /font-size:\s*[789]px/);
   assert.equal(ASSET_VERSION, "2026-07-13-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
