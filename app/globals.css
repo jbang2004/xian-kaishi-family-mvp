@@ -250,6 +250,13 @@ button.insight-card { cursor: pointer; }
 .outcome-card small { color: var(--muted); margin-top: 5px; }
 .energy-summary { padding: 16px; display: grid; gap: 8px; margin: 14px 0 18px; background: #f3f8f1; }
 .energy-summary span { font-size: 13px; color: #4a705d; }
+.prompt-reflection { margin: 0 0 18px; padding: 16px; border: 1px solid rgba(104,149,185,.28); border-radius: 22px; background: linear-gradient(145deg, #f3f7fb, rgba(255,255,255,.82)); text-align: left; }
+.prompt-reflection legend { padding: 0 7px; color: #4a6f91; font-size: 11px; font-weight: 900; }
+.prompt-reflection > strong { display: block; font-size: 14px; line-height: 1.5; }
+.prompt-reflection > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 13px 0 10px; }
+.prompt-reflection button { min-height: 46px; border: 1px solid rgba(104,149,185,.25); border-radius: 14px; background: white; color: #4a6072; font-size: 12px; font-weight: 800; cursor: pointer; }
+.prompt-reflection button.selected { border-color: #86a9c5; background: #eaf2f8; box-shadow: 0 0 0 2px rgba(104,149,185,.1); color: #315f83; }
+.prompt-reflection > small { color: var(--muted); font-size: 10px; }
 
 .night-screen { background: linear-gradient(#26344d 0, #31415d 22%, var(--cream) 42%); color: white; }
 .night-screen .app-header { color: white; }
@@ -298,6 +305,7 @@ button.insight-card { cursor: pointer; }
 .review-insight > .app-icon { width: 44px; height: 44px; }
 .review-insight small, .review-insight strong { display: block; }
 .review-insight small { color: var(--muted); margin-bottom: 5px; }
+.review-insight p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .empty-review { min-height: 250px; display: grid; place-items: center; align-content: center; text-align: center; padding: 20px; }
 .empty-review .mascot { margin: 0 auto; }
 .empty-review p { color: var(--muted); font-size: 13px; }
