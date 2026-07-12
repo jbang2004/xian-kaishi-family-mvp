@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { addMinutes, analyzePlan, durationMinutes } from "./plan-utils";
+import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "./plan-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
@@ -102,6 +102,7 @@ const ICON_LIBRARY = [
 function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
   if (!Array.isArray(value)) return preserveStatus ? [] : DEFAULT_STAGES;
   const allowedIcons = new Set<string>(ICON_LIBRARY.map(([icon]) => icon));
+  const legacyRestIcons = new Set(["snack", "dinner", "move", "walk", "eye-rest", "quiet", "free-play", "shower", "teeth", "bedtime"]);
   return value.slice(0, 20).flatMap((entry, index) => {
     if (!entry || typeof entry !== "object") return [];
     const item = entry as Partial<Stage>;
@@ -109,9 +110,11 @@ function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
     const energy = Math.max(1, Math.min(5, Math.round(Number(item.energy) || 1)));
     const start = /^\d{2}:\d{2}$/.test(String(item.start)) ? String(item.start) : addMinutes("18:10", index * 20);
     const end = /^\d{2}:\d{2}$/.test(String(item.end)) ? String(item.end) : addMinutes(start, 20);
+    const icon = allowedIcons.has(String(item.icon)) ? String(item.icon) : "custom";
+    const kind = item.kind === "rest" || (!item.kind && legacyRestIcons.has(icon)) ? "rest" : "task";
     return [{
       id: String(item.id || createId("stage")), title: String(item.title ?? "新事项").slice(0, 24),
-      icon: allowedIcons.has(String(item.icon)) ? String(item.icon) : "custom", start, end, effort, energy,
+      icon, start, end, effort, energy, kind,
       status: preserveStatus && (item.status === "active" || item.status === "done" || item.status === "tomorrow") ? item.status : "pending" as const,
     }];
   });
@@ -369,13 +372,7 @@ export function StartApp() {
   const moveStage = (index: number, delta: -1 | 1) => {
     const target = index + delta; if (target < 0 || target >= stages.length) return;
     const next = [...stages]; [next[index], next[target]] = [next[target], next[index]];
-    let cursor = data.planStart;
-    setStages(next.map(item => {
-      const minutes = Math.max(5, durationMinutes(item.start, item.end));
-      const reordered = { ...item, start: cursor, end: addMinutes(cursor, minutes) };
-      cursor = reordered.end;
-      return reordered;
-    }));
+    setStages(reflowTimedItemsFrom(next, 0, data.planStart));
   };
 
   const startPlan = () => {
@@ -426,27 +423,32 @@ export function StartApp() {
   };
 
   const extendCurrent = () => {
-    updateStage(activeStage.id, { end: addMinutes(activeStage.end, 10), status: "active" });
+    setStages(items => shiftTimedItemsFrom(items, activeIndex + 1, 10).map((item, index) => index === activeIndex ? { ...item, end: addMinutes(item.end, 10), status: "active" } : item));
     setActiveEndsAt(value => Math.max(value, Date.now()) + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
-    setAdjustments(value => value + 1); setToast("这一阶段延长了10分钟"); go("running");
+    setAdjustments(value => value + 1); setToast("当前阶段和后续时间都顺延了10分钟"); go("running");
   };
 
-  const insertRest = (startNow = false) => {
-    const start = activeStage.end;
-    const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, energy: 1, status: startNow ? "active" : "pending", kind: "rest" };
-    setStages(items => [...items.slice(0, activeIndex + 1), rest, ...items.slice(activeIndex + 1)]);
-    if (startNow) { setActiveIndex(activeIndex + 1); setActiveEndsAt(Date.now() + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false; }
-    setAdjustments(value => value + 1); setToast(startNow ? "现在先休息10分钟" : "已在下一阶段前加入休息"); go("running");
+  const startRestNow = () => {
+    const insertAt = activeStage.status === "done" ? activeIndex + 1 : activeIndex;
+    const start = activeStage.status === "done" ? activeStage.end : activeStage.start;
+    const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, energy: 1, status: "active", kind: "rest" };
+    setStages(items => {
+      const shifted = shiftTimedItemsFrom(items, insertAt, 10).map((item, index) => index === activeIndex && item.status === "active" ? { ...item, status: "pending" as const } : item);
+      return [...shifted.slice(0, insertAt), rest, ...shifted.slice(insertAt)];
+    });
+    setActiveIndex(insertAt); setActiveEndsAt(Date.now() + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
+    setAdjustments(value => value + 1); setToast("现在休息10分钟，后续时间已顺延"); go("running");
   };
 
   const applyAdjustment = () => {
     if (adjustChoice === "finish") { endTonightEarly(); return; }
     if (adjustChoice === "extend") { extendCurrent(); return; }
-    if (adjustChoice === "rest") { insertRest(false); return; }
+    if (adjustChoice === "rest") { startRestNow(); return; }
     if (adjustChoice === "swap") {
       const pending = stages.map((item, index) => ({ item, index })).filter(({ item, index }) => index > activeIndex && item.status === "pending");
       if (pending.length < 2) { setToast("后面没有两项可以调换"); go("running"); return; }
-      const next = [...stages]; [next[pending[0].index], next[pending[1].index]] = [next[pending[1].index], next[pending[0].index]]; setStages(next); setToast("后两项顺序已调换");
+      const firstIndex = pending[0].index; const next = [...stages]; [next[firstIndex], next[pending[1].index]] = [next[pending[1].index], next[firstIndex]];
+      setStages(reflowTimedItemsFrom(next, firstIndex, stages[firstIndex].start)); setToast("后两项已调换，时间也重新排好了");
     } else {
       const idx = nextPendingIndex(activeIndex);
       if (idx < 0) { setToast("后面已经没有待安排的事项"); go("running"); return; }
@@ -629,17 +631,17 @@ export function StartApp() {
 
       {screen === "transition" && <div className="screen transition-screen">
         <span className="eyebrow">阶段提醒 · 只提醒一次</span><h1>{activeStage.title}这一段预计到时间了</h1><p className="lead">不用马上切换，看看现在更适合哪一步。</p><div className="transition-art"><AppIcon name="moon" /><Mascot mood="confirm" /></div>
-        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>进入下一阶段</button><button className="secondary-button" onClick={extendCurrent}>再继续10分钟</button><button className="soft-button" onClick={() => insertRest(true)}>先休息一下</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button>
+        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>进入下一阶段</button><button className="secondary-button" onClick={extendCurrent}>再继续10分钟</button><button className="soft-button" onClick={startRestNow}>先休息一下</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button>
         <div className="privacy-note">页面保持打开时，会有一次柔和声音或震动提醒；不会连续催促。</div>
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">
         <Header back={() => go("running")} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
         <div className="adjust-grid">{([
-          ["extend", "steps", "延长当前阶段", "加10分钟"], ["rest", "quiet", "先休息一下", "把状态缓下来"], ["swap", "speech", "调换下一项", "顺序可以改变"], ["tomorrow", "moon", "移到明天", "保留已经完成的进展"],
+          ["extend", "steps", "延长当前阶段", "后续时间顺延10分钟"], ["rest", "quiet", "现在休息10分钟", "原事项随后继续"], ["swap", "speech", "调换后两项", "时间会自动重排"], ["tomorrow", "moon", "下一项移到明天", "保留已经完成的进展"],
           ["finish", "home-heart", "今晚先到这里", "保留进展，温和收尾"],
         ] as const).map(([id,icon,title,copy]) => <button key={id} aria-pressed={adjustChoice === id} className={`${adjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟` : adjustChoice === "rest" ? "下一阶段前加入10分钟休息" : adjustChoice === "swap" ? "调换后两项顺序" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
+        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，后续顺延` : adjustChoice === "rest" ? `现在休息10分钟，再继续${activeStage.title}` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
         <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{adjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
       </div>}
 
