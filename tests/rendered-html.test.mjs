@@ -29,6 +29,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /window\.addEventListener\("popstate", handlePopState\)/);
   assert.match(app, /current !== "home" && LIVE_SCREENS\.includes\(next as LiveScreen\)/);
   assert.match(app, /今晚还在进行，可以调整计划或温和收尾/);
+  assert.doesNotMatch(app, /window\.confirm/);
+  assert.match(app, /role="alertdialog" aria-modal="true"/);
+  assert.match(app, /取消，保留数据/);
+  assert.match(app, /确认永久删除/);
+  assert.match(app, /deleteCancelRef\.current\?\.focus\(\)/);
+  assert.match(app, /deleteConfirmRef\.current/);
+  assert.match(app, /event\.key !== "Tab"/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
   assert.match(app, /aria-invalid=\{titleInvalid\}/);
   assert.match(app, /className="stage-inline-issue" aria-live="polite"/);
@@ -167,8 +174,18 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(app, /childEnergy, guardianEnergy/);
   assert.match(styles, /@keyframes energy-rise/);
   assert.match(styles, /--motion-fast: 160ms/);
+  assert.match(styles, /--ambient-cycles: 3/);
   assert.match(styles, /--ease-out-soft: cubic-bezier/);
   assert.match(styles, /@keyframes mascot-ground/);
+  assert.match(styles, /mascot-ground 3\.6s ease-in-out var\(--ambient-cycles\)/);
+  assert.match(styles, /mascot-blink 5\.8s linear var\(--ambient-cycles\)/);
+  assert.match(styles, /halo-breathe 3s ease-in-out var\(--ambient-cycles\)/);
+  assert.match(styles, /mascot-nod 2\.8s ease-in-out 2/);
+  assert.match(styles, /mascot-listen 3\.4s ease-in-out 2/);
+  assert.match(styles, /mascot-breathe 3\.6s ease-in-out infinite/);
+  assert.match(styles, /room-drift 10s ease-in-out var\(--ambient-cycles\) alternate/);
+  assert.match(styles, /room-light 5\.5s ease-in-out var\(--ambient-cycles\)/);
+  assert.doesNotMatch(styles, /breathing-ring|ring-breathe/);
   assert.match(styles, /mascot-celebrate 1\.9s var\(--ease-out-soft\) 2/);
   assert.match(styles, /spark-pop 1\.9s ease-out 2/);
   assert.match(styles, /energy-rise 2\.4s ease-out 2/);
@@ -503,6 +520,9 @@ test("cleans short family-entered text only at save boundaries", () => {
 test("keeps browser back inside the live evening and skips stale setup after finishing", () => {
   assert.deepEqual(resolveHistoryTarget("running", "confirm"), { screen: "running", blocked: true, collapseToRoot: false });
   assert.deepEqual(resolveHistoryTarget("night-saved", "confirm"), { screen: "home", blocked: false, collapseToRoot: true });
+  assert.deepEqual(resolveHistoryTarget("night-saved", "wrap"), { screen: "home", blocked: false, collapseToRoot: true });
+  assert.deepEqual(resolveHistoryTarget("reward-saved", "reward-achieved"), { screen: "home", blocked: false, collapseToRoot: true });
+  assert.deepEqual(resolveHistoryTarget("welcome", "settings"), { screen: "welcome", blocked: true, collapseToRoot: false });
   assert.deepEqual(resolveHistoryTarget("review", "home"), { screen: "home", blocked: false, collapseToRoot: false });
 });
 

@@ -20,6 +20,7 @@
   --motion-fast: 160ms;
   --motion-standard: 260ms;
   --motion-gentle: 360ms;
+  --ambient-cycles: 3;
   --ease-out-soft: cubic-bezier(.2, .78, .25, 1);
   --ease-spring-soft: cubic-bezier(.2, .9, .25, 1.12);
 }
@@ -71,13 +72,13 @@ p { line-height: 1.65; }
 .app-icon { width: 42px; height: 42px; object-fit: contain; display: block; flex: 0 0 auto; filter: drop-shadow(0 5px 8px rgba(101, 75, 35, .09)); }
 
 .mascot { width: 210px; height: 210px; position: relative; margin: 8px auto; display: grid; place-items: center; }
-.mascot::after { content: ""; position: absolute; z-index: 1; left: 29%; bottom: 8%; width: 42%; height: 9%; border-radius: 50%; background: rgba(94,67,32,.14); filter: blur(5px); transform-origin: center; animation: mascot-ground 3.6s ease-in-out infinite; }
+.mascot::after { content: ""; position: absolute; z-index: 1; left: 29%; bottom: 8%; width: 42%; height: 9%; border-radius: 50%; background: rgba(94,67,32,.14); filter: blur(5px); transform-origin: center; animation: mascot-ground 3.6s ease-in-out var(--ambient-cycles); }
 .mascot-pose { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 2; filter: drop-shadow(0 16px 18px rgba(104, 75, 31, .14)); transform-origin: 50% 82%; }
-.mascot-blink-frame { z-index: 3; opacity: 0; animation: mascot-blink 5.8s linear infinite; }
-.mascot-halo { position: absolute; width: 64%; height: 64%; border-radius: 50%; background: rgba(255, 202, 84, .28); filter: blur(24px); animation: halo-breathe 3s ease-in-out infinite; }
+.mascot-blink-frame { z-index: 3; opacity: 0; animation: mascot-blink 5.8s linear var(--ambient-cycles); }
+.mascot-halo { position: absolute; width: 64%; height: 64%; border-radius: 50%; background: rgba(255, 202, 84, .28); filter: blur(24px); animation: halo-breathe 3s ease-in-out var(--ambient-cycles); }
 .mascot-compact { width: 104px; height: 104px; margin: -12px 0 0 auto; }
-.mascot-confirm .mascot-pose { animation: mascot-nod 2.8s ease-in-out infinite; }
-.mascot-support .mascot-pose { animation: mascot-listen 3.4s ease-in-out infinite; }
+.mascot-confirm .mascot-pose { animation: mascot-nod 2.8s ease-in-out 2; }
+.mascot-support .mascot-pose { animation: mascot-listen 3.4s ease-in-out 2; }
 .mascot-breathe .mascot-pose { animation: mascot-breathe 3.6s ease-in-out infinite; }
 .mascot-celebrate .mascot-pose { animation: mascot-celebrate 1.9s var(--ease-out-soft) 2; }
 .mascot-celebrate::after { animation: mascot-ground-celebrate 1.9s var(--ease-out-soft) 2; }
@@ -312,10 +313,6 @@ button.insight-card { cursor: pointer; }
 
 .quiet-screen { text-align: center; }
 .quiet-screen h1 { font-size: 28px; }
-.breathing-ring { width: 230px; height: 230px; border-radius: 50%; margin: 20px auto; display: grid; place-content: center; background: radial-gradient(circle, rgba(117,184,155,.18), transparent 65%); border: 2px solid rgba(117,184,155,.4); animation: ring-breathe 3s ease-in-out infinite; }
-.breathing-ring span { font-size: 28px; font-weight: 900; }
-.breathing-ring small { color: var(--muted); margin-top: 7px; }
-@keyframes ring-breathe { 50% { transform: scale(1.04); box-shadow: 0 0 0 18px rgba(117,184,155,.06); } }
 
 .current-task-card { display: grid; grid-template-columns: 64px 1fr; gap: 16px; align-items: center; padding: 20px; margin: 24px 0; }
 .current-task-card > .app-icon { width: 64px; height: 64px; }
@@ -378,8 +375,8 @@ button.insight-card { cursor: pointer; }
 
 .energy-screen { background: linear-gradient(#f5dca8 0, var(--cream) 45%); }
 .room-scene { height: 300px; border-radius: 28px; overflow: hidden; position: relative; background: #eecb91; box-shadow: inset 0 -20px 30px rgba(113,70,26,.1), 0 18px 34px rgba(117,78,26,.14); isolation: isolate; }
-.room-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 48% 52%; transform: scale(1.035); animation: room-drift 10s ease-in-out infinite alternate; }
-.room-light { position: absolute; z-index: 1; inset: 0; background: linear-gradient(116deg, rgba(255,249,225,.22), transparent 45%, rgba(255,203,94,.08)); animation: room-light 5.5s ease-in-out infinite; pointer-events: none; }
+.room-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 48% 52%; transform: scale(1.035); animation: room-drift 10s ease-in-out var(--ambient-cycles) alternate; }
+.room-light { position: absolute; z-index: 1; inset: 0; background: linear-gradient(116deg, rgba(255,249,225,.22), transparent 45%, rgba(255,203,94,.08)); animation: room-light 5.5s ease-in-out var(--ambient-cycles); pointer-events: none; }
 .room-scene .mascot { width: 184px; height: 184px; position: absolute; z-index: 2; right: 18px; bottom: -2px; margin: 0; }
 @keyframes room-drift { to { transform: scale(1.06) translate3d(-3px, -2px, 0); } }
 @keyframes room-light { 50% { opacity: .58; } }
@@ -449,6 +446,19 @@ button.insight-card { cursor: pointer; }
 .pending-delete-note strong, .pending-delete-note small { display: block; }
 .pending-delete-note strong { color: #93600c; font-size: 11px; }
 .pending-delete-note small { margin-top: 2px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.destructive-dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: end center; padding: 24px max(18px, env(safe-area-inset-right)) max(24px, calc(18px + env(safe-area-inset-bottom))) max(18px, env(safe-area-inset-left)); background: rgba(35,50,74,.34); backdrop-filter: blur(7px); animation: dialog-backdrop-in var(--motion-fast) ease both; }
+.destructive-dialog { width: min(392px, 100%); padding: 22px 20px 18px; border: 1px solid rgba(242,140,126,.48); border-radius: 28px; background: #fffaf2; box-shadow: 0 24px 70px rgba(35,50,74,.28); text-align: center; animation: dialog-sheet-in var(--motion-standard) var(--ease-out-soft) both; }
+.destructive-dialog-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 8px; border-radius: 19px; background: #fff0ec; }
+.destructive-dialog-icon .app-icon { width: 50px; height: 50px; }
+.destructive-dialog > small { color: #a94f45; font-size: var(--type-micro); font-weight: 900; letter-spacing: .06em; }
+.destructive-dialog h2 { margin: 6px 0 8px; font-size: 21px; }
+.destructive-dialog p { margin: 0; color: var(--muted); font-size: var(--type-caption); line-height: 1.58; }
+.destructive-dialog-actions { display: grid; gap: 9px; margin-top: 18px; }
+.destructive-dialog-actions .secondary-button, .danger-confirm-button { min-height: 50px; margin: 0; border-radius: 17px; }
+.danger-confirm-button { width: 100%; border: 1px solid rgba(195,79,69,.42); background: #bd4f46; color: #fff; font-weight: 900; cursor: pointer; }
+.danger-confirm-button:disabled, .destructive-dialog-actions button:disabled { opacity: .58; cursor: wait; }
+@keyframes dialog-backdrop-in { from { opacity: 0; } }
+@keyframes dialog-sheet-in { from { opacity: 0; transform: translateY(18px) scale(.98); } }
 .risk-entry { width: 100%; display: grid; grid-template-columns: 40px 1fr auto; text-align: left; align-items: center; gap: 10px; padding: 16px; cursor: pointer; }
 .risk-entry > .app-icon { width: 40px; height: 40px; }
 .risk-entry strong, .risk-entry small { display: block; }

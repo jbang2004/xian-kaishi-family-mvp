@@ -315,6 +315,7 @@ export function StartApp() {
   const [syncLabel, setSyncLabel] = useState("本机已保存");
   const isOnline = useOnlineStatus();
   const [deletingData, setDeletingData] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
   const [pendingCloudDeletion, setPendingCloudDeletion] = useState(false);
   const [activeEndsAt, setActiveEndsAt] = useState(0);
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -348,6 +349,9 @@ export function StartApp() {
   const familyDataRef = useRef<AppData>(DEFAULT_DATA);
   const pendingWritesRef = useRef(new PendingWrites());
   const deleteInProgressRef = useRef(false);
+  const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const deleteConfirmRef = useRef<HTMLButtonElement>(null);
+  const deleteReturnFocusRef = useRef<HTMLElement | null>(null);
   const screenRef = useRef<Screen>("welcome");
   const historyReadyRef = useRef(false);
   const historyDepthRef = useRef(0);
@@ -557,6 +561,27 @@ export function StartApp() {
     const timer = window.setTimeout(() => setToast(""), 2400);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!deleteArmed) return;
+    const focusTimer = window.requestAnimationFrame(() => deleteCancelRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (deletingData) return;
+      if (event.key === "Escape") {
+        setDeleteArmed(false);
+        window.requestAnimationFrame(() => deleteReturnFocusRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const first = deleteCancelRef.current;
+      const last = deleteConfirmRef.current;
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => { window.cancelAnimationFrame(focusTimer); window.removeEventListener("keydown", handleKeyDown); };
+  }, [deleteArmed, deletingData]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && window.isSecureContext) {
@@ -904,16 +929,26 @@ export function StartApp() {
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
   };
 
+  const requestDeleteData = () => {
+    deleteReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDeleteArmed(true);
+  };
+
+  const cancelDeleteData = () => {
+    if (deletingData) return;
+    setDeleteArmed(false);
+    window.requestAnimationFrame(() => deleteReturnFocusRef.current?.focus());
+  };
+
   const deleteData = async () => {
-    if (deleteInProgressRef.current) return;
-    if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
+    if (!deleteArmed || deleteInProgressRef.current) return;
     deleteInProgressRef.current = true; setDeletingData(true);
     const activeFamilyId = familyId || localStorage.getItem("xian-kaishi-family-id") || "";
     if (activeFamilyId) localStorage.setItem(PENDING_DELETE_KEY, activeFamilyId);
     await pendingWritesRef.current.drain();
     const cloudDeleted = await retryPendingCloudDeletion();
     setPendingCloudDeletion(!cloudDeleted);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); go("welcome");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
     setToast(cloudDeleted ? "本机与云端家庭数据已经删除" : "本机数据已删除；联网后继续清理云端副本");
     deleteInProgressRef.current = false; setDeletingData(false);
   };
@@ -1060,7 +1095,7 @@ export function StartApp() {
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
         <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
-        <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={deleteData}>删除数据</button></div>}</div>
+        <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={requestDeleteData}>删除数据</button></div>}</div>
         <button className="primary-button" onClick={() => back(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
 
@@ -1226,7 +1261,7 @@ export function StartApp() {
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭设置 <span>›</span></button></div>
         <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>页面在后台时提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已就绪" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画；也会跟随系统设置</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
-        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={deleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除孩子全部数据"} <span>{deletingData ? "" : "›"}</span></button></div>
+        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除孩子全部数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 
@@ -1236,6 +1271,7 @@ export function StartApp() {
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
       {toast && <div className="toast" role="status">{toast}</div>}
     </section>
+    {deleteArmed && <div className="destructive-dialog-backdrop"><section className="destructive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><span className="destructive-dialog-icon"><AppIcon name="privacy" /></span><small>不可撤销的操作</small><h2 id="delete-dialog-title">删除这个家庭的全部数据？</h2><p id="delete-dialog-description">将清除家庭化名、今晚计划、日历记录、能量和期待；本机立即删除，云端副本会同步清理。</p><div className="destructive-dialog-actions"><button ref={deleteCancelRef} className="secondary-button" disabled={deletingData} onClick={cancelDeleteData}>取消，保留数据</button><button ref={deleteConfirmRef} className="danger-confirm-button" disabled={deletingData} onClick={() => void deleteData()}>{deletingData ? "正在删除…" : "确认永久删除"}</button></div></section></div>}
     <aside className="desktop-note"><span className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>共同排时间、双人点亮、阶段柔和提醒，计划随时可以改。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
   </main>;
 }
