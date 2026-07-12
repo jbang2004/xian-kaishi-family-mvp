@@ -280,6 +280,13 @@ export function StartApp() {
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
   const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
   const openAdjust = () => { setAdjustChoice("extend"); go("adjust"); };
+  const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setClockNow(Date.now()); go("dual-start"); };
+  const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); go("confirm"); };
+  const toggleParticipant = (role: "guardian" | "child") => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18);
+    if (role === "guardian") setGuardianConfirmed(value => !value);
+    else setChildConfirmed(value => !value);
+  };
   const openRewardSetup = () => {
     const next = data.rewardGoal.redeemed ? { ...data.rewardGoal, title: "", icon: "game" as const, threshold: 20, redeemed: false } : { ...data.rewardGoal };
     setRewardDraft(next); go("reward-setup");
@@ -514,7 +521,7 @@ export function StartApp() {
 
   useEffect(() => {
     if (screen === "dual-start" && guardianConfirmed && childConfirmed) {
-      const timer = window.setTimeout(startPlan, 650); return () => window.clearTimeout(timer);
+      const timer = window.setTimeout(startPlan, 1600); return () => window.clearTimeout(timer);
     }
     // startPlan intentionally reads the latest plan only after both confirmations.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -784,24 +791,26 @@ export function StartApp() {
       </div>}
 
       {screen === "confirm" && <div className="screen confirm-screen">
-        <Header back={() => go("plan")} title="共同确认" step="2/3" /><h1>今晚的安排，我们一起确认</h1>
-        <div className="summary-strip"><span><strong>{stages[0]?.start}</strong><small>开始</small></span><span><strong>{stages.filter(s => s.status !== "tomorrow").length}</strong><small>个阶段</small></span><span><strong>{stages.at(-1)?.end}</strong><small>左右收尾</small></span></div>
-        <div className="promise-card guardian"><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>先给第一步留出空间</small></span></div><div className="promise-card child"><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>卡住时可以主动说</small></span></div>
-        <Mascot mood="confirm" /><div className="privacy-note">时间表不是命令。中途改变顺序、休息或移到明天，都不算失败。</div><button className="primary-button" onClick={() => { setClockNow(Date.now()); go("dual-start"); }}>进入共同启动</button>
+        <Header back={() => go("plan")} title="共同确认" step="2/3" />
+        <div className="confirm-hero"><div><span className="eyebrow">先确认今晚，再确认彼此</span><h1>这份安排，<br />我们都可以调整</h1></div><Mascot mood="confirm" compact /></div>
+        <div className="summary-strip"><span><strong>{stages[0]?.start}</strong><small>计划开始</small></span><span><strong>{tonightStageCount}</strong><small>个阶段</small></span><span><strong>{draftEnergy}</strong><small>点能量</small></span></div>
+        <div className="first-stage-confirm"><AppIcon name={stages[0]?.icon ?? "custom"} /><span><small>先从最容易开始的一步</small><strong>{stages[0]?.title}</strong><em>{stages[0]?.start}—{stages[0]?.end} · 完成 +{stages[0]?.energy} 能量</em></span><button onClick={() => go("plan")}>修改</button></div>
+        <div className="family-agreement"><div><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>先给第一步留出空间</small></span></div><div><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>卡住时可以主动说</small></span></div></div>
+        <div className="privacy-note">时间表不是命令。中途换顺序、休息或移到明天，都不算失败。</div><div className="confirm-action-dock"><button className="primary-button" onClick={enterDualStart}>两个人一起点亮开始</button><small>下一步只需要两个人各点一下自己的名字</small></div>
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={() => go("confirm")} title="一起点亮" step="3/3" /><span className="eyebrow">可以同时点，也可以一个一个来</span><h1>两个人都准备好，就开始</h1><Mascot mood={guardianConfirmed && childConfirmed ? "celebrate" : "ready"} />
+        <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以一个一个来</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={guardianConfirmed && childConfirmed ? "celebrate" : "ready"} compact /></div>
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={startsAtPlannedTime ? "check" : "alarm"} /><span><small>两个名字都亮起后</small><strong>{startsAtPlannedTime ? `按计划 ${startNowLabel} 开始` : `从现在 ${startNowLabel} 开始`}</strong><p>{startsAtPlannedTime ? "刚好到约定时间，直接进入第一项。" : "每一项保留原时长和间隔，整晚时间会一起顺延。"}</p></span></div>
         <div className="light-bridge" data-ready={guardianConfirmed && childConfirmed} />
-        <div className="dual-press"><button aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => setGuardianConfirmed(value => !value)}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "已点亮" : "点一下"}</small></button><button aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => setChildConfirmed(value => !value)}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "已点亮" : "点一下"}</small></button></div>
-        <p className="child-copy" role="status">{guardianConfirmed && childConfirmed ? "今晚的安排，正在从现在开始" : "不需要完全同时，两个名字都亮起来就从现在开始。"}</p>
+        <div className="dual-press"><button aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
+        <div className={`launch-status ${guardianConfirmed && childConfirmed ? "is-launching" : ""}`} id="dual-start-status" role="status"><strong>{guardianConfirmed && childConfirmed ? "今晚，从我们一起准备好开始" : guardianConfirmed || childConfirmed ? "还差一个名字，再慢慢确认一下" : "两个名字都亮起来，才会进入第一项"}</strong><small>{guardianConfirmed && childConfirmed ? "短暂亮起后自动开始；再点一次可以取消" : "这是一份共同约定，不是身份验证；手机仍由大人保管"}</small>{guardianConfirmed && childConfirmed && <span className="launch-progress" aria-hidden="true"><i /></span>}</div>
       </div>}
 
       {screen === "running" && <div className="screen running-screen">
         <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
         {stageDue && <span className="sr-only" role="status">{activeStage.title}预计到时间了，可以完成、继续或调整。</span>}
-        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
+        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
         <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
         <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
         <details className="timeline-disclosure"><summary><span><small>今晚进度</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
