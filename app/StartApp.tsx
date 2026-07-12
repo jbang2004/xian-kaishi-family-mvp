@@ -550,6 +550,16 @@ export function StartApp() {
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const editingStage = stages.find(item => item.id === editingStageId);
+  const completedStageCount = stages.filter(item => item.status === "done").length;
+  const tonightStageCount = stages.filter(item => item.status !== "tomorrow").length;
+  const liveResumeView = (() => {
+    const stageTitle = activeStage?.title || "继续今晚";
+    if (liveResumeScreen === "wrap") return { state: "wrap", icon: "home-heart", kicker: "今晚等待温和收尾 · 进度已保存在本机", title: "今晚，温和收尾", detail: "只差最后30秒，一起看见已经做到的部分", cta: "继续收尾 ›" };
+    if (liveResumeScreen === "adjust") return { state: "adjust", icon: "speech", kicker: "今晚计划正在调整 · 进度已保存在本机", title: "调整今晚计划", detail: "继续、休息、调换或温和收尾", cta: "继续调整 ›" };
+    if (liveResumeScreen === "transition" && transitionReason === "completed") return { state: "completed", icon: "check", kicker: "这一段已完成 · 进度已保存在本机", title: `${stageTitle}已经告一段落`, detail: "选择下一阶段、继续、休息或调整", cta: "继续选择 ›" };
+    if (liveResumeScreen === "transition" || stageDue) return { state: "due", icon: "alarm", kicker: "阶段预计到时 · 只提醒一次", title: stageTitle, detail: "完成、继续或调整，都可以", cta: "继续选择 ›" };
+    return { state: "running", icon: "alarm", kicker: "今晚正在进行 · 进度已保存在本机", title: stageTitle, detail: `${completedStageCount}/${tonightStageCount} 个阶段已完成`, cta: "继续 ›" };
+  })();
   const shiftMonth = (delta: number) => {
     const next = new Date(calendarYear, calendarMonth + delta, 1);
     setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA"));
@@ -593,7 +603,7 @@ export function StartApp() {
 
       {screen === "home" && <div className="screen with-nav home-screen">
         <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>今晚，一起找到舒服的节奏</h1><p>先排时间，再一起点亮开始。</p></div><Mascot mood="confirm" compact /></div>
-        {liveSessionAvailable ? <div className="live-session-panel"><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeScreen === "wrap" ? "home-heart" : "alarm"} /></span><span><small>{liveResumeScreen === "wrap" ? "今晚等待温和收尾 · 进度已保存在本机" : "今晚正在进行 · 进度已保存在本机"}</small><strong>{liveResumeScreen === "wrap" ? "今晚，温和收尾" : activeStage?.title || "继续今晚"}</strong><em>{liveResumeScreen === "wrap" ? "只差最后30秒，一起看见已经做到的部分" : stageDue ? "这一段预计到时间了" : `${stages.filter(item => item.status === "done").length}/${stages.filter(item => item.status !== "tomorrow").length} 个阶段已完成`}</em></span><b>{liveResumeScreen === "wrap" ? "继续收尾 ›" : "继续 ›"}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>今晚先到这里</button>}</div> : <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
+        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>今晚先到这里</button>}</div> : <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
         <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         <button className="insight-card support-entry" onClick={() => go("energy")}><span className="big-icon"><AppIcon name="plant" /></span><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><small>{data.rewardGoal.redeemed ? "已一起兑现，可以设置新期待" : progress ? `还差${progress}点` : "已经可以一起兑现"}</small></div><span>›</span></button>
