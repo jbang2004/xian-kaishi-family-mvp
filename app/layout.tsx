@@ -1,6 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#fff8ec",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -12,7 +19,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    icons: { icon: "/assets/icons/home-heart.png", shortcut: "/assets/icons/home-heart.png" },
+    applicationName: "先开始",
+    manifest: "/manifest.webmanifest",
+    formatDetection: { telephone: false },
+    appleWebApp: { capable: true, title: "先开始", statusBarStyle: "default" },
+    icons: { icon: "/assets/icons/home-heart.png", shortcut: "/assets/icons/home-heart.png", apple: "/assets/icons/home-heart.png" },
     openGraph: {
       title,
       description,

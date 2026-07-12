@@ -140,6 +140,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /transition-duration: \.001ms !important/);
   assert.match(app, /也会跟随系统设置/);
   assert.match(app, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(app, /useSyncExternalStore\(subscribeToNetworkStatus/);
+  assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
+  assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
   assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
   assert.match(app, /网络已恢复 · 已合并并同步/);
   assert.match(app, /离线使用中/);
