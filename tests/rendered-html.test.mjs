@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, durationMinutes } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "../app/plan-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app] = await Promise.all([
@@ -36,6 +36,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setDeletedStage\(null\), 8000/);
   assert.match(app, /data-screen-heading/);
   assert.match(app, /预计到时间了，可以完成、继续或调整/);
+  assert.match(app, /const startRestNow/);
+  assert.match(app, /现在休息10分钟，后续时间已顺延/);
+  assert.match(app, /legacyRestIcons/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
@@ -71,4 +74,16 @@ test("validates the family plan before dual confirmation", () => {
 test("calculates stage durations and automatic time shifts", () => {
   assert.equal(durationMinutes("18:10", "18:40"), 30);
   assert.equal(addMinutes("18:40", 25), "19:05");
+
+  const shifted = shiftTimedItemsFrom([
+    { title: "数学", start: "18:10", end: "18:40" },
+    { title: "阅读", start: "18:40", end: "19:05" },
+  ], 1, 10);
+  assert.deepEqual(shifted.map(item => [item.start, item.end]), [["18:10", "18:40"], ["18:50", "19:15"]]);
+
+  const reordered = reflowTimedItemsFrom([
+    { title: "阅读", start: "18:40", end: "19:05" },
+    { title: "数学", start: "18:10", end: "18:40" },
+  ], 0, "18:10");
+  assert.deepEqual(reordered.map(item => [item.start, item.end]), [["18:10", "18:35"], ["18:35", "19:05"]]);
 });
