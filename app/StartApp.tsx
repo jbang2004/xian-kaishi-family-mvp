@@ -408,6 +408,7 @@ export function StartApp() {
   const activeStage = stages[activeIndex] ?? stages[0];
   const nextPendingIndex = (from: number) => stages.findIndex((item, index) => index > from && item.status === "pending");
   const hasNextPending = nextPendingIndex(activeIndex) >= 0;
+  const nextPendingStage = stages[nextPendingIndex(activeIndex)];
   const remainingSeconds = activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - clockNow) / 1000)) : 0;
 
   useEffect(() => {
@@ -657,9 +658,10 @@ export function StartApp() {
         <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
         {stageDue && <span className="sr-only" role="status">{activeStage.title}预计到时间了，可以完成、继续或调整。</span>}
         <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
-        <div className="calm-space"><strong>手机留在大人手里</strong><p>不记录坐姿、声音、人脸或孩子是否一直在桌前。</p></div>
-        <div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div>
-        <button className="primary-button" onClick={stageFinished}>{stageDue ? "完成这一段，看看下一步" : "提前完成这一阶段"}</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button>
+        <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
+        <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
+        <details className="timeline-disclosure"><summary><span><small>今晚进度</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
+        <div className="running-action-dock"><button className="primary-button" onClick={stageFinished}>{stageDue ? "完成这一段，看看下一步" : "提前完成这一阶段"}</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></div>
       </div>}
 
       {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
