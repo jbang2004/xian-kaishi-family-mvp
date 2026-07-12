@@ -81,7 +81,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /catch \{ localStorage\.removeItem\(STORAGE_KEY\)/);
   assert.match(app, /finally\(\(\) => setAppReady\(true\)\)/);
   assert.match(app, /const \[rewardDraft, setRewardDraft\]/);
-  assert.match(app, /只有点保存后才会替换现在的期待/);
+  assert.match(app, /一起定下想共度的家庭时光/);
+  assert.match(app, /先选家庭时光，再共同商量积累节奏/);
+  assert.match(app, /aria-label="家庭期待目标能量"/);
+  assert.match(app, /达到门槛不会自动清零/);
+  assert.match(app, /家庭活动不需要与孩子的表现一一交换/);
+  assert.match(app, /goalRedeemed \? ""/);
+  assert.match(styles, /\.reward-idea-grid button\.selected/);
   assert.match(app, /确认已兑现并从0开始/);
   assert.match(app, /达到门槛，不等于已经兑现/);
   assert.match(app, /当前 \{data\.energy\} 点家庭能量将全部归零/);
