@@ -8,6 +8,7 @@ type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PlanningMode = "adult" | "together" | "child";
 type Screen = "welcome" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
+type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 
 type Stage = {
   id: string;
@@ -43,6 +44,7 @@ type SessionRecord = {
 
 type RewardHistory = { id: string; title: string; threshold: number; redeemedAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
+type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean };
 
 type AppData = {
   consent: boolean;
@@ -62,6 +64,8 @@ type AppData = {
 
 const STORAGE_KEY = "xian-kaishi-family-v2";
 const PLAN_DRAFT_KEY = "xian-kaishi-plan-draft-v1";
+const LIVE_SESSION_KEY = "xian-kaishi-live-session-v1";
+const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 
 const DEFAULT_DATA: AppData = {
   consent: false,
@@ -95,8 +99,8 @@ const ICON_LIBRARY = [
   ["backpack","整理书包"],["chores","家务"],["watering","浇水"],["pet","照顾宠物"],["dishes","洗碗"],["family-talk","家庭交流"],["family","亲子一起"],["plant","照顾植物"],
 ] as const;
 
-function normalizeStages(value: unknown): Stage[] {
-  if (!Array.isArray(value)) return DEFAULT_STAGES;
+function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
+  if (!Array.isArray(value)) return preserveStatus ? [] : DEFAULT_STAGES;
   const allowedIcons = new Set<string>(ICON_LIBRARY.map(([icon]) => icon));
   return value.slice(0, 20).flatMap((entry, index) => {
     if (!entry || typeof entry !== "object") return [];
@@ -108,7 +112,7 @@ function normalizeStages(value: unknown): Stage[] {
     return [{
       id: String(item.id || createId("stage")), title: String(item.title ?? "新事项").slice(0, 24),
       icon: allowedIcons.has(String(item.icon)) ? String(item.icon) : "custom", start, end, effort, energy,
-      status: "pending" as const, kind: item.kind === "rest" ? "rest" as const : "task" as const,
+      status: preserveStatus && (item.status === "active" || item.status === "done" || item.status === "tomorrow") ? item.status : "pending" as const,
     }];
   });
 }
@@ -192,7 +196,7 @@ export function StartApp() {
   const [editingStageId, setEditingStageId] = useState(DEFAULT_STAGES[1].id);
   const [activeIndex, setActiveIndex] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
-  const [adjustChoice, setAdjustChoice] = useState<"extend" | "rest" | "swap" | "tomorrow">("extend");
+  const [adjustChoice, setAdjustChoice] = useState<"extend" | "rest" | "swap" | "tomorrow" | "finish">("extend");
   const [guardianConfirmed, setGuardianConfirmed] = useState(false);
   const [childConfirmed, setChildConfirmed] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => new Date().toLocaleDateString("en-CA"));
@@ -205,11 +209,14 @@ export function StartApp() {
   const [planHydrated, setPlanHydrated] = useState(false);
   const [draftUpdatedAt, setDraftUpdatedAt] = useState("");
   const [clearPlanArmed, setClearPlanArmed] = useState(false);
+  const [liveSessionAvailable, setLiveSessionAvailable] = useState(false);
+  const [liveResumeScreen, setLiveResumeScreen] = useState<LiveScreen>("running");
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
 
   const go = (next: Screen) => {
+    if (LIVE_SCREENS.includes(next as LiveScreen)) { setLiveResumeScreen(next as LiveScreen); setLiveSessionAvailable(true); }
     setScreen(next);
     phoneShellRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
@@ -226,6 +233,21 @@ export function StartApp() {
           parsedDraft = JSON.parse(localDraft) as Partial<PlanDraft>;
           setStages(normalizeStages(parsedDraft.stages)); setDraftUpdatedAt(String(parsedDraft.updatedAt ?? ""));
         } catch { /* keep the editable starter plan */ }
+      }
+      const localLive = localStorage.getItem(LIVE_SESSION_KEY);
+      if (localLive) {
+        try {
+          const live = JSON.parse(localLive) as Partial<LiveSessionDraft>;
+          const updatedAt = new Date(String(live.updatedAt)).getTime();
+          const fresh = Number.isFinite(updatedAt) && Date.now() - updatedAt < 18 * 60 * 60 * 1000;
+          const liveStages = normalizeStages(live.stages, true);
+          const savedScreen = LIVE_SCREENS.includes(live.screen as LiveScreen) ? live.screen as LiveScreen : "running";
+          if (fresh && liveStages.length) {
+            setStages(liveStages); setActiveIndex(Math.max(0, Math.min(liveStages.length - 1, Number(live.activeIndex) || 0)));
+            setAdjustments(Math.max(0, Number(live.adjustments) || 0)); setActiveEndsAt(Math.max(0, Number(live.activeEndsAt) || 0));
+            setStageDue(Boolean(live.stageDue)); setLiveResumeScreen(savedScreen); setLiveSessionAvailable(true);
+          } else localStorage.removeItem(LIVE_SESSION_KEY);
+        } catch { localStorage.removeItem(LIVE_SESSION_KEY); }
       }
       const withDraftWindow = (next: AppData): AppData => ({
         ...next,
@@ -262,9 +284,22 @@ export function StartApp() {
     return () => window.clearTimeout(timer);
   }, [data.planEnd, data.planStart, planHydrated, stages]);
 
+  useEffect(() => {
+    if (!planHydrated || !LIVE_SCREENS.includes(screen as LiveScreen) || !stages.length) return;
+    const updatedAt = new Date().toISOString();
+    const liveScreen = screen as LiveScreen;
+    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ updatedAt, screen: liveScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue } satisfies LiveSessionDraft));
+  }, [activeEndsAt, activeIndex, adjustments, planHydrated, screen, stageDue, stages]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   const persist = (next: AppData, message?: string) => {
     setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSyncLabel("正在保存…");
-    if (message) { setToast(message); window.setTimeout(() => setToast(""), 2200); }
+    if (message) setToast(message);
     if (familyId) fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(next) })
       .then(r => r.json()).then(result => setSyncLabel(result.localOnly ? "仅保存在本机" : "云端已同步")).catch(() => setSyncLabel("仅保存在本机"));
   };
@@ -374,6 +409,7 @@ export function StartApp() {
   };
 
   const applyAdjustment = () => {
+    if (adjustChoice === "finish") { endTonightEarly(); return; }
     if (adjustChoice === "extend") { extendCurrent(); return; }
     if (adjustChoice === "rest") { insertRest(false); return; }
     if (adjustChoice === "swap") {
@@ -388,6 +424,11 @@ export function StartApp() {
     setAdjustments(value => value + 1); go("running");
   };
 
+  const endTonightEarly = () => {
+    setStages(items => items.map(item => item.status === "done" ? item : { ...item, status: "tomorrow" }));
+    setAdjustments(value => value + 1); setToast("已保留进展，今晚先到这里"); go("wrap");
+  };
+
   const finishNight = () => {
     const completedCount = stages.filter(item => item.status === "done").length;
     const childEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
@@ -395,6 +436,7 @@ export function StartApp() {
     const nextEnergy = data.energy + childEnergy + guardianEnergy + adjustmentEnergy;
     const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, childEnergy, guardianEnergy, energyEarned: childEnergy + guardianEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title) };
     const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
+    localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false);
     persist(next, "今晚已经温和收尾"); playTone("complete");
     if (!next.rewardGoal.redeemed && nextEnergy >= next.rewardGoal.threshold) go("reward-achieved"); else go("home");
   };
@@ -417,7 +459,7 @@ export function StartApp() {
   const deleteData = async () => {
     if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
     if (familyId) await fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "DELETE" }).catch(() => null);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); go("welcome");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setLiveSessionAvailable(false); go("welcome");
   };
 
   const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
@@ -469,12 +511,12 @@ export function StartApp() {
 
       {screen === "home" && <div className="screen with-nav home-screen">
         <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>今晚，一起找到舒服的节奏</h1><p>先排时间，再一起点亮开始。</p></div><Mascot mood="confirm" compact /></div>
-        <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>
+        {liveSessionAvailable ? <div className="live-session-panel"><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeScreen === "wrap" ? "home-heart" : "alarm"} /></span><span><small>{liveResumeScreen === "wrap" ? "今晚等待温和收尾 · 进度已保存在本机" : "今晚正在进行 · 进度已保存在本机"}</small><strong>{liveResumeScreen === "wrap" ? "今晚，温和收尾" : activeStage?.title || "继续今晚"}</strong><em>{liveResumeScreen === "wrap" ? "只差最后30秒，一起看见已经做到的部分" : stageDue ? "这一段预计到时间了" : `${stages.filter(item => item.status === "done").length}/${stages.filter(item => item.status !== "tomorrow").length} 个阶段已完成`}</em></span><b>{liveResumeScreen === "wrap" ? "继续收尾 ›" : "继续 ›"}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>今晚先到这里</button>}</div> : <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
         <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         <button className="insight-card support-entry" onClick={() => go("energy")}><span className="big-icon"><AppIcon name="plant" /></span><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><small>{data.rewardGoal.redeemed ? "已一起兑现，可以设置新期待" : progress ? `还差${progress}点` : "已经可以一起兑现"}</small></div><span>›</span></button>
         <div className="stats-row"><div><small>本周记录</small><strong>{weeklyNights} 晚</strong></div><div><small>家庭能量</small><strong>{data.energy}</strong><div className="energy-leaves">{[1,2,3,4,5].map(n => <i className={n <= Math.min(5, Math.ceil(data.energy / 6)) ? "filled" : ""} key={n} />)}</div></div></div>
-        <p className="sync-label">{syncLabel}</p><BottomNav screen={screen} go={go} />
+        <p className="sync-label">{syncLabel}</p>
       </div>}
 
       {screen === "plan" && <div className="screen plan-screen">
@@ -537,15 +579,16 @@ export function StartApp() {
         <Header back={() => go("running")} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
         <div className="adjust-grid">{([
           ["extend", "steps", "延长当前阶段", "加10分钟"], ["rest", "quiet", "先休息一下", "把状态缓下来"], ["swap", "speech", "调换下一项", "顺序可以改变"], ["tomorrow", "moon", "移到明天", "保留已经完成的进展"],
-        ] as const).map(([id,icon,title,copy]) => <button key={id} className={adjustChoice === id ? "selected" : ""} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟` : adjustChoice === "rest" ? "下一阶段前加入10分钟休息" : adjustChoice === "swap" ? "调换后两项顺序" : "把下一项移到明天"}</strong></div>
-        <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>双方确认调整</button><button className="text-button" onClick={() => go("running")}>取消</button>
+          ["finish", "home-heart", "今晚先到这里", "保留进展，温和收尾"],
+        ] as const).map(([id,icon,title,copy]) => <button key={id} className={`${adjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
+        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟` : adjustChoice === "rest" ? "下一阶段前加入10分钟休息" : adjustChoice === "swap" ? "调换后两项顺序" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
+        <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{adjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
       </div>}
 
       {screen === "wrap" && <div className="screen wrap-screen">
         <Header back={() => go("running")} /><span className="eyebrow">亲子一起 · 30秒</span><h1>今晚，温和收尾</h1><Mascot mood="celebrate" />
         <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>次主动调整</small></div></div>
-        <div className="energy-summary"><strong>今晚看见的积极行为</strong><span>{data.childAlias}：完成事项获得 {stages.filter(item => item.status === "done").reduce((sum,item) => sum + item.energy, 0)} 点</span><span>{data.guardianAlias}：共同商量、没有连续催促 +2</span>{adjustments > 0 && <span>双方：一起调整计划 +1</span>}</div>
+        <div className="energy-summary"><strong>今晚看见的积极行为</strong>{stages.some(item => item.status === "done") ? <span>{data.childAlias}：完成事项，为家庭积累 {stages.filter(item => item.status === "done").reduce((sum,item) => sum + item.energy, 0)} 点</span> : <span>{data.childAlias}：愿意一起停下来调整，进展留到明天</span>}<span>{data.guardianAlias}：共同商量并完成收尾 +2</span>{adjustments > 0 && <span>双方：一起调整计划 +1</span>}</div>
         <p className="lead">没有完成的事项可以留到明天，能量不会被扣掉。</p><button className="primary-button" onClick={finishNight}>结束今晚</button>
       </div>}
 
@@ -554,7 +597,7 @@ export function StartApp() {
         <div className="energy-panel"><span className="eyebrow">共同积累，不给孩子打分</span><h1>{data.energy} 点家庭能量</h1><div className="energy-bar"><i style={{ width: `${Math.min(100, data.energy / data.rewardGoal.threshold * 100)}%` }} /></div></div>
         <div className="goal-card"><AppIcon name="game" /><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><p>{data.rewardGoal.redeemed ? "已经一起兑现，可以开始新的家庭期待" : progress ? `还差${progress}点，一起积累，不用赶` : "已经点亮，可以一起兑现"}</p></div></div>
         {data.rewardGoal.redeemed ? <button className="secondary-button" onClick={() => go("reward-setup")}>设置新的家庭期待</button> : progress ? <button className="secondary-button" onClick={() => go("reward-setup")}>调整家庭期待</button> : <button className="primary-button" onClick={() => go("reward-achieved")}>查看达成图</button>}
-        <div className="gentle-note">能量不会清零、倒扣或过期，也不会因为暂停而减少。</div><BottomNav screen={screen} go={go} />
+        <div className="gentle-note">能量不会清零、倒扣或过期，也不会因为暂停而减少。</div>
       </div>}
 
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
@@ -578,20 +621,20 @@ export function StartApp() {
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
         <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
-        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>完成晚间流程</strong><small>{item.completedCount}个阶段 · 获得{item.energyEarned}点能量</small><p>{item.stageTitles.join("、") || "已完成当晚计划"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name="game" /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
+        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{item.completedCount ? "完成晚间流程" : "今晚已温和收尾"}</strong><small>{item.completedCount}个完成阶段 · 获得{item.energyEarned}点能量</small><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name="game" /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="check" /><small>完成阶段</small><strong>{metrics.completed}个</strong></div><div><AppIcon name="game" /><small>期待兑换</small><strong>{metrics.rewards}次</strong></div></div>}
-        <BottomNav screen={screen} go={go} />
       </div>}
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => go("profile")}>修改家庭设置 <span>›</span></button></div>
         <div className="settings-group"><h2>体验偏好</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteData}>删除孩子全部数据 <span>›</span></button></div>
-        <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button><BottomNav screen={screen} go={go} />
+        <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 
       {screen === "risk" && <div className="screen risk-screen"><Header back={() => go("settings")} /><span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p><div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div><div className="next-actions"><h2>接下来可以</h2><button onClick={() => setToast("今晚流程已暂停")}>1　先暂停今晚流程</button><button onClick={() => setToast("建议记录事实后联系老师")}>2　联系学校老师</button><button onClick={() => setToast("请选择正规医疗机构")}>3　寻找正规医疗机构</button></div><div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div></div>}
 
+      {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </section>
     <aside className="desktop-note"><span className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>共同排时间、双人点亮、阶段柔和提醒，计划随时可以改。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
