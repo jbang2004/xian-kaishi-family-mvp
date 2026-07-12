@@ -56,7 +56,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
   assert.match(app, /className="transition-result"/);
-  assert.match(app, /现在休息10分钟，后续时间已顺延/);
+  assert.match(app, /现在休息10分钟，预计\$\{nextPlanEnd\}收尾/);
+  assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: addMinutes\(current\.planEnd, 10\) \}\)\)/);
+  assert.match(app, /预计\$\{nextPlanEnd\}收尾/);
+  assert.match(app, /今晚进度 · 预计 \{data\.planEnd\} 收尾/);
+  assert.match(app, /预计\$\{addMinutes\(data\.planEnd, 10\)\}收尾/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
   assert.match(app, /可选，不影响能量，也不评价孩子/);
