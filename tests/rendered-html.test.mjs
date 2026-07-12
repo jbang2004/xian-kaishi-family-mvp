@@ -25,7 +25,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /休息也算照顾计划的一部分/);
   assert.match(app, /今晚草稿 · 仅保存在这台设备/);
   assert.match(app, /今晚等待温和收尾/);
-  assert.match(app, /愿意一起停下来调整/);
+  assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
   assert.match(app, /随机家庭 ID 不是正式账号鉴权/);
   assert.match(app, /family: data, planDraft, activeSession/);
@@ -83,6 +83,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /只有点保存后才会替换现在的期待/);
   assert.match(app, /确认已兑现，能量归零/);
   assert.match(app, /未完成或暂停不会倒扣、过期/);
+  assert.match(app, /确认入账并结束今晚/);
+  assert.match(app, /已安全记入家庭日历/);
+  assert.match(app, /taskEnergy: Number\(record\.taskEnergy \?\? record\.childEnergy/);
+  assert.match(app, /cooperationEnergy: Number\(record\.cooperationEnergy/);
+  assert.doesNotMatch(app, /childEnergy, guardianEnergy/);
+  assert.match(styles, /@keyframes energy-rise/);
   assert.match(app, /icon: data\.rewardGoal\.icon/);
   assert.doesNotMatch(app, /能量不会清零、倒扣或过期/);
   assert.match(app, /className="stage-summary" aria-expanded=\{expanded\}/);

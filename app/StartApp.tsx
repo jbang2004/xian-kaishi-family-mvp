@@ -11,7 +11,7 @@ type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PlanningMode = "adult" | "together" | "child";
 type PromptReflection = "less" | "same" | "more";
 type TransitionReason = "completed" | "due";
-type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
+type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "night-saved" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 
 type Stage = {
@@ -41,8 +41,9 @@ type SessionRecord = {
   stageCount: number;
   completedCount: number;
   adjustments: number;
-  childEnergy: number;
-  guardianEnergy: number;
+  taskEnergy: number;
+  cooperationEnergy: number;
+  adjustmentEnergy: number;
   energyEarned: number;
   stageTitles: string[];
   promptReflection: PromptReflection | null;
@@ -193,8 +194,10 @@ function normalizeData(value: unknown): AppData {
     return {
       id: String(record.id ?? `legacy-${index}`), date: String(record.date ?? new Date().toISOString()),
       stageCount: Number(record.stageCount ?? legacyTasks), completedCount: Number(record.completedCount ?? legacyTasks),
-      adjustments: Number(record.adjustments ?? 0), childEnergy: Number(record.childEnergy ?? 0), guardianEnergy: Number(record.guardianEnergy ?? record.parentEnergy ?? 0),
-      energyEarned: Number(record.energyEarned ?? (Number(record.childEnergy ?? 0) + Number(record.guardianEnergy ?? record.parentEnergy ?? 0))),
+      adjustments: Number(record.adjustments ?? 0),
+      taskEnergy: Number(record.taskEnergy ?? record.childEnergy ?? 0), cooperationEnergy: Number(record.cooperationEnergy ?? record.guardianEnergy ?? record.parentEnergy ?? 0),
+      adjustmentEnergy: Number(record.adjustmentEnergy ?? Math.max(0, Number(record.energyEarned ?? 0) - Number(record.taskEnergy ?? record.childEnergy ?? 0) - Number(record.cooperationEnergy ?? record.guardianEnergy ?? record.parentEnergy ?? 0))),
+      energyEarned: Number(record.energyEarned ?? (Number(record.taskEnergy ?? record.childEnergy ?? 0) + Number(record.cooperationEnergy ?? record.guardianEnergy ?? record.parentEnergy ?? 0))),
       stageTitles: Array.isArray(record.stageTitles) ? record.stageTitles.map(String) : Array.isArray(record.tasks) ? record.tasks.map(String) : [],
       promptReflection: normalizePromptReflection(record.promptReflection),
     } satisfies SessionRecord;
@@ -255,12 +258,14 @@ export function StartApp() {
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
+  const [lastSavedSession, setLastSavedSession] = useState<SessionRecord | null>(null);
   const [redeemArmed, setRedeemArmed] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<ReminderPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
   const [backgroundReminder, setBackgroundReminder] = useState(() => typeof window !== "undefined" && localStorage.getItem(REMINDER_PREF_KEY) === "true");
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
+  const finishNightLock = useRef(false);
   const familyRevisionRef = useRef(0);
   const familyUpdatedAtRef = useRef("");
   const familyDataRef = useRef<AppData>(DEFAULT_DATA);
@@ -516,7 +521,7 @@ export function StartApp() {
     setStages(startedStages); setData(current => ({ ...current, planStart: actualStart, planEnd: addMinutes(actualStart, windowMinutes) }));
     const firstDuration = Math.max(1, durationMinutes(startedStages[0]?.start ?? actualStart, startedStages[0]?.end ?? addMinutes(actualStart, 1)));
     setActiveEndsAt(startedAt + firstDuration * 60_000); setClockNow(startedAt); setStageDue(false); dueReminderPlayed.current = false;
-    setActiveIndex(0); setAdjustments(0); setPromptReflection(null); setTransitionReason("completed"); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
+    finishNightLock.current = false; setLastSavedSession(null); setActiveIndex(0); setAdjustments(0); setPromptReflection(null); setTransitionReason("completed"); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
   };
 
   useEffect(() => {
@@ -608,6 +613,7 @@ export function StartApp() {
   };
 
   const endTonightEarly = () => {
+    finishNightLock.current = false;
     setStages(items => items.map(item => item.status === "done" ? item : { ...item, status: "tomorrow" }));
     setAdjustments(value => value + 1); setToast("已保留进展，今晚先到这里"); go("wrap");
   };
@@ -618,19 +624,22 @@ export function StartApp() {
     const resumedStage = stages[nextIndex];
     setStages(items => items.map((item, index) => item.status === "done" ? item : { ...item, status: index === nextIndex ? "active" : "pending" }));
     setActiveIndex(nextIndex); setActiveEndsAt(Date.now() + Math.max(1, durationMinutes(resumedStage.start, resumedStage.end)) * 60_000);
-    setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false; setToast("已回到今晚，继续也来得及"); go("running");
+    finishNightLock.current = false; setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false; setToast("已回到今晚，继续也来得及"); go("running");
   };
 
   const finishNight = () => {
+    if (finishNightLock.current) return;
+    finishNightLock.current = true;
     const completedCount = stages.filter(item => item.status === "done").length;
-    const childEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
-    const guardianEnergy = 2; const adjustmentEnergy = adjustments ? 1 : 0;
-    const nextEnergy = data.energy + childEnergy + guardianEnergy + adjustmentEnergy;
-    const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, childEnergy, guardianEnergy, energyEarned: childEnergy + guardianEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title), promptReflection };
+    const taskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
+    const cooperationEnergy = 2; const adjustmentEnergy = adjustments ? 1 : 0;
+    const nextEnergy = data.energy + taskEnergy + cooperationEnergy + adjustmentEnergy;
+    const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title), promptReflection };
     const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
+    setLastSavedSession(record);
     localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false);
-    persist(next, "今晚已经温和收尾"); playTone("complete");
-    if (!next.rewardGoal.redeemed && nextEnergy >= next.rewardGoal.threshold) go("reward-achieved"); else go("home");
+    persist(next, "今晚已经记入家庭日历"); playTone("complete");
+    if (!next.rewardGoal.redeemed && nextEnergy >= next.rewardGoal.threshold) go("reward-achieved"); else go("night-saved");
   };
 
   const redeemReward = () => {
@@ -692,6 +701,9 @@ export function StartApp() {
     return !stage.title.trim() || durationMinutes(stage.start, stage.end) <= 0 || stage.start < data.planStart || stage.end > data.planEnd || Boolean(previous && stage.start < previous.end) ? [stage.id] : [];
   }));
   const draftEnergy = stages.reduce((sum, item) => sum + item.energy, 0);
+  const settlementTaskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
+  const settlementAdjustmentEnergy = adjustments ? 1 : 0;
+  const settlementTotalEnergy = settlementTaskEnergy + 2 + settlementAdjustmentEnergy;
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const editingStage = stages.find(item => item.id === editingStageId);
@@ -836,11 +848,19 @@ export function StartApp() {
       </div>}
 
       {screen === "wrap" && <div className="screen wrap-screen">
-        <Header title="今晚收尾" /><span className="eyebrow">亲子一起 · 30秒</span><h1>今晚，温和收尾</h1><Mascot mood="celebrate" />
-        <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>次主动调整</small></div></div>
-        <div className="energy-summary"><strong>今晚积累的家庭能量</strong>{stages.some(item => item.status === "done") ? <span>完成的节点：+{stages.filter(item => item.status === "done").reduce((sum,item) => sum + item.energy, 0)}</span> : <span>愿意一起停下来调整，进展留到明天</span>}<span>共同商量并完成收尾：+2</span>{adjustments > 0 && <span>一起调整计划：+1</span>}</div>
+        <Header title="今晚收尾" /><div className="wrap-hero"><div><span className="eyebrow">亲子一起 · 30 秒</span><h1>今晚，温和收尾</h1><p>完成多少不是评价；愿意一起停下来，也值得被记住。</p></div><Mascot mood="celebrate" compact /></div>
+        <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>主动调整</small></div><div className="energy-total"><strong>+{settlementTotalEnergy}</strong><small>待入账能量</small></div></div>
+        <div className="energy-summary"><div><strong>结束后会这样记入</strong><small>能量属于家庭合作，不给孩子单独打分</small></div><span><b>完成事项</b><em>+{settlementTaskEnergy}</em></span><span><b>共同商量与收尾</b><em>+2</em></span>{adjustments > 0 && <span><b>主动调整计划</b><em>+1</em></span>}</div>
         <fieldset className="prompt-reflection"><legend>只给大人记一笔</legend><strong>和你们平时相比，今晚催促感怎么样？</strong><div>{(["less", "same", "more"] as PromptReflection[]).map(value => <button type="button" key={value} aria-pressed={promptReflection === value} className={promptReflection === value ? "selected" : ""} onClick={() => setPromptReflection(current => current === value ? null : value)}>{({ less: "少一些", same: "差不多", more: "多一些" })[value]}</button>)}</div><small>可选，不影响能量，也不评价孩子。</small></fieldset>
-        <p className="lead">没有完成的事项可以留到明天，能量不会被扣掉。</p><button className="primary-button" onClick={finishNight}>结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}
+        <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>确认入账并结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>未完成事项留到明天；不会扣掉已经获得的能量</small></div>
+      </div>}
+
+      {screen === "night-saved" && lastSavedSession && <div className="screen night-saved-screen">
+        <div className="saved-hero"><div><span className="eyebrow">已安全记入家庭日历</span><h1>今晚的合作，<br />已经留下来了</h1><p>这不是成绩，也不要求连续打卡。</p></div><Mascot mood="celebrate" compact /></div>
+        <div className="saved-energy"><small>本次家庭能量</small><strong>+{lastSavedSession.energyEarned}</strong><span>现在共有 {data.energy} 点</span><div className="energy-rise" aria-hidden="true"><i /><i /><i /></div></div>
+        <div className="saved-breakdown"><span><b>完成事项</b><em>+{lastSavedSession.taskEnergy}</em></span><span><b>共同商量与收尾</b><em>+{lastSavedSession.cooperationEnergy}</em></span>{lastSavedSession.adjustmentEnergy > 0 && <span><b>主动调整计划</b><em>+{lastSavedSession.adjustmentEnergy}</em></span>}</div>
+        <div className="saved-calendar-note"><AppIcon name="moon" /><span><strong>{new Date(lastSavedSession.date).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 今晚记录</strong><small>{lastSavedSession.completedCount} 个完成阶段{lastSavedSession.promptReflection ? ` · ${promptReflectionCopy[lastSavedSession.promptReflection]}` : " · 催促感可下次再记"}</small></span></div>
+        <div className="saved-actions"><button className="primary-button" onClick={() => go("home")}>回到首页</button><button className="secondary-button" onClick={() => { const day = localDateKey(lastSavedSession.date); setSelectedDay(day); const date = new Date(lastSavedSession.date); setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1)); go("review"); }}>查看今天的记录</button></div>
       </div>}
 
       {screen === "energy" && <div className="screen with-nav energy-screen">
@@ -872,7 +892,7 @@ export function StartApp() {
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
           <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
-        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{item.completedCount ? "完成晚间流程" : "今晚已温和收尾"}</strong><small>{item.completedCount}个完成阶段 · 获得{item.energyEarned}点能量{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name={item.icon} /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
+        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{item.completedCount ? `今晚完成了${item.completedCount}个阶段` : "今晚已温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name={item.icon} /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}
       </div>}
 
