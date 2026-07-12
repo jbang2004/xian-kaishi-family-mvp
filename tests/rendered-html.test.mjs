@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
@@ -163,8 +163,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
-test("ships the mascot and persistent-state migration", async () => {
-  await access(new URL("../public/assets/warm-lamp.png", import.meta.url));
+test("ships optimized visual assets and persistent-state migration", async () => {
+  const roomAsset = new URL("../public/assets/energy-room-v3.jpg", import.meta.url);
+  await access(roomAsset);
+  assert.ok((await stat(roomAsset)).size < 200_000, "energy room should stay below 200KB");
+  await assert.rejects(access(new URL("../public/assets/energy-room-v2.png", import.meta.url)));
+  await assert.rejects(access(new URL("../public/assets/warm-lamp.png", import.meta.url)));
   const [initialMigration, revisionMigration, route] = await Promise.all([
     readFile(new URL("../drizzle/0000_huge_randall.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_slimy_moonstone.sql", import.meta.url), "utf8"),
