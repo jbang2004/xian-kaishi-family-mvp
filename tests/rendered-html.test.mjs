@@ -39,6 +39,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const startRestNow/);
   assert.match(app, /现在休息10分钟，后续时间已顺延/);
   assert.match(app, /legacyRestIcons/);
+  assert.match(app, /promptReflection: normalizePromptReflection/);
+  assert.match(app, /可选，不影响能量，也不评价孩子/);
+  assert.match(app, /本周复盘 · 不评价孩子/);
+  assert.match(app, /少催反馈/);
+  assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
