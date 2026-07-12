@@ -1036,7 +1036,7 @@ export function StartApp() {
     persist({ ...data, weeklyFocus: { weekKey: weekStartKey, text: reviewSuggestion.text, createdAt: new Date().toISOString() } }, "已放到首页，这周只试这一件");
   };
 
-  return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
+  return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`} data-screen={screen}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef}>
       {!isOnline && <div className="offline-ribbon" role="status"><i aria-hidden="true" /><span><strong>离线使用中</strong><small>今晚仍会安全保存在本机</small></span></div>}
