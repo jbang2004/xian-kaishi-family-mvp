@@ -14,7 +14,9 @@ test("contains the complete 先开始 product shell", async () => {
   ]);
   assert.match(layout, /先开始｜家庭晚间习惯助手/);
   assert.match(page, /<StartApp \/>/);
-  assert.match(app, /今晚，一起商量再开始/);
+  assert.match(app, /今晚少催一次/);
+  assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
+  assert.match(app, /每阶段只提醒一次/);
   assert.match(app, /监护人授权与儿童隐私说明/);
   assert.match(app, /删除孩子全部数据/);
   assert.match(app, /寻找正规医疗机构/);
@@ -33,7 +35,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-pressed=\{data\.planningMode === mode\}/);
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
-  assert.match(app, /go\(profileReturn === "settings" \? "settings" : "home"\)/);
+  assert.match(app, /go\(profileReturn === "settings" \? "settings" : "plan"\)/);
+  assert.match(app, /保存并安排今晚/);
+  assert.match(app, /className="profile-preferences"/);
   assert.match(app, /const openAdjust = \(\) => \{ setAdjustChoice\("extend"\)/);
   assert.match(app, /undoRemoveStage/);
   assert.match(app, /setDeletedStage\(null\), 8000/);
