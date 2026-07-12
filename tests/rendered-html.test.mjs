@@ -90,6 +90,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
   assert.match(app, /shiftTimedPlanToStart\(stages, actualStart\)/);
+  assert.match(app, /setTimeout\(startPlan, 1600\)/);
+  assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
+  assert.match(app, /这是一份共同约定，不是身份验证/);
+  assert.match(app, /再点一次可以取消/);
+  assert.match(styles, /@keyframes launch-fill/);
+  assert.match(app, /activeStage\.kind === "rest" \? "休息放松"/);
   assert.match(app, /planStart: data\.planStart, planEnd: data\.planEnd, stages/);
   assert.match(app, /planStart: livePlanStart \|\|/);
   assert.match(app, /screen !== "dual-start"/);
