@@ -53,6 +53,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /这一段已完成 · 进度已保存在本机/);
   assert.match(app, /阶段预计到时 · 只提醒一次/);
   assert.match(app, /data-state=\{liveResumeView\.state\}/);
+  assert.match(app, /const nextPendingStage/);
+  assert.match(app, /className="timeline-disclosure"/);
+  assert.match(app, /今晚进度/);
+  assert.match(app, /className="running-action-dock"/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
