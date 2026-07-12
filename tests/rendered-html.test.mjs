@@ -31,6 +31,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
   assert.match(app, /go\(profileReturn === "settings" \? "settings" : "home"\)/);
+  assert.match(app, /const openAdjust = \(\) => \{ setAdjustChoice\("extend"\)/);
+  assert.match(app, /undoRemoveStage/);
+  assert.match(app, /setDeletedStage\(null\), 8000/);
+  assert.match(app, /data-screen-heading/);
+  assert.match(app, /预计到时间了，可以完成、继续或调整/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
