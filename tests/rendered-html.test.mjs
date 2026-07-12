@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -76,11 +76,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
   assert.match(app, /className="transition-result"/);
-  assert.match(app, /现在休息10分钟，预计\$\{result\.planEnd\}收尾/);
+  assert.match(app, /现在休息10分钟，最晚\$\{result\.planEnd\}收尾/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
-  assert.match(app, /预计\$\{nextPlanEnd\}收尾/);
-  assert.match(app, /今晚进度 · 预计 \{data\.planEnd\} 收尾/);
+  assert.match(app, /最晚\$\{nextPlanEnd\}收尾/);
+  assert.match(app, /今晚进度 · 最晚 \{data\.planEnd\} 收尾/);
   assert.match(app, /之后只继续剩余时长/);
+  assert.match(app, /canStartRest && <button className="soft-button" onClick=\{startRestNow\}>先休息 10 分钟<\/button>/);
+  assert.match(app, /title: canStartRest \? "延长当前阶段" : "再休息10分钟"/);
   assert.match(app, /if \(screen !== "adjust"\) return/);
   assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
   assert.match(app, /legacyRestIcons/);
@@ -202,11 +204,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /整晚时间会一起顺延/);
   assert.match(app, /const cleanStages = stages\.map/);
   assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
-  assert.match(app, /setTimeout\(startPlan, 1600\)/);
+  assert.match(app, /const DUAL_START_DELAY_MS = 2400/);
+  assert.match(app, /setTimeout\(startPlan, DUAL_START_DELAY_MS\)/);
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
-  assert.match(app, /这是一份共同约定，不是身份验证/);
-  assert.match(app, /再点一次可以取消/);
+  assert.match(app, /这不是身份验证/);
+  assert.match(app, /className="launch-cancel-button"/);
+  assert.match(app, /className="launch-status-copy"/);
+  assert.match(app, /即将进入/);
+  assert.match(app, /aria-live="polite" aria-atomic="true"/);
   assert.match(styles, /@keyframes launch-fill/);
+  assert.match(styles, /animation: launch-fill 2\.4s linear both/);
   assert.match(app, /activeStage\.kind === "rest" \? "休息放松"/);
   assert.match(app, /planStart: data\.planStart, planEnd: data\.planEnd, stages/);
   assert.match(app, /planStart: livePlanStart \|\|/);
@@ -333,6 +340,11 @@ test("uses the confirmation moment for whole remaining timer minutes", () => {
   assert.equal(remainingTimerMinutes(now + 17 * 60_000 + 2_000, now), 18);
   assert.equal(remainingTimerMinutes(now - 1, now), 0);
   assert.equal(remainingTimerMinutes(0, now), 0);
+});
+
+test("never nests an adaptive rest inside an active rest stage", () => {
+  assert.equal(canInsertRestBreak("task"), true);
+  assert.equal(canInsertRestBreak("rest"), false);
 });
 
 test("preserves planned gaps and the trailing buffer after a live rest", () => {

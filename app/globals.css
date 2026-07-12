@@ -615,8 +615,8 @@ button.insight-card { cursor: pointer; }
 .family-agreement .app-icon { width: 38px; height: 38px; }
 .family-agreement strong, .family-agreement small { display: block; }
 .family-agreement strong { font-size: 12px; }
-.family-agreement small { color: var(--muted); font-size: 9px; line-height: 1.35; margin-top: 3px; }
-.confirm-screen > .privacy-note { margin: 0; padding: 10px 12px; font-size: 9px; }
+.family-agreement small { color: var(--muted); font-size: 10px; line-height: 1.4; margin-top: 3px; }
+.confirm-screen > .privacy-note { margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.45; }
 .confirm-action-dock { position: sticky; bottom: -36px; z-index: 8; margin: auto -8px -36px; padding: 16px 8px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(180deg,rgba(255,248,236,0),rgba(255,248,236,.97) 20%,var(--cream) 45%); }
 .confirm-action-dock > small { display: block; color: var(--muted); font-size: 9px; text-align: center; margin-top: 7px; }
 
@@ -629,29 +629,30 @@ button.insight-card { cursor: pointer; }
 .start-now-card.on-time { border-color: rgba(117,184,155,.36); background: rgba(237,246,239,.82); }
 .start-now-card .app-icon { width: 42px; height: 42px; }
 .start-now-card small, .start-now-card strong { display: block; }
-.start-now-card small { color: var(--muted); font-size: 9px; margin-bottom: 3px; }
+.start-now-card small { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
 .start-now-card strong { font-size: 13px; }
 .start-now-card p { color: var(--muted); font-size: 10px; line-height: 1.45; margin: 4px 0 0; }
 .light-bridge { width: 48%; height: 2px; margin: 0 auto -20px; background: linear-gradient(90deg, var(--sage), #fff7cc, var(--amber)); opacity: .25; transition: .4s; box-shadow: 0 0 16px var(--amber); }
 .light-bridge[data-ready="true"] { opacity: 1; height: 4px; }
 .dual-press { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 30px 0 10px; }
-.press-zone { min-height: 156px; border-radius: 34px; border: 2px solid rgba(117,184,155,.65); background: radial-gradient(circle at 50% 32%, rgba(255,255,255,.98), #eaf6ee); display: grid; place-content: center; justify-items: center; gap: 4px; position: relative; cursor: pointer; box-shadow: inset 0 0 0 7px rgba(255,255,255,.5), 0 13px 28px rgba(88,119,91,.14); transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+.press-zone { min-width: 0; min-height: 156px; border-radius: 34px; border: 2px solid rgba(117,184,155,.65); background: radial-gradient(circle at 50% 32%, rgba(255,255,255,.98), #eaf6ee); display: grid; place-content: center; justify-items: center; gap: 4px; position: relative; cursor: pointer; touch-action: manipulation; box-shadow: inset 0 0 0 7px rgba(255,255,255,.5), 0 13px 28px rgba(88,119,91,.14); transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
 .child-zone { border-color: rgba(245,184,75,.7); background: radial-gradient(circle, white, #fff1c8); }
 .press-zone.confirmed { transform: scale(.97); box-shadow: 0 0 0 6px rgba(117,184,155,.12), 0 0 32px rgba(117,184,155,.32); }
 .child-zone.confirmed { box-shadow: 0 0 0 6px rgba(245,184,75,.12), 0 0 32px rgba(245,184,75,.34); }
-.press-zone strong { font-size: 17px; margin-top: 2px; }
+.press-zone > strong { width: 100%; max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; margin-top: 2px; }
 .press-zone > small { color: var(--muted); font-size: 10px; font-weight: 800; }
 .finger-tip { position: relative; width: 66px; height: 66px; border-radius: 50%; border: 5px solid rgba(255,255,255,.78); background: repeating-radial-gradient(ellipse at 50% 62%, transparent 0 5px, rgba(72,126,103,.19) 6px 7px), linear-gradient(145deg, #f5fbf7, #dcefe5); box-shadow: 0 8px 20px rgba(72,105,86,.18); pointer-events: none; transition: transform .25s ease, box-shadow .25s ease; }
 .child-zone .finger-tip { background: repeating-radial-gradient(ellipse at 50% 62%, transparent 0 5px, rgba(183,127,27,.17) 6px 7px), linear-gradient(145deg, #fffaf0, #fbe8b9); }
 .press-zone.confirmed .finger-tip { transform: scale(.92); box-shadow: 0 0 0 7px rgba(117,184,155,.12), 0 7px 20px rgba(72,105,86,.18); }
-.finger-tip small { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); min-width: 42px; background: rgba(255,255,255,.9); border: 1px solid var(--border); border-radius: 99px; padding: 4px 7px; white-space: nowrap; font-size: 10px; font-weight: 900; }
+.finger-tip small { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); min-width: 42px; max-width: 106px; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,.9); border: 1px solid var(--border); border-radius: 99px; padding: 4px 7px; white-space: nowrap; font-size: 10px; font-weight: 900; }
 .launch-status { min-height: 67px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 18px; background: rgba(255,255,255,.68); overflow: hidden; position: relative; }
 .launch-status strong, .launch-status small { display: block; }
 .launch-status strong { font-size: 12px; }
-.launch-status small { color: var(--muted); font-size: 9px; line-height: 1.45; margin-top: 4px; }
+.launch-status small { color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 4px; }
 .launch-status.is-launching { border-color: rgba(245,184,75,.48); background: #fff9e8; box-shadow: 0 10px 24px rgba(229,156,30,.12); }
+.launch-cancel-button { min-width: 104px; min-height: 44px; margin-top: 9px; padding: 8px 16px; border: 1px solid rgba(190,159,103,.32); border-radius: 99px; background: rgba(255,255,255,.82); color: #6c6049; font-size: 11px; font-weight: 900; cursor: pointer; }
 .launch-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(245,184,75,.12); overflow: hidden; }
-.launch-progress i { display: block; height: 100%; width: 100%; transform-origin: left center; background: linear-gradient(90deg,var(--sage),var(--amber)); animation: launch-fill 1.6s linear both; }
+.launch-progress i { display: block; height: 100%; width: 100%; transform-origin: left center; background: linear-gradient(90deg,var(--sage),var(--amber)); animation: launch-fill 2.4s linear both; }
 @keyframes launch-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .running-hero { display: flex; justify-content: space-between; align-items: center; }
