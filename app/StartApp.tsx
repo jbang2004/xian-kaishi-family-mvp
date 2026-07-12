@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
-import { isLiveSessionFresh, liveNightLabel } from "./session-utils";
+import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById } from "./sync-utils";
 
 type Effort = 1 | 2 | 3;
@@ -40,6 +40,7 @@ type RewardGoal = {
 type SessionRecord = {
   id: string;
   date: string;
+  nightKey: string;
   stageCount: number;
   completedCount: number;
   adjustments: number;
@@ -148,6 +149,18 @@ function localDateKey(date: string | Date) {
   return new Date(date).toLocaleDateString("en-CA");
 }
 
+function summarizeSessions(items: SessionRecord[]) {
+  if (!items.length) return null;
+  return {
+    settlements: items.length,
+    completed: items.reduce((sum, item) => sum + item.completedCount, 0),
+    adjustments: items.reduce((sum, item) => sum + item.adjustments, 0),
+    energy: items.reduce((sum, item) => sum + item.energyEarned, 0),
+    reflection: items.find(item => item.promptReflection)?.promptReflection ?? null,
+    stageTitles: Array.from(new Set(items.flatMap(item => item.stageTitles))).slice(0, 6),
+  };
+}
+
 function normalizePromptReflection(value: unknown): PromptReflection | null {
   return value === "less" || value === "same" || value === "more" ? value : null;
 }
@@ -201,8 +214,10 @@ function normalizeData(value: unknown): AppData {
   const sessions = Array.isArray(old.sessions) ? old.sessions.map((item, index) => {
     const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
     const legacyTasks = Array.isArray(record.tasks) ? record.tasks.length : 0;
+    const date = String(record.date ?? new Date().toISOString());
+    const storedNightKey = String(record.nightKey ?? "");
     return {
-      id: String(record.id ?? `legacy-${index}`), date: String(record.date ?? new Date().toISOString()),
+      id: String(record.id ?? `legacy-${index}`), date, nightKey: /^\d{4}-\d{2}-\d{2}$/.test(storedNightKey) ? storedNightKey : familyNightKey(date),
       stageCount: Number(record.stageCount ?? legacyTasks), completedCount: Number(record.completedCount ?? legacyTasks),
       adjustments: Number(record.adjustments ?? 0),
       taskEnergy: Number(record.taskEnergy ?? record.childEnergy ?? 0), cooperationEnergy: Number(record.cooperationEnergy ?? record.guardianEnergy ?? record.parentEnergy ?? 0),
@@ -654,11 +669,14 @@ export function StartApp() {
   const finishNight = () => {
     if (finishNightLock.current) return;
     finishNightLock.current = true;
+    const recordDate = new Date().toISOString();
+    const nightKey = familyNightKey(liveSessionStartedAt || recordDate);
+    const priorNightSessions = data.sessions.filter(item => item.nightKey === nightKey);
     const completedCount = stages.filter(item => item.status === "done").length;
     const taskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
-    const cooperationEnergy = 2; const adjustmentEnergy = adjustments ? 1 : 0;
+    const { cooperationEnergy, adjustmentEnergy } = calculateNightBonus(priorNightSessions, adjustments);
     const nextEnergy = data.energy + taskEnergy + cooperationEnergy + adjustmentEnergy;
-    const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title), promptReflection };
+    const record: SessionRecord = { id: createId("session"), date: recordDate, nightKey, stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title), promptReflection };
     const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
     setLastSavedSession(record);
     localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false); setLiveSessionStartedAt("");
@@ -721,24 +739,22 @@ export function StartApp() {
   const monthStart = calendarCursor;
   const calendarYear = monthStart.getFullYear(); const calendarMonth = monthStart.getMonth();
   const firstWeekday = monthStart.getDay(); const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
-  const monthSessions = data.sessions.filter(item => { const date = new Date(item.date); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth; });
+  const monthKeyPrefix = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}`;
+  const monthSessions = data.sessions.filter(item => item.nightKey.startsWith(monthKeyPrefix));
   const monthRewards = data.rewardHistory.filter(item => { const date = new Date(item.redeemedAt); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth; });
-  const metrics = !monthSessions.length && !monthRewards.length ? null : { nights: new Set(monthSessions.map(item => localDateKey(item.date))).size, adjustments: monthSessions.reduce((sum, item) => sum + item.adjustments, 0), lessPromptNights: monthSessions.filter(item => item.promptReflection === "less").length };
-  const selectedSessions = data.sessions.filter(item => localDateKey(item.date) === selectedDay);
+  const metrics = !monthSessions.length && !monthRewards.length ? null : { nights: new Set(monthSessions.map(item => item.nightKey)).size, adjustments: monthSessions.reduce((sum, item) => sum + item.adjustments, 0), lessPromptNights: monthSessions.filter(item => item.promptReflection === "less").length };
+  const selectedSessions = data.sessions.filter(item => item.nightKey === selectedDay);
   const selectedRewards = data.rewardHistory.filter(item => localDateKey(item.redeemedAt) === selectedDay);
   const selectedDate = new Date(`${selectedDay}T12:00:00`);
   const selectedDateLabel = Number.isFinite(selectedDate.getTime()) ? selectedDate.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }) : selectedDay;
-  const selectedSessionSummary = selectedSessions.length ? {
-    settlements: selectedSessions.length,
-    completed: selectedSessions.reduce((sum, item) => sum + item.completedCount, 0),
-    adjustments: selectedSessions.reduce((sum, item) => sum + item.adjustments, 0),
-    energy: selectedSessions.reduce((sum, item) => sum + item.energyEarned, 0),
-    reflection: selectedSessions.find(item => item.promptReflection)?.promptReflection ?? null,
-    stageTitles: Array.from(new Set(selectedSessions.flatMap(item => item.stageTitles))).slice(0, 6),
-  } : null;
+  const selectedSessionSummary = summarizeSessions(selectedSessions);
+  const currentFamilyNightKey = familyNightKey(new Date());
+  const currentNightSessions = data.sessions.filter(item => item.nightKey === currentFamilyNightKey);
+  const currentNightSummary = summarizeSessions(currentNightSessions);
   const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-  const weeklySessions = data.sessions.filter(item => new Date(item.date) >= weekStart);
-  const weeklyNights = new Set(weeklySessions.map(item => localDateKey(item.date))).size;
+  const weekStartKey = localDateKey(weekStart);
+  const weeklySessions = data.sessions.filter(item => item.nightKey >= weekStartKey);
+  const weeklyNights = new Set(weeklySessions.map(item => item.nightKey)).size;
   const weeklyReflections = weeklySessions.filter(item => item.promptReflection);
   const weeklyLessPromptNights = weeklySessions.filter(item => item.promptReflection === "less").length;
   const weeklyAdjustments = weeklySessions.reduce((sum, item) => sum + item.adjustments, 0);
@@ -749,9 +765,11 @@ export function StartApp() {
     return !stage.title.trim() || durationMinutes(stage.start, stage.end) <= 0 || stage.start < data.planStart || stage.end > data.planEnd || Boolean(previous && stage.start < previous.end) ? [stage.id] : [];
   }));
   const draftEnergy = stages.reduce((sum, item) => sum + item.energy, 0);
+  const activeSettlementNightKey = familyNightKey(liveSessionStartedAt || new Date());
+  const priorSettlementSessions = data.sessions.filter(item => item.nightKey === activeSettlementNightKey);
   const settlementTaskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
-  const settlementAdjustmentEnergy = adjustments ? 1 : 0;
-  const settlementTotalEnergy = settlementTaskEnergy + 2 + settlementAdjustmentEnergy;
+  const { cooperationEnergy: settlementCooperationEnergy, adjustmentEnergy: settlementAdjustmentEnergy } = calculateNightBonus(priorSettlementSessions, adjustments);
+  const settlementTotalEnergy = settlementTaskEnergy + settlementCooperationEnergy + settlementAdjustmentEnergy;
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const editingStage = stages.find(item => item.id === editingStageId);
@@ -776,6 +794,16 @@ export function StartApp() {
   const shiftMonth = (delta: number) => {
     const next = new Date(calendarYear, calendarMonth + delta, 1);
     setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA")); setDayDetailsExpanded(false);
+  };
+  const openNightRecord = (nightKey: string) => {
+    const date = new Date(`${nightKey}T12:00:00`);
+    setSelectedDay(nightKey); setDayDetailsExpanded(false);
+    if (Number.isFinite(date.getTime())) setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1));
+    go("review");
+  };
+  const startAnotherPlan = () => {
+    setStages(items => items.map(item => ({ ...item, status: "pending" })));
+    go("plan");
   };
 
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
@@ -814,9 +842,9 @@ export function StartApp() {
       </div>}
 
       {screen === "home" && <div className="screen with-nav home-screen">
-        <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>{liveSessionAvailable && activeNightLabel === "昨晚" ? "昨晚还没收尾，先温和接住" : "今晚，一起找到舒服的节奏"}</h1><p>{liveSessionAvailable && activeNightLabel === "昨晚" ? "进度还在；继续或结束，都不需要重新来过。" : "先排时间，再一起点亮开始。"}</p></div><Mascot mood="confirm" compact /></div>
-        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
-        <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>
+        <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>{liveSessionAvailable && activeNightLabel === "昨晚" ? "昨晚还没收尾，先温和接住" : !liveSessionAvailable && currentNightSummary ? "今晚已经温和收尾" : "今晚，一起找到舒服的节奏"}</h1><p>{liveSessionAvailable && activeNightLabel === "昨晚" ? "进度还在；继续或结束，都不需要重新来过。" : !liveSessionAvailable && currentNightSummary ? "记录已经留下，接下来可以放松一点。" : "先排时间，再一起点亮开始。"}</p></div><Mascot mood={!liveSessionAvailable && currentNightSummary ? "celebrate" : "confirm"} compact /></div>
+        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>这一晚已经温和收尾</small><strong>今晚的合作已经留下来了</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "完成多少都不需要重新比较。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>完成阶段</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>还有新的安排</button><small className="settled-energy-rule">再次安排不会重复获得“共同收尾”能量</small></div> : <button className="primary-button large" onClick={startAnotherPlan}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
+        {!liveSessionAvailable && !currentNightSummary && <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>}
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         <button className={`insight-card support-entry goal-entry-${goalState}`} onClick={goalState === "empty" ? openRewardSetup : goalState === "ready" ? openRewardAchieved : () => go("energy")}><span className="big-icon"><AppIcon name={goalState === "empty" ? "home-heart" : goalState === "ready" ? data.rewardGoal.icon : "plant"} /></span><div><small>{goalState === "empty" ? "下一份家庭期待" : goalState === "ready" ? "家庭期待已点亮" : "家庭期待"}</small><strong>{goalState === "empty" ? "一起定下想共度的家庭时光" : data.rewardGoal.title}</strong><small>{goalState === "empty" ? "从0开始，不用急着定" : goalState === "ready" ? "等你们真的一起实现后再记录" : `还差${progress}点，一起积累`}</small></div><span>›</span></button>
         <div className="stats-row"><div><small>本周记录</small><strong>{weeklyNights} 晚</strong></div><div><small>家庭能量</small><strong>{data.energy}</strong><div className="energy-leaves">{[1,2,3,4,5].map(n => <i className={n <= Math.min(5, Math.ceil(data.energy / 6)) ? "filled" : ""} key={n} />)}</div></div></div>
@@ -899,17 +927,17 @@ export function StartApp() {
       {screen === "wrap" && <div className="screen wrap-screen">
         <Header title="今晚收尾" /><div className="wrap-hero"><div><span className="eyebrow">亲子一起 · 30 秒</span><h1>今晚，温和收尾</h1><p>完成多少不是评价；愿意一起停下来，也值得被记住。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>主动调整</small></div><div className="energy-total"><strong>+{settlementTotalEnergy}</strong><small>待入账能量</small></div></div>
-        <div className="energy-summary"><div><strong>结束后会这样记入</strong><small>能量属于家庭合作，不给孩子单独打分</small></div><span><b>完成事项</b><em>+{settlementTaskEnergy}</em></span><span><b>共同商量与收尾</b><em>+2</em></span>{adjustments > 0 && <span><b>主动调整计划</b><em>+1</em></span>}</div>
+        <div className="energy-summary"><div><strong>结束后会这样记入</strong><small>能量属于家庭合作，不给孩子单独打分</small></div><span><b>完成事项</b><em>+{settlementTaskEnergy}</em></span><span className={settlementCooperationEnergy ? "" : "already-counted"}><b>{settlementCooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{settlementCooperationEnergy}</em></span>{adjustments > 0 && <span className={settlementAdjustmentEnergy ? "" : "already-counted"}><b>{settlementAdjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{settlementAdjustmentEnergy}</em></span>}</div>
         <fieldset className="prompt-reflection"><legend>只给大人记一笔</legend><strong>和你们平时相比，今晚催促感怎么样？</strong><div>{(["less", "same", "more"] as PromptReflection[]).map(value => <button type="button" key={value} aria-pressed={promptReflection === value} className={promptReflection === value ? "selected" : ""} onClick={() => setPromptReflection(current => current === value ? null : value)}>{({ less: "少一些", same: "差不多", more: "多一些" })[value]}</button>)}</div><small>可选，不影响能量，也不评价孩子。</small></fieldset>
-        <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>确认入账并结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>未完成事项留到明天；不会扣掉已经获得的能量</small></div>
+        <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>{settlementTotalEnergy ? "确认入账并结束今晚" : "确认记录并结束今晚"}</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>{priorSettlementSessions.length ? "同一家庭夜晚，合作与调整能量只入账一次" : "未完成事项留到明天；不会扣掉已经获得的能量"}</small></div>
       </div>}
 
       {screen === "night-saved" && lastSavedSession && <div className="screen night-saved-screen">
         <div className="saved-hero"><div><span className="eyebrow">已安全记入家庭日历</span><h1>今晚的合作，<br />已经留下来了</h1><p>这不是成绩，也不要求连续打卡。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="saved-energy"><small>本次家庭能量</small><strong>+{lastSavedSession.energyEarned}</strong><span>现在共有 {data.energy} 点</span><div className="energy-rise" aria-hidden="true"><i /><i /><i /></div></div>
-        <div className="saved-breakdown"><span><b>完成事项</b><em>+{lastSavedSession.taskEnergy}</em></span><span><b>共同商量与收尾</b><em>+{lastSavedSession.cooperationEnergy}</em></span>{lastSavedSession.adjustmentEnergy > 0 && <span><b>主动调整计划</b><em>+{lastSavedSession.adjustmentEnergy}</em></span>}</div>
+        <div className="saved-breakdown"><span><b>完成事项</b><em>+{lastSavedSession.taskEnergy}</em></span><span className={lastSavedSession.cooperationEnergy ? "" : "already-counted"}><b>{lastSavedSession.cooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{lastSavedSession.cooperationEnergy}</em></span>{lastSavedSession.adjustments > 0 && <span className={lastSavedSession.adjustmentEnergy ? "" : "already-counted"}><b>{lastSavedSession.adjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{lastSavedSession.adjustmentEnergy}</em></span>}</div>
         <div className="saved-calendar-note"><AppIcon name="moon" /><span><strong>{new Date(lastSavedSession.date).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 今晚记录</strong><small>{lastSavedSession.completedCount} 个完成阶段{lastSavedSession.promptReflection ? ` · ${promptReflectionCopy[lastSavedSession.promptReflection]}` : " · 催促感可下次再记"}</small></span></div>
-        <div className="saved-actions"><button className="primary-button" onClick={() => go("home")}>回到首页</button><button className="secondary-button" onClick={() => { const day = localDateKey(lastSavedSession.date); setSelectedDay(day); setDayDetailsExpanded(false); const date = new Date(lastSavedSession.date); setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1)); go("review"); }}>查看今天的记录</button></div>
+        <div className="saved-actions"><button className="primary-button" onClick={() => go("home")}>回到首页</button><button className="secondary-button" onClick={() => openNightRecord(lastSavedSession.nightKey)}>查看这一晚的记录</button></div>
       </div>}
 
       {screen === "energy" && <div className="screen with-nav energy-screen">
@@ -951,7 +979,7 @@ export function StartApp() {
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
-          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
         <div className="day-detail">
           <div className="day-detail-header"><div><small>家庭夜晚</small><strong>{selectedDateLabel}</strong></div>{selectedSessionSummary && <span>{selectedSessionSummary.settlements} 次收尾</span>}</div>
           {!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>
