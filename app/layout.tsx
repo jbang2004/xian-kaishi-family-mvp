@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { versionedAsset } from "./asset-version";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -16,6 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
   const title = "先开始｜家庭晚间习惯助手";
   const description = "共同安排时间、选择事项能量，每晚完成和家庭期待兑换都记录在日历里。";
+  const appIcon = versionedAsset("/assets/icons/home-heart.png");
   return {
     title,
     description,
@@ -23,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: "/manifest.webmanifest",
     formatDetection: { telephone: false },
     appleWebApp: { capable: true, title: "先开始", statusBarStyle: "default" },
-    icons: { icon: "/assets/icons/home-heart.png", shortcut: "/assets/icons/home-heart.png", apple: "/assets/icons/home-heart.png" },
+    icons: { icon: appIcon, shortcut: appIcon, apple: appIcon },
     openGraph: {
       title,
       description,

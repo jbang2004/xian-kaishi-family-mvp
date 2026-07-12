@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { versionedAsset } from "./asset-version";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -15,7 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "zh-CN",
     categories: ["education", "lifestyle"],
     icons: [
-      { src: "/assets/icons/home-heart.png", sizes: "320x320", type: "image/png", purpose: "any" },
+      { src: versionedAsset("/assets/icons/home-heart.png"), sizes: "320x320", type: "image/png", purpose: "any" },
     ],
   };
 }
