@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { rewardThresholdBounds } from "./reward-utils";
@@ -182,6 +182,16 @@ function formatCountdown(seconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
+function subscribeToNetworkStatus(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => { window.removeEventListener("online", onChange); window.removeEventListener("offline", onChange); };
+}
+
+function useOnlineStatus() {
+  return useSyncExternalStore(subscribeToNetworkStatus, () => navigator.onLine, () => true);
+}
+
 function AppIcon({ name, className = "" }: { name: string; className?: string }) {
   return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png`} width="256" height="256" decoding="async" alt="" aria-hidden="true" />;
 }
@@ -278,6 +288,7 @@ export function StartApp() {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
+  const isOnline = useOnlineStatus();
   const [activeEndsAt, setActiveEndsAt] = useState(0);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [stageDue, setStageDue] = useState(false);
@@ -451,6 +462,46 @@ export function StartApp() {
     const timer = window.setTimeout(() => setToast(""), 2400);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
+    const handleOffline = () => {
+      setSyncLabel("离线 · 已保存在本机");
+      setToast("网络暂时不可用，今晚仍会保存在本机");
+    };
+    const handleOnline = async () => {
+      const activeFamilyId = localStorage.getItem("xian-kaishi-family-id") || "";
+      const revision = familyRevisionRef.current;
+      if (!activeFamilyId || revision < 1) { setSyncLabel("网络已恢复"); return; }
+      setSyncLabel("网络已恢复，正在同步…");
+      try {
+        const response = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
+        const result = await response.json();
+        if (revision !== familyRevisionRef.current) return;
+        if (response.status === 409 && result.data) {
+          const merged = mergeFamilyData(familyDataRef.current, normalizeData(result.data));
+          const retryRevision = Math.max(revision, Math.floor(Number(result.revision) || 0)) + 1;
+          const retryUpdatedAt = new Date().toISOString();
+          familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
+          setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt);
+          const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
+          const retryResult = await retry.json();
+          if (retryRevision !== familyRevisionRef.current) return;
+          if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
+          setSyncLabel(retry.ok ? "网络已恢复 · 已合并并同步" : "网络已恢复 · 已保留本机更新"); return;
+        }
+        if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
+        setSyncLabel(response.ok ? "网络已恢复 · 云端已同步" : "网络已恢复 · 已保留本机更新");
+      } catch {
+        setSyncLabel("仅保存在本机");
+      }
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => { window.removeEventListener("offline", handleOffline); window.removeEventListener("online", handleOnline); };
+  }, []);
 
   useEffect(() => {
     if (screen !== "dual-start") return;
@@ -826,7 +877,8 @@ export function StartApp() {
 
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
-    <section className="phone-shell" ref={phoneShellRef}>
+    <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef}>
+      {!isOnline && <div className="offline-ribbon" role="status"><i aria-hidden="true" /><span><strong>离线使用中</strong><small>今晚仍会安全保存在本机</small></span></div>}
       {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在找回这个家庭的今晚</strong><span>先确认本机记录，再看看是否有更新</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="welcome-brand"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><span>家庭晚间习惯助手</span></div>
