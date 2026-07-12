@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -81,6 +81,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /预计\$\{nextPlanEnd\}收尾/);
   assert.match(app, /今晚进度 · 预计 \{data\.planEnd\} 收尾/);
   assert.match(app, /之后只继续剩余时长/);
+  assert.match(app, /if \(screen !== "adjust"\) return/);
+  assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
   assert.match(app, /可选，不影响能量，也不评价孩子/);
@@ -324,6 +326,13 @@ test("gives a due stage a small follow-up window after resting", () => {
     ["19:31", "19:41"], ["19:41", "19:51"], ["19:51", "20:21"],
   ]);
   assert.equal(result.planEnd, "20:21");
+});
+
+test("uses the confirmation moment for whole remaining timer minutes", () => {
+  const now = Date.parse("2026-07-13T19:12:00+08:00");
+  assert.equal(remainingTimerMinutes(now + 17 * 60_000 + 2_000, now), 18);
+  assert.equal(remainingTimerMinutes(now - 1, now), 0);
+  assert.equal(remainingTimerMinutes(0, now), 0);
 });
 
 test("preserves planned gaps and the trailing buffer after a live rest", () => {

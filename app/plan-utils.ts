@@ -23,6 +23,10 @@ export function clockTimeFromDate(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+export function remainingTimerMinutes(endsAt: number, now: number) {
+  return endsAt > 0 ? Math.max(0, Math.ceil((endsAt - now) / 60_000)) : 0;
+}
+
 export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
   return items.map((item, index) => index < startIndex ? item : {
     ...item,

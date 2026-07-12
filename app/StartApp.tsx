@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
@@ -680,6 +680,13 @@ export function StartApp() {
   const remainingSeconds = activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - clockNow) / 1000)) : 0;
 
   useEffect(() => {
+    if (screen !== "adjust") return;
+    const tick = () => setClockNow(Date.now());
+    tick(); const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [screen]);
+
+  useEffect(() => {
     if (screen !== "running" || !activeEndsAt) return;
     const tick = () => {
       const now = Date.now(); setClockNow(now);
@@ -733,7 +740,7 @@ export function StartApp() {
       activeIndex,
       { id: createId("rest"), title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
       clockTimeFromDate(new Date(startedAt)),
-      Math.ceil(remainingSeconds / 60),
+      remainingTimerMinutes(activeEndsAt, startedAt),
       10,
       10,
       data.planEnd,
@@ -909,7 +916,7 @@ export function StartApp() {
     activeIndex,
     { id: "rest-preview", title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
     startNowLabel,
-    Math.ceil(remainingSeconds / 60),
+    remainingTimerMinutes(activeEndsAt, clockNow),
     10,
     10,
     data.planEnd,
@@ -1069,7 +1076,7 @@ export function StartApp() {
           ["extend", "steps", "延长当前阶段", "后续时间顺延10分钟"], ["rest", "quiet", "现在休息10分钟", "原事项随后继续"], ["swap", "speech", "调换后两项", "时间会自动重排"], ["tomorrow", "moon", "下一项移到明天", "保留已经完成的进展"],
           ["finish", "home-heart", "今晚先到这里", "保留进展，温和收尾"],
         ] as const).map(([id,icon,title,copy]) => <button key={id} aria-pressed={adjustChoice === id} className={`${adjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "rest" ? `从现在休息10分钟，之后只继续剩余时长，预计${restPlanPreview.planEnd}收尾` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
+        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "rest" ? `从现在休息10分钟，之后只继续剩余时长，约${restPlanPreview.planEnd}收尾` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
         <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{adjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
       </div>}
 
