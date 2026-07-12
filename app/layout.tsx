@@ -8,7 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "先开始｜家庭晚间习惯助手";
-  const description = "家长与孩子共同商量今晚安排，减少催促与冲突。";
+  const description = "亲子共同安排时间、双人点亮启动、阶段柔和提醒，计划随时可以调整。";
   return {
     title,
     description,
