@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "./plan-utils";
+import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
@@ -68,6 +69,7 @@ type AppData = {
 const STORAGE_KEY = "xian-kaishi-family-v2";
 const PLAN_DRAFT_KEY = "xian-kaishi-plan-draft-v1";
 const LIVE_SESSION_KEY = "xian-kaishi-live-session-v1";
+const REMINDER_PREF_KEY = "xian-kaishi-background-reminder-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 
 const DEFAULT_DATA: AppData = {
@@ -231,6 +233,8 @@ export function StartApp() {
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
+  const [notificationPermission, setNotificationPermission] = useState<ReminderPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
+  const [backgroundReminder, setBackgroundReminder] = useState(() => typeof window !== "undefined" && localStorage.getItem(REMINDER_PREF_KEY) === "true");
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
@@ -342,6 +346,21 @@ export function StartApp() {
       .then(r => r.json()).then(result => setSyncLabel(result.localOnly ? "仅保存在本机" : "云端已同步")).catch(() => setSyncLabel("仅保存在本机"));
   };
 
+  const changeBackgroundReminder = async (enabled: boolean) => {
+    if (!enabled) { localStorage.setItem(REMINDER_PREF_KEY, "false"); setBackgroundReminder(false); setToast("后台系统提醒已关闭"); return; }
+    if (!("Notification" in window)) { setNotificationPermission("unsupported"); setToast("当前浏览器不支持系统提醒，前台提醒仍然有效"); return; }
+    try {
+      let permission = Notification.permission;
+      if (permission === "default") permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      const granted = permission === "granted";
+      localStorage.setItem(REMINDER_PREF_KEY, String(granted)); setBackgroundReminder(granted);
+      setToast(granted ? "后台系统提醒已开启" : "系统提醒未开启，可在浏览器设置中重新允许");
+    } catch {
+      localStorage.setItem(REMINDER_PREF_KEY, "false"); setBackgroundReminder(false); setToast("暂时无法开启系统提醒，前台提醒仍然有效");
+    }
+  };
+
   const playTone = (kind: "confirm" | "transition" | "complete") => {
     if (!data.sound || typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -416,14 +435,23 @@ export function StartApp() {
     const tick = () => {
       const now = Date.now(); setClockNow(now);
       if (now >= activeEndsAt && !dueReminderPlayed.current) {
-        dueReminderPlayed.current = true; setStageDue(true); playTone("transition"); navigator.vibrate?.([25, 35, 25]);
+        dueReminderPlayed.current = true; setStageDue(true);
+        let systemReminderShown = false;
+        if (shouldUseBackgroundReminder(backgroundReminder, document.visibilityState, notificationPermission)) {
+          try {
+            const reminder = new Notification("这一段预计到时间了", { body: `${activeStage.title}：完成、继续或调整，都可以。`, icon: "/assets/icons/alarm.png", tag: "xian-kaishi-stage-due" });
+            reminder.onclick = () => { window.focus(); reminder.close(); };
+            systemReminderShown = true;
+          } catch { /* fall back to the in-page reminder below */ }
+        }
+        if (!systemReminderShown) { playTone("transition"); navigator.vibrate?.([25, 35, 25]); }
       }
     };
     tick(); const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
     // playTone uses the latest experience preference; the interval is recreated for each stage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, activeEndsAt]);
+  }, [activeEndsAt, activeStage.title, backgroundReminder, notificationPermission, screen]);
 
   const stageFinished = () => {
     setTransitionReason(stageDue ? "due" : "completed");
@@ -522,7 +550,7 @@ export function StartApp() {
   const deleteData = async () => {
     if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
     if (familyId) await fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "DELETE" }).catch(() => null);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem("xian-kaishi-family-id"); setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setLiveSessionAvailable(false); go("welcome");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem("xian-kaishi-family-id"); setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); go("welcome");
   };
 
   const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
@@ -561,6 +589,11 @@ export function StartApp() {
     if (liveResumeScreen === "transition" || stageDue) return { state: "due", icon: "alarm", kicker: "阶段预计到时 · 只提醒一次", title: stageTitle, detail: "完成、继续或调整，都可以", cta: "继续选择 ›" };
     return { state: "running", icon: "alarm", kicker: "今晚正在进行 · 进度已保存在本机", title: stageTitle, detail: `${completedStageCount}/${tonightStageCount} 个阶段已完成`, cta: "继续 ›" };
   })();
+  const backgroundReminderStatus = notificationPermission === "granted"
+    ? backgroundReminder ? "页面留在后台时，会显示一条系统提醒" : "已获得系统权限，需要时可以在这里开启"
+    : notificationPermission === "denied" ? "系统权限未允许，可在浏览器设置中重新开启"
+      : notificationPermission === "unsupported" ? "当前浏览器不支持；前台提示音和震动仍然有效"
+        : "开启时只向家长请求一次浏览器通知权限";
   const shiftMonth = (delta: number) => {
     const next = new Date(calendarYear, calendarMonth + delta, 1);
     setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA"));
@@ -584,6 +617,7 @@ export function StartApp() {
         <p className="lead">我们只保留完成核心流程需要的信息，不收集孩子真实姓名、年级、学校、精确位置、通讯录、人脸、声音或持续行为监控数据。</p>
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；进行中状态超过18小时会自动失效。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
           <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与兑换记录</strong><p>通过随机家庭 ID 关联，不使用手机号、真实姓名或 OpenAI 登录身份作为家庭账号。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
@@ -723,7 +757,7 @@ export function StartApp() {
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭设置 <span>›</span></button></div>
-        <div className="settings-group"><h2>体验偏好</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
+        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>页面在后台时提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已就绪" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteData}>删除孩子全部数据 <span>›</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
