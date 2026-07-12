@@ -635,15 +635,41 @@ button.insight-card { cursor: pointer; }
 .mini-timeline .tomorrow { opacity: .48; }
 .running-action-dock { position: sticky; bottom: 0; z-index: 8; margin: 0 -8px -36px; padding: 10px 8px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(255,248,236,0), rgba(255,248,236,.96) 20%, var(--cream) 48%); }
 .adjust-button { margin-top: 8px; min-height: 50px; }
+.due-action-dock { padding-top: 18px; }
+.due-choice-copy { text-align: center; margin-bottom: 9px; }
+.due-choice-copy strong, .due-choice-copy small { display: block; }
+.due-choice-copy strong { font-size: 12px; }
+.due-choice-copy small { color: var(--muted); font-size: 9px; margin-top: 3px; }
+.due-quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.due-quick-actions .secondary-button, .due-quick-actions .soft-button { min-height: 48px; border-radius: 17px; font-size: 12px; }
+.due-action-dock .text-button { min-height: 38px; padding: 8px; font-size: 11px; }
 
-.transition-screen { text-align: center; padding-top: 52px; }
+.transition-screen { text-align: left; padding-top: 30px; display: flex; flex-direction: column; }
 .completed-transition { background: radial-gradient(circle at 50% 35%, rgba(117,184,155,.17), transparent 38%); }
 .due-transition { background: radial-gradient(circle at 50% 35%, rgba(104,149,185,.12), transparent 38%); }
-.transition-art { height: 250px; display: grid; place-items: center; position: relative; }
-.transition-art > .app-icon { position: absolute; width: 82px; height: 82px; left: 28px; bottom: 35px; }
+.transition-hero { display: grid; grid-template-columns: 1fr 134px; align-items: center; gap: 10px; }
+.transition-hero h1 { font-size: 30px; margin-bottom: 8px; }
+.transition-hero .lead { font-size: 12px; line-height: 1.55; margin-bottom: 0; }
+.transition-art { width: 134px; height: 134px; display: grid; place-items: center; position: relative; }
+.transition-art > .app-icon { position: absolute; width: 54px; height: 54px; left: 0; bottom: 8px; z-index: 4; }
 .completed-transition .transition-art > .app-icon { animation: completion-pop .48s cubic-bezier(.2,.9,.25,1.2) both; }
-.transition-art .mascot { width: 220px; height: 220px; margin: 0 0 0 65px; }
-.transition-actions { display: grid; gap: 10px; }
+.transition-art .mascot { width: 126px; height: 126px; margin: 0 0 0 14px; }
+.transition-result { min-height: 72px; display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; padding: 10px 13px; margin: 10px 0 8px; border: 1px solid rgba(117,184,155,.32); border-radius: 20px; background: rgba(245,251,246,.86); }
+.transition-result .app-icon { width: 50px; height: 50px; }
+.transition-result small, .transition-result strong, .transition-result em { display: block; }
+.transition-result small { color: var(--muted); font-size: 9px; }
+.transition-result strong { font-size: 14px; margin: 2px 0; }
+.transition-result em { color: #397259; font-size: 10px; font-style: normal; font-weight: 900; }
+.transition-next { min-height: 57px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 18px; background: rgba(255,255,255,.66); }
+.transition-next small, .transition-next strong { display: block; }
+.transition-next small { color: var(--muted); font-size: 9px; margin-bottom: 2px; }
+.transition-next strong { font-size: 13px; }
+.transition-next time { padding: 6px 9px; border-radius: 99px; background: var(--amber-soft); color: #8b6119; font-size: 10px; font-weight: 900; }
+.transition-actions { display: grid; gap: 8px; margin-top: 10px; }
+.transition-actions > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.transition-actions > div .secondary-button, .transition-actions > div .soft-button { min-height: 48px; border-radius: 17px; font-size: 11px; }
+.transition-actions .text-button { min-height: 38px; padding: 8px; font-size: 11px; }
+.transition-screen > .privacy-note { margin: 2px 0 0; padding: 9px 12px; font-size: 9px; text-align: center; }
 @keyframes completion-pop { from { opacity: 0; transform: translateY(8px) scale(.7) rotate(-8deg); } to { opacity: 1; transform: none; } }
 .soft-button { width: 100%; min-height: 58px; border: 1px solid var(--border); border-radius: 21px; background: rgba(255,255,255,.75); font-weight: 900; cursor: pointer; }
 
