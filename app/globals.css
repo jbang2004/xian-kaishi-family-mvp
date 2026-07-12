@@ -550,6 +550,7 @@ button.insight-card { cursor: pointer; }
 .icon-library button.selected { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,184,75,.14); background: #fff9ea; }
 .icon-library .app-icon { width: 62px; height: 62px; }
 .icon-library small { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #596473; font-size: 10px; }
+.icon-library-toggle { width: 100%; min-height: 50px; margin-top: -6px; border: 1px solid rgba(117,184,155,.35); border-radius: 17px; background: rgba(237,246,239,.72); color: #397259; font-size: 12px; font-weight: 900; cursor: pointer; }
 
 .effort-screen h1 { font-size: 32px; }
 .stage-kind-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 20px; }

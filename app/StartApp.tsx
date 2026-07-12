@@ -296,6 +296,7 @@ export function StartApp() {
   const [consent, setConsent] = useState(false);
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
   const [editingStageId, setEditingStageId] = useState(DEFAULT_STAGES[1].id);
+  const [showAllIcons, setShowAllIcons] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
   const [adjustChoice, setAdjustChoice] = useState<"extend" | "rest" | "swap" | "tomorrow" | "finish">("extend");
@@ -886,6 +887,9 @@ export function StartApp() {
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const editingStage = stages.find(item => item.id === editingStageId);
+  const commonIconLibrary = ICON_LIBRARY.filter(([icon]) => COMMON_ICON_NAMES.has(icon));
+  const selectedIconEntry = ICON_LIBRARY.find(([icon]) => icon === editingStage?.icon);
+  const visibleIconLibrary = showAllIcons ? ICON_LIBRARY : selectedIconEntry && !COMMON_ICON_NAMES.has(selectedIconEntry[0]) ? [selectedIconEntry, ...commonIconLibrary] : commonIconLibrary;
   const startNowLabel = clockTimeFromDate(new Date(clockNow));
   const startsAtPlannedTime = startNowLabel === (stages[0]?.start ?? data.planStart);
   const completedStageCount = stages.filter(item => item.status === "done").length;
@@ -986,8 +990,9 @@ export function StartApp() {
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
-        <Header back={() => go("plan")} title="选择活动图标" /><span className="eyebrow">图标只是帮助快速识别，名称仍然由你们决定</span><h1>这件事看起来像什么？</h1>
-        <div className="icon-library">{ICON_LIBRARY.map(([icon,label]) => { const selected = stages.find(item => item.id === editingStageId)?.icon === icon; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); go("plan"); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
+        <Header back={() => go("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
+        <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); setShowAllIcons(false); go("plan"); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
+        <button className="icon-library-toggle" aria-expanded={showAllIcons} onClick={() => setShowAllIcons(value => !value)}>{showAllIcons ? "收起到常用图标" : `显示全部 ${ICON_LIBRARY.length} 个图标`}</button>
       </div>}
 
       {screen === "effort" && <div className="screen effort-screen">
