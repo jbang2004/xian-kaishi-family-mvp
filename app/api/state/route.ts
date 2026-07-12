@@ -83,6 +83,6 @@ export async function DELETE(request: Request) {
     await env.DB.prepare("DELETE FROM family_state WHERE family_id = ?").bind(familyId).run();
     return Response.json({ ok: true });
   } catch {
-    return Response.json({ ok: true, localOnly: true });
+    return Response.json({ ok: false, localOnly: true }, { status: 503 });
   }
 }
