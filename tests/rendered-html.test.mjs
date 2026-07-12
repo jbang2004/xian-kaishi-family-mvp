@@ -36,6 +36,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /deleteCancelRef\.current\?\.focus\(\)/);
   assert.match(app, /deleteConfirmRef\.current/);
   assert.match(app, /aria-hidden=\{deleteArmed \|\| undefined\}/);
+  assert.match(app, /inert=\{deleteArmed \|\| undefined\}/);
   assert.match(app, /event\.key !== "Tab"/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
   assert.match(app, /aria-invalid=\{titleInvalid\}/);

@@ -1073,7 +1073,7 @@ export function StartApp() {
 
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`} data-screen={screen}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
-    <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef} aria-hidden={deleteArmed || undefined}>
+    <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef} aria-hidden={deleteArmed || undefined} inert={deleteArmed || undefined}>
       {!isOnline && <div className="offline-ribbon" role="status"><i aria-hidden="true" /><span><strong>离线使用中</strong><small>今晚仍会安全保存在本机</small></span></div>}
       {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在找回这个家庭的今晚</strong><span>先确认本机记录，再看看是否有更新</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
@@ -1272,6 +1272,6 @@ export function StartApp() {
       {toast && <div className="toast" role="status">{toast}</div>}
     </section>
     {deleteArmed && <div className="destructive-dialog-backdrop"><section className="destructive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><span className="destructive-dialog-icon"><AppIcon name="privacy" /></span><small>不可撤销的操作</small><h2 id="delete-dialog-title">删除这个家庭的全部数据？</h2><p id="delete-dialog-description">将清除家庭化名、今晚计划、日历记录、能量和期待；本机立即删除，云端副本会同步清理。</p><div className="destructive-dialog-actions"><button ref={deleteCancelRef} className="secondary-button" disabled={deletingData} onClick={cancelDeleteData}>取消，保留数据</button><button ref={deleteConfirmRef} className="danger-confirm-button" disabled={deletingData} onClick={() => void deleteData()}>{deletingData ? "正在删除…" : "确认永久删除"}</button></div></section></div>}
-    <aside className="desktop-note" aria-hidden={deleteArmed || undefined}><span className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>共同排时间、双人点亮、阶段柔和提醒，计划随时可以改。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
+    <aside className="desktop-note" aria-hidden={deleteArmed || undefined} inert={deleteArmed || undefined}><span className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>共同排时间、双人点亮、阶段柔和提醒，计划随时可以改。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
   </main>;
 }
