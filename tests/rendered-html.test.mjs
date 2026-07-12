@@ -81,7 +81,14 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /finally\(\(\) => setAppReady\(true\)\)/);
   assert.match(app, /const \[rewardDraft, setRewardDraft\]/);
   assert.match(app, /只有点保存后才会替换现在的期待/);
-  assert.match(app, /确认已兑现，能量归零/);
+  assert.match(app, /确认已兑现并从0开始/);
+  assert.match(app, /达到门槛，不等于已经兑现/);
+  assert.match(app, /当前 \{data\.energy\} 点家庭能量将全部归零/);
+  assert.match(app, /energyBeforeReset: data\.energy/);
+  assert.match(app, /!next\.rewardGoal\.acknowledged/);
+  assert.match(app, /先保留能量，稍后兑现/);
+  assert.match(app, /已经安全记入家庭日历|已安全记入家庭日历/);
+  assert.match(styles, /\.reward-saved-screen/);
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /确认入账并结束今晚/);
   assert.match(app, /已安全记入家庭日历/);
