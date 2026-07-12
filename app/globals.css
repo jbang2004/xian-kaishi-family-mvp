@@ -91,6 +91,18 @@ p { line-height: 1.65; }
 .welcome-screen { text-align: center; padding-top: 42px; }
 .welcome-screen .brand-mark { justify-content: center; margin-bottom: 24px; }
 .welcome-screen h1 { font-size: 34px; }
+.app-loading-screen { display: grid; place-content: center; justify-items: center; text-align: center; background: radial-gradient(circle at 50% 42%, rgba(245,184,75,.2), transparent 31%); }
+.app-loading-screen .brand-mark { justify-content: center; font-size: 20px; margin-bottom: 8px; }
+.app-loading-screen .brand-mark .app-icon { width: 38px; height: 38px; }
+.app-loading-screen .mascot { width: 184px; height: 184px; margin: 4px auto 0; }
+.app-loading-screen > div > strong, .app-loading-screen > div > span { display: block; }
+.app-loading-screen > div > strong { font-size: 18px; }
+.app-loading-screen > div > span { color: var(--muted); font-size: 12px; margin-top: 7px; }
+.loading-leaves { display: flex; gap: 8px; margin-top: 22px; }
+.loading-leaves i { width: 12px; height: 8px; border-radius: 80% 20% 70% 30%; background: var(--sage); transform: rotate(-20deg); animation: loading-leaf 1.35s ease-in-out infinite; }
+.loading-leaves i:nth-child(2) { animation-delay: .16s; }
+.loading-leaves i:nth-child(3) { animation-delay: .32s; }
+@keyframes loading-leaf { 0%, 70%, 100% { opacity: .28; transform: translateY(0) rotate(-20deg); } 30% { opacity: 1; transform: translateY(-4px) rotate(-20deg); } }
 .privacy-card { padding: 18px; text-align: left; margin: -4px 0 16px; }
 .privacy-points { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .privacy-points span { background: var(--sage-soft); color: #397259; padding: 8px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
