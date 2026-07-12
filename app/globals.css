@@ -504,7 +504,14 @@ button.insight-card { cursor: pointer; }
 .confirm-screen > .mascot { width: 170px; height: 170px; }
 
 .dual-start-screen { text-align: center; background: radial-gradient(circle at 50% 42%, rgba(245,184,75,.22), transparent 35%); }
-.dual-start-screen > .mascot { width: 180px; height: 180px; margin: 2px auto -8px; }
+.dual-start-screen > .mascot { width: 150px; height: 150px; margin: -2px auto -8px; }
+.start-now-card { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 11px; padding: 12px 14px; margin: 2px 0 14px; border: 1px solid rgba(245,184,75,.4); border-radius: 19px; background: rgba(255,248,225,.84); text-align: left; box-shadow: var(--shadow-soft); }
+.start-now-card.on-time { border-color: rgba(117,184,155,.36); background: rgba(237,246,239,.82); }
+.start-now-card .app-icon { width: 42px; height: 42px; }
+.start-now-card small, .start-now-card strong { display: block; }
+.start-now-card small { color: var(--muted); font-size: 9px; margin-bottom: 3px; }
+.start-now-card strong { font-size: 13px; }
+.start-now-card p { color: var(--muted); font-size: 10px; line-height: 1.45; margin: 4px 0 0; }
 .light-bridge { width: 52%; height: 2px; margin: 0 auto -28px; background: linear-gradient(90deg, var(--sage), #fff7cc, var(--amber)); opacity: .25; transition: .4s; box-shadow: 0 0 16px var(--amber); }
 .light-bridge[data-ready="true"] { opacity: 1; height: 4px; }
 .dual-press { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 40px 0 18px; }

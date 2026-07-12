@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
@@ -83,6 +83,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /scrollIntoView\(\{ block: "center"/);
   assert.match(styles, /\.stage-editor\.is-expanded/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
+  assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
+  assert.match(app, /整晚时间会一起顺延/);
+  assert.match(app, /shiftTimedPlanToStart\(stages, actualStart\)/);
+  assert.match(app, /planStart: data\.planStart, planEnd: data\.planEnd, stages/);
+  assert.match(app, /planStart: livePlanStart \|\|/);
+  assert.match(app, /screen !== "dual-start"/);
+  assert.match(app, /setInterval\(\(\) => setClockNow\(Date\.now\(\)\), 1000\)/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
@@ -140,6 +147,13 @@ test("calculates stage durations and automatic time shifts", () => {
     { title: "数学", start: "18:10", end: "18:40" },
   ], 0, "18:10");
   assert.deepEqual(reordered.map(item => [item.start, item.end]), [["18:10", "18:35"], ["18:35", "19:05"]]);
+
+  const shiftedToNow = shiftTimedPlanToStart([
+    { title: "吃点东西", start: "18:10", end: "18:30" },
+    { title: "阅读", start: "18:40", end: "19:00" },
+  ], "20:00");
+  assert.deepEqual(shiftedToNow.map(item => [item.start, item.end]), [["20:00", "20:20"], ["20:30", "20:50"]]);
+  assert.equal(clockTimeFromDate(new Date(2026, 0, 1, 20, 5)), "20:05");
 });
 
 test("only uses a system reminder after guardian permission while hidden", () => {
