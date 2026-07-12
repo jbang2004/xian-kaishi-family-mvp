@@ -7,7 +7,7 @@ import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
-import manifest from "../app/manifest.ts";
+import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
@@ -23,6 +23,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(page, /<StartApp \/>/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
+  assert.equal(ASSET_VERSION, "2026-07-13-1");
+  assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
+  assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
+  assert.match(app, /loading\?: "eager" \| "lazy"/);
+  assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
+  assert.match(app, /energy-room-v3\.jpg\?v=\$\{ASSET_VERSION\}/);
+  assert.match(app, /fetchPriority="high" alt="温暖的家庭学习角"/);
   assert.match(app, /每阶段只提醒一次/);
   assert.match(app, /监护人授权与儿童隐私说明/);
   assert.match(app, /删除孩子全部数据/);
@@ -197,11 +204,15 @@ test("contains the complete 先开始 product shell", async () => {
 });
 
 test("ships an installable, privacy-preserving app manifest", async () => {
-  const appManifest = manifest();
-  assert.equal(appManifest.display, "standalone");
-  assert.equal(appManifest.lang, "zh-CN");
-  assert.equal(appManifest.icons?.[0]?.sizes, "320x320");
-  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  const [manifestSource, serviceWorker] = await Promise.all([
+    readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(manifestSource, /display: "standalone"/);
+  assert.match(manifestSource, /lang: "zh-CN"/);
+  assert.match(manifestSource, /sizes: "320x320"/);
+  assert.equal(versionedAsset("/assets/icons/home-heart.png"), `/assets/icons/home-heart.png?v=${ASSET_VERSION}`);
+  assert.match(manifestSource, /src: versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(serviceWorker, /clients\.claim\(\)/);
   assert.doesNotMatch(serviceWorker, /caches\.|addEventListener\("fetch"/);
 });
