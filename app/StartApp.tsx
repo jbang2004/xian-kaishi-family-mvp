@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "./plan-utils";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { compareSyncSnapshots, mergeUniqueById } from "./sync-utils";
 
@@ -50,7 +50,7 @@ type SessionRecord = {
 
 type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"; threshold: number; redeemedAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
-type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
+type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
   consent: boolean;
@@ -299,6 +299,7 @@ export function StartApp() {
         } catch { /* keep the editable starter plan */ }
       }
       const localLive = localStorage.getItem(LIVE_SESSION_KEY);
+      let livePlanStart = ""; let livePlanEnd = "";
       if (localLive) {
         try {
           const live = JSON.parse(localLive) as Partial<LiveSessionDraft>;
@@ -307,6 +308,8 @@ export function StartApp() {
           const liveStages = normalizeStages(live.stages, true);
           const savedScreen = LIVE_SCREENS.includes(live.screen as LiveScreen) ? live.screen as LiveScreen : "running";
           if (fresh && liveStages.length) {
+            livePlanStart = /^\d{2}:\d{2}$/.test(String(live.planStart)) ? String(live.planStart) : liveStages[0].start;
+            livePlanEnd = /^\d{2}:\d{2}$/.test(String(live.planEnd)) ? String(live.planEnd) : liveStages.at(-1)?.end ?? livePlanStart;
             setStages(liveStages); setActiveIndex(Math.max(0, Math.min(liveStages.length - 1, Number(live.activeIndex) || 0)));
             setAdjustments(Math.max(0, Number(live.adjustments) || 0)); setActiveEndsAt(Math.max(0, Number(live.activeEndsAt) || 0));
             setStageDue(Boolean(live.stageDue)); setTransitionReason(normalizeTransitionReason(live.transitionReason, Boolean(live.stageDue))); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionAvailable(true);
@@ -315,8 +318,8 @@ export function StartApp() {
       }
       const withDraftWindow = (next: AppData): AppData => ({
         ...next,
-        planStart: /^\d{2}:\d{2}$/.test(String(parsedDraft?.planStart)) ? String(parsedDraft?.planStart) : next.planStart,
-        planEnd: /^\d{2}:\d{2}$/.test(String(parsedDraft?.planEnd)) ? String(parsedDraft?.planEnd) : next.planEnd,
+        planStart: livePlanStart || (/^\d{2}:\d{2}$/.test(String(parsedDraft?.planStart)) ? String(parsedDraft?.planStart) : next.planStart),
+        planEnd: livePlanEnd || (/^\d{2}:\d{2}$/.test(String(parsedDraft?.planEnd)) ? String(parsedDraft?.planEnd) : next.planEnd),
       });
       const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("xian-kaishi-family-v1");
       let validLocal = false;
@@ -381,14 +384,20 @@ export function StartApp() {
     if (!planHydrated || !LIVE_SCREENS.includes(screen as LiveScreen) || !stages.length) return;
     const updatedAt = new Date().toISOString();
     const liveScreen = screen as LiveScreen;
-    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ updatedAt, screen: liveScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } satisfies LiveSessionDraft));
-  }, [activeEndsAt, activeIndex, adjustments, planHydrated, promptReflection, screen, stageDue, stages, transitionReason]);
+    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ updatedAt, screen: liveScreen, planStart: data.planStart, planEnd: data.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } satisfies LiveSessionDraft));
+  }, [activeEndsAt, activeIndex, adjustments, data.planEnd, data.planStart, planHydrated, promptReflection, screen, stageDue, stages, transitionReason]);
 
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2400);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (screen !== "dual-start") return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [screen]);
 
   useEffect(() => {
     if (!deletedStage) return;
@@ -494,9 +503,12 @@ export function StartApp() {
   };
 
   const startPlan = () => {
-    setStages(items => items.map((item, index) => ({ ...item, status: index === 0 ? "active" : "pending" })));
-    const firstDuration = Math.max(1, durationMinutes(stages[0]?.start ?? data.planStart, stages[0]?.end ?? addMinutes(data.planStart, 1)));
-    setActiveEndsAt(Date.now() + firstDuration * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
+    const startedAt = Date.now(); const actualStart = clockTimeFromDate(new Date(startedAt));
+    const startedStages = shiftTimedPlanToStart(stages, actualStart).map((item, index) => ({ ...item, status: index === 0 ? "active" as const : "pending" as const }));
+    const windowMinutes = Math.max(1, durationMinutes(data.planStart, data.planEnd));
+    setStages(startedStages); setData(current => ({ ...current, planStart: actualStart, planEnd: addMinutes(actualStart, windowMinutes) }));
+    const firstDuration = Math.max(1, durationMinutes(startedStages[0]?.start ?? actualStart, startedStages[0]?.end ?? addMinutes(actualStart, 1)));
+    setActiveEndsAt(startedAt + firstDuration * 60_000); setClockNow(startedAt); setStageDue(false); dueReminderPlayed.current = false;
     setActiveIndex(0); setAdjustments(0); setPromptReflection(null); setTransitionReason("completed"); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
   };
 
@@ -633,7 +645,7 @@ export function StartApp() {
 
   const exportData = () => {
     const planDraft: PlanDraft = { updatedAt: draftUpdatedAt || new Date().toISOString(), planStart: data.planStart, planEnd: data.planEnd, stages: stages.map(item => ({ ...item, status: "pending" })) };
-    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { updatedAt: new Date().toISOString(), screen: liveResumeScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } : null;
+    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { updatedAt: new Date().toISOString(), screen: liveResumeScreen, planStart: data.planStart, planEnd: data.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } : null;
     const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data, planDraft, activeSession }, null, 2)], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
   };
@@ -676,6 +688,8 @@ export function StartApp() {
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const editingStage = stages.find(item => item.id === editingStageId);
+  const startNowLabel = clockTimeFromDate(new Date(clockNow));
+  const startsAtPlannedTime = startNowLabel === (stages[0]?.start ?? data.planStart);
   const completedStageCount = stages.filter(item => item.status === "done").length;
   const tonightStageCount = stages.filter(item => item.status !== "tomorrow").length;
   const liveResumeView = (() => {
@@ -776,14 +790,15 @@ export function StartApp() {
         <Header back={() => go("plan")} title="共同确认" step="2/3" /><h1>今晚的安排，我们一起确认</h1>
         <div className="summary-strip"><span><strong>{stages[0]?.start}</strong><small>开始</small></span><span><strong>{stages.filter(s => s.status !== "tomorrow").length}</strong><small>个阶段</small></span><span><strong>{stages.at(-1)?.end}</strong><small>左右收尾</small></span></div>
         <div className="promise-card guardian"><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>先给第一步留出空间</small></span></div><div className="promise-card child"><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>卡住时可以主动说</small></span></div>
-        <Mascot mood="confirm" /><div className="privacy-note">时间表不是命令。中途改变顺序、休息或移到明天，都不算失败。</div><button className="primary-button" onClick={() => go("dual-start")}>进入共同启动</button>
+        <Mascot mood="confirm" /><div className="privacy-note">时间表不是命令。中途改变顺序、休息或移到明天，都不算失败。</div><button className="primary-button" onClick={() => { setClockNow(Date.now()); go("dual-start"); }}>进入共同启动</button>
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
         <Header back={() => go("confirm")} title="一起点亮" step="3/3" /><span className="eyebrow">可以同时点，也可以一个一个来</span><h1>两个人都准备好，就开始</h1><Mascot mood={guardianConfirmed && childConfirmed ? "celebrate" : "ready"} />
+        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={startsAtPlannedTime ? "check" : "alarm"} /><span><small>两个名字都亮起后</small><strong>{startsAtPlannedTime ? `按计划 ${startNowLabel} 开始` : `从现在 ${startNowLabel} 开始`}</strong><p>{startsAtPlannedTime ? "刚好到约定时间，直接进入第一项。" : "每一项保留原时长和间隔，整晚时间会一起顺延。"}</p></span></div>
         <div className="light-bridge" data-ready={guardianConfirmed && childConfirmed} />
         <div className="dual-press"><button aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => setGuardianConfirmed(value => !value)}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "已点亮" : "点一下"}</small></button><button aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => setChildConfirmed(value => !value)}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "已点亮" : "点一下"}</small></button></div>
-        <p className="child-copy" role="status">{guardianConfirmed && childConfirmed ? "今晚的安排，已经一起点亮" : "不需要完全同时，两个名字都亮起来就可以。"}</p>
+        <p className="child-copy" role="status">{guardianConfirmed && childConfirmed ? "今晚的安排，正在从现在开始" : "不需要完全同时，两个名字都亮起来就从现在开始。"}</p>
       </div>}
 
       {screen === "running" && <div className="screen running-screen">
