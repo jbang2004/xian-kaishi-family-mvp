@@ -477,6 +477,7 @@ button.insight-card { cursor: pointer; }
 .custom-window { min-height: 118px; }
 .window-inputs { display: flex; align-items: center; gap: 4px; margin-top: 7px; }
 .window-inputs input { width: 92px; min-height: 44px; border: 1px solid var(--border); border-radius: 11px; background: #fff9ed; color: var(--navy); padding: 7px 4px; font-size: 16px; font-weight: 800; }
+.overnight-note { display: block; width: fit-content; margin-top: 7px; padding: 4px 8px; border-radius: 99px; background: var(--blue-soft); color: #4b6f91; font-size: var(--type-micro); font-weight: 900; }
 .plan-balance { margin: 12px 0 4px; padding: 13px 15px; border: 1px solid rgba(117,184,155,.34); border-radius: 18px; background: linear-gradient(135deg, rgba(237,246,239,.92), rgba(255,253,248,.84)); }
 .plan-balance > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .plan-balance span { color: #4a8069; font-size: 11px; font-weight: 800; }

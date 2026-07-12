@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -9,6 +9,7 @@ import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
+import { resolveHistoryTarget } from "../app/navigation-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
@@ -25,6 +26,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
   assert.match(app, /name="child-alias" aria-label="孩子化名"/);
+  assert.match(app, /window\.addEventListener\("popstate", handlePopState\)/);
+  assert.match(app, /current !== "home" && LIVE_SCREENS\.includes\(next as LiveScreen\)/);
+  assert.match(app, /今晚还在进行，可以调整计划或温和收尾/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
   assert.match(app, /aria-invalid=\{titleInvalid\}/);
   assert.match(app, /className="stage-inline-issue" aria-live="polite"/);
@@ -65,7 +69,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-pressed=\{data\.planningMode === mode\}/);
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
-  assert.match(app, /go\(profileReturn === "settings" \? "settings" : "plan"\)/);
+  assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
   assert.match(app, /className="profile-preferences"/);
   assert.match(app, /const openAdjust = \(\) => \{ setAdjustChoice\("extend"\)/);
@@ -82,8 +86,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /现在休息10分钟，最晚\$\{result\.planEnd\}收尾/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
   assert.match(app, /最晚\$\{nextPlanEnd\}收尾/);
-  assert.match(app, /今晚进度 · 最晚 \{data\.planEnd\} 收尾/);
+  assert.match(app, /今晚进度 · 最晚 \{formatPlanClock\(data\.planEnd, data\.planStart, data\.planEnd\)\} 收尾/);
   assert.match(app, /之后只继续剩余时长/);
+  assert.match(app, /跨到次日 · 结束时间按第二天计算/);
+  assert.match(app, /const planCrossesMidnight = spansMidnight/);
+  assert.match(app, /setData\(current => \(\{ \.\.\.current, planStart: e\.target\.value \}\)\)/);
+  assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: e\.target\.value \}\)\)/);
   assert.match(app, /canStartRest && <button className="soft-button" onClick=\{startRestNow\}>先休息 10 分钟<\/button>/);
   assert.match(app, /title: canStartRest \? "延长当前阶段" : "再休息10分钟"/);
   assert.match(app, /if \(screen !== "adjust"\) return/);
@@ -285,6 +293,36 @@ test("validates the family plan before dual confirmation", () => {
   assert.ok(invalid.issues.some(issue => issue.includes("超出今晚可用时间")));
 });
 
+test("supports a family plan that crosses midnight", () => {
+  const overnight = analyzePlan("22:30", "00:30", [
+    { title: "阅读", start: "22:30", end: "23:10" },
+    { title: "整理书包", start: "23:50", end: "00:10" },
+    { title: "洗漱", start: "00:10", end: "00:25" },
+  ]);
+
+  assert.equal(overnight.hasErrors, false);
+  assert.equal(overnight.availableMinutes, 120);
+  assert.equal(overnight.scheduledMinutes, 75);
+  assert.equal(overnight.balanceMinutes, 45);
+  assert.equal(spansMidnight("22:30", "00:30"), true);
+  assert.equal(durationMinutes("23:50", "00:10"), 20);
+  assert.equal(formatPlanClock("23:50", "22:30", "00:30"), "23:50");
+  assert.equal(formatPlanClock("00:10", "22:30", "00:30"), "次日 00:10");
+});
+
+test("rejects cross-midnight overlap and tasks outside the family window", () => {
+  const invalid = analyzePlan("22:30", "00:30", [
+    { title: "阅读", start: "23:30", end: "00:10" },
+    { title: "整理", start: "23:50", end: "00:20" },
+    { title: "太晚", start: "00:25", end: "00:40" },
+  ]);
+
+  assert.equal(invalid.hasErrors, true);
+  assert.equal(invalid.itemErrors[1].time, true);
+  assert.ok(invalid.itemErrors[1].messages.some(issue => issue.includes("重叠")));
+  assert.ok(invalid.itemErrors[2].messages.some(issue => issue.includes("超出")));
+});
+
 test("calculates stage durations and automatic time shifts", () => {
   assert.equal(durationMinutes("18:10", "18:40"), 30);
   assert.equal(addMinutes("18:40", 25), "19:05");
@@ -388,6 +426,20 @@ test("preserves planned gaps and the trailing buffer after a live rest", () => {
   assert.equal(result.planEnd, "20:40");
 });
 
+test("preserves a planned gap when a live rest crosses midnight", () => {
+  const result = insertRestBreak([
+    { title: "阅读", start: "23:40", end: "00:00", status: "active" },
+    { title: "整理", start: "00:10", end: "00:30", status: "pending" },
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "23:50", 10, 10, 10, "00:45");
+
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end]), [
+    ["安静休息", "23:50", "00:00"],
+    ["阅读", "00:00", "00:10"],
+    ["整理", "00:20", "00:40"],
+  ]);
+  assert.equal(result.planEnd, "00:55");
+});
+
 test("rests after a completed stage without reviving it", () => {
   const result = insertRestBreak([
     { title: "数学", start: "19:00", end: "19:20", status: "done" },
@@ -446,6 +498,12 @@ test("cleans short family-entered text only at save boundaries", () => {
   assert.equal(cleanShortText("  小  橙  ", 12), "小 橙");
   assert.equal(cleanShortText("  阅读二十四个字以内的任务名称  ", 8), "阅读二十四个字以");
   assert.equal(cleanShortText("   ", 12), "");
+});
+
+test("keeps browser back inside the live evening and skips stale setup after finishing", () => {
+  assert.deepEqual(resolveHistoryTarget("running", "confirm"), { screen: "running", blocked: true, collapseToRoot: false });
+  assert.deepEqual(resolveHistoryTarget("night-saved", "confirm"), { screen: "home", blocked: false, collapseToRoot: true });
+  assert.deepEqual(resolveHistoryTarget("review", "home"), { screen: "home", blocked: false, collapseToRoot: false });
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {

@@ -10,7 +10,20 @@ export function timeToMinutes(time: string) {
 }
 
 export function durationMinutes(start: string, end: string) {
-  return Math.max(0, timeToMinutes(end) - timeToMinutes(start));
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  if (startMinutes < 0 || endMinutes < 0 || startMinutes === endMinutes) return 0;
+  return endMinutes > startMinutes ? endMinutes - startMinutes : endMinutes + 1440 - startMinutes;
+}
+
+export function spansMidnight(start: string, end: string) {
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  return startMinutes >= 0 && endMinutes >= 0 && endMinutes < startMinutes;
+}
+
+export function formatPlanClock(time: string, planStart: string, planEnd: string) {
+  return spansMidnight(planStart, planEnd) && timeToMinutes(time) < timeToMinutes(planStart) ? `次日 ${time}` : time;
 }
 
 export function addMinutes(time: string, amount: number) {
@@ -100,7 +113,8 @@ export function insertRestBreak<T extends TimedSessionItem>(
     const isResumedCurrent = !currentIsDone && index === restIndex + 1;
     const minutes = isResumedCurrent ? resumedMinutes : Math.max(1, durationMinutes(item.start, item.end));
     const previousOriginal = withRest[index - 1];
-    const preservedGap = isResumedCurrent || previousOriginal.status === "tomorrow" ? 0 : Math.max(0, timeToMinutes(item.start) - timeToMinutes(previousOriginal.end));
+    const firstAfterRest = index === restIndex + 1;
+    const preservedGap = firstAfterRest || previousOriginal.status === "tomorrow" || item.start === previousOriginal.end ? 0 : durationMinutes(previousOriginal.end, item.start);
     const start = addMinutes(cursor, preservedGap);
     const next = {
       ...item,
@@ -118,22 +132,30 @@ export function insertRestBreak<T extends TimedSessionItem>(
 export function analyzePlan(planStart: string, planEnd: string, items: TimedPlanItem[]) {
   const availableMinutes = durationMinutes(planStart, planEnd);
   const scheduledMinutes = items.reduce((sum, item) => sum + durationMinutes(item.start, item.end), 0);
-  const issues = items.flatMap((item, index) => {
-    const itemIssues: string[] = [];
-    const start = timeToMinutes(item.start);
-    const end = timeToMinutes(item.end);
+  const planStartMinutes = timeToMinutes(planStart);
+  let previousEndOffset = -1;
+  const itemErrors = items.map((item, index) => {
+    const messages: string[] = [];
+    const startMinutes = timeToMinutes(item.start);
+    const startOffset = startMinutes < 0 || planStartMinutes < 0 ? -1 : (startMinutes - planStartMinutes + 1440) % 1440;
+    const itemDuration = durationMinutes(item.start, item.end);
+    const endOffset = startOffset < 0 ? -1 : startOffset + itemDuration;
     const label = item.title.trim() || `第${index + 1}项`;
-    if (!item.title.trim()) itemIssues.push(`第${index + 1}项还没有名称`);
-    if (end <= start) itemIssues.push(`${label}的结束时间需要晚于开始时间`);
-    if (availableMinutes > 0 && (start < timeToMinutes(planStart) || end > timeToMinutes(planEnd))) itemIssues.push(`${label}超出今晚可用时间`);
-    if (index > 0 && start < timeToMinutes(items[index - 1].end)) itemIssues.push(`${label}与上一项时间重叠`);
-    return itemIssues;
+    const title = !item.title.trim();
+    if (title) messages.push(`第${index + 1}项还没有名称`);
+    if (itemDuration <= 0) messages.push(`${label}的开始和结束时间不能相同`);
+    if (availableMinutes > 0 && (startOffset < 0 || startOffset >= availableMinutes || endOffset > availableMinutes)) messages.push(`${label}超出今晚可用时间`);
+    if (index > 0 && startOffset >= 0 && startOffset < previousEndOffset) messages.push(`${label}与上一项时间重叠`);
+    if (endOffset >= 0) previousEndOffset = endOffset;
+    return { messages, title, time: messages.some(message => !message.includes("还没有名称")) };
   });
-  if (availableMinutes <= 0) issues.unshift("今晚结束时间需要晚于开始时间");
+  const issues = itemErrors.flatMap(item => item.messages);
+  if (availableMinutes <= 0) issues.unshift("今晚开始和结束时间不能相同");
   return {
     availableMinutes,
     scheduledMinutes,
     balanceMinutes: Math.max(0, availableMinutes - scheduledMinutes),
+    itemErrors,
     issues,
     hasErrors: issues.length > 0,
   };

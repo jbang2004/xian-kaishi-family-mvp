@@ -4,8 +4,9 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
+import { resolveHistoryTarget } from "./navigation-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
@@ -20,6 +21,8 @@ type TransitionReason = "completed" | "due";
 type AdjustmentChoice = "extend" | "rest" | "swap" | "tomorrow" | "finish";
 type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "night-saved" | "energy" | "reward-setup" | "reward-achieved" | "reward-saved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
+type NavigationMode = "push" | "replace";
+type AppHistoryState = { xianKaishi: true; screen: Screen; depth: number };
 
 type Stage = {
   id: string;
@@ -88,6 +91,7 @@ const FAMILY_REVISION_KEY = "xian-kaishi-family-revision-v1";
 const FAMILY_UPDATED_AT_KEY = "xian-kaishi-family-updated-at-v1";
 const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
+const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
 const DUAL_START_DELAY_MS = 2400;
 
 const DEFAULT_DATA: AppData = {
@@ -344,9 +348,13 @@ export function StartApp() {
   const familyDataRef = useRef<AppData>(DEFAULT_DATA);
   const pendingWritesRef = useRef(new PendingWrites());
   const deleteInProgressRef = useRef(false);
+  const screenRef = useRef<Screen>("welcome");
+  const historyReadyRef = useRef(false);
+  const historyDepthRef = useRef(0);
 
-  const go = (next: Screen) => {
+  const showScreen = (next: Screen) => {
     if (LIVE_SCREENS.includes(next as LiveScreen)) { setLiveResumeScreen(next as LiveScreen); setLiveSessionStartedAt(value => value || new Date().toISOString()); setLiveSessionAvailable(true); }
+    screenRef.current = next;
     setScreen(next);
     phoneShellRef.current?.scrollTo({ top: 0, behavior: "auto" });
     window.requestAnimationFrame(() => {
@@ -357,11 +365,64 @@ export function StartApp() {
     });
   };
 
+  const go = (next: Screen, mode: NavigationMode = "push") => {
+    const current = screenRef.current;
+    if (next === current) return;
+    const replace = mode === "replace" || LIVE_SCREENS.includes(current as LiveScreen) || (current !== "home" && LIVE_SCREENS.includes(next as LiveScreen));
+    if (historyReadyRef.current) {
+      const depth = replace ? historyDepthRef.current : historyDepthRef.current + 1;
+      const state: AppHistoryState = { xianKaishi: true, screen: next, depth };
+      window.history[replace ? "replaceState" : "pushState"](state, "");
+      historyDepthRef.current = depth;
+    }
+    showScreen(next);
+  };
+
+  const back = (fallback: Screen) => {
+    const state = window.history.state as Partial<AppHistoryState> | null;
+    if (historyReadyRef.current && state?.xianKaishi && historyDepthRef.current > 0) window.history.back();
+    else go(fallback, "replace");
+  };
+
+  useEffect(() => {
+    screenRef.current = screen;
+    if (!appReady || !historyReadyRef.current) return;
+    const state = window.history.state as Partial<AppHistoryState> | null;
+    if (state?.xianKaishi && state.screen !== screen) window.history.replaceState({ xianKaishi: true, screen, depth: historyDepthRef.current } satisfies AppHistoryState, "");
+  }, [appReady, screen]);
+
+  useEffect(() => {
+    if (!appReady) return;
+    if (!historyReadyRef.current) {
+      const initial: AppHistoryState = { xianKaishi: true, screen: screenRef.current, depth: 0 };
+      window.history.replaceState(initial, ""); historyReadyRef.current = true; historyDepthRef.current = 0;
+    }
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state as Partial<AppHistoryState> | null;
+      if (!state?.xianKaishi || !SCREEN_NAMES.includes(state.screen as Screen)) return;
+      const current = screenRef.current;
+      const target = state.screen as Screen;
+      const resolved = resolveHistoryTarget(current, target);
+      if (resolved.blocked) {
+        window.history.pushState({ xianKaishi: true, screen: current, depth: historyDepthRef.current } satisfies AppHistoryState, "");
+        setToast("今晚还在进行，可以调整计划或温和收尾"); return;
+      }
+      if (resolved.collapseToRoot && Number(state.depth) > 0) {
+        screenRef.current = "home"; setScreen("home"); historyDepthRef.current = 0; window.history.go(-Number(state.depth)); return;
+      }
+      historyDepthRef.current = Math.max(0, Number(state.depth) || 0);
+      showScreen(resolved.screen as Screen);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // The listener reads changing navigation state through refs.
+  }, [appReady]);
+
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
   const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
   const openAdjust = () => { setAdjustChoice("extend"); go("adjust"); };
   const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setClockNow(Date.now()); go("dual-start"); };
-  const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); go("confirm"); };
+  const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); back("confirm"); };
   const cancelDualLaunch = () => { setGuardianConfirmed(false); setChildConfirmed(false); };
   const toggleParticipant = (role: "guardian" | "child") => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18);
@@ -617,7 +678,8 @@ export function StartApp() {
     const childAlias = cleanShortText(data.childAlias, 12);
     const guardianAlias = cleanShortText(data.guardianAlias, 12);
     const next = { ...data, childAlias, guardianAlias, consent: true, rewardGoal: { ...data.rewardGoal, participants: [guardianAlias, childAlias] } };
-    setPlanHydrated(true); persist(next, profileReturn === "settings" ? "家庭设置已更新" : "家庭称呼已保存，可以安排今晚了"); playTone("confirm"); go(profileReturn === "settings" ? "settings" : "plan");
+    setPlanHydrated(true); persist(next, profileReturn === "settings" ? "家庭设置已更新" : "家庭称呼已保存，可以安排今晚了"); playTone("confirm");
+    if (profileReturn === "settings") back("settings"); else go("plan", "replace");
   };
 
   const addStage = () => {
@@ -894,17 +956,10 @@ export function StartApp() {
   const reviewSuggestion = suggestWeeklyFocus({ nights: weeklyNights, morePromptNights: weeklyMorePromptNights, lessPromptNights: weeklyLessPromptNights, adjustments: weeklyAdjustments, recentCompletedFirstStep });
   const currentWeekFocus = data.weeklyFocus?.weekKey === weekStartKey ? data.weeklyFocus : null;
   const planAnalysis = analyzePlan(data.planStart, data.planEnd, stages);
-  const { availableMinutes, scheduledMinutes, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
-  const stageIssueById = new Map<string, string>(stages.flatMap((stage, index): Array<[string, string]> => {
-    const previous = stages[index - 1];
-    const issues: string[] = [];
-    if (!stage.title.trim()) issues.push("先写下这件事的名称");
-    if (durationMinutes(stage.start, stage.end) <= 0) issues.push("结束时间要晚于开始时间");
-    if (stage.start < data.planStart || stage.end > data.planEnd) issues.push("时间要放在今晚可用范围内");
-    if (previous && stage.start < previous.end) issues.push("开始时间与上一项重叠");
-    return issues.length ? [[stage.id, issues.join("；")]] : [];
-  }));
+  const { availableMinutes, scheduledMinutes, itemErrors: planItemErrors, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
+  const stageIssueById = new Map<string, string>(stages.flatMap((stage, index): Array<[string, string]> => planItemErrors[index]?.messages.length ? [[stage.id, planItemErrors[index].messages.join("；")]] : []));
   const planStageIssueIds = new Set(stageIssueById.keys());
+  const planCrossesMidnight = spansMidnight(data.planStart, data.planEnd);
   const draftEnergy = stages.reduce((sum, item) => sum + item.energy, 0);
   const activeSettlementNightKey = familyNightKey(liveSessionStartedAt || new Date());
   const priorSettlementSessions = data.sessions.filter(item => item.nightKey === activeSettlementNightKey);
@@ -995,7 +1050,7 @@ export function StartApp() {
       </div>}
 
       {appReady && screen === "privacy" && <div className="screen privacy-screen">
-        <Header back={() => go(privacyReturn)} title="隐私与数据说明" />
+        <Header back={() => back(privacyReturn)} title="隐私与数据说明" />
         <div className="title-with-mascot"><div><span className="eyebrow">监护人先看清楚，再决定是否使用</span><h1>哪些数据保存在哪里？</h1></div><Mascot mood="support" compact /></div>
         <p className="lead">我们只保留完成核心流程需要的信息，不收集孩子真实姓名、年级、学校、精确位置、通讯录、人脸、声音或持续行为监控数据。</p>
         <div className="privacy-storage-list">
@@ -1006,11 +1061,11 @@ export function StartApp() {
         </div>
         <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
         <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={deleteData}>删除数据</button></div>}</div>
-        <button className="primary-button" onClick={() => go(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
+        <button className="primary-button" onClick={() => back(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
 
       {appReady && screen === "profile" && <div className="screen profile-screen">
-        <Header back={() => go(profileReturn)} title="家庭设置" />
+        <Header back={() => back(profileReturn)} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，谁一起安排？</h1></div><Mascot compact /></div>
         <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input name="child-alias" aria-label="孩子化名" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input name="guardian-alias" aria-label="大人称呼" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label></div>
         <details className="profile-preferences" open={profileReturn === "settings"}><summary><span><strong>今晚偏好</strong><small>{modeLabel} · 通常 {data.arrival} 到家</small></span><b>{profileReturn === "settings" ? "正在编辑" : "可稍后修改"}</b></summary><div className="profile-preferences-body"><fieldset><legend>今晚主要由谁安排</legend><div className="mode-grid">{(["adult", "together", "child"] as PlanningMode[]).map(mode => <button type="button" key={mode} aria-pressed={data.planningMode === mode} className={data.planningMode === mode ? "selected" : ""} onClick={() => setData({ ...data, planningMode: mode })}>{({ adult: "大人先安排", together: "一起安排", child: "孩子先安排" })[mode]}</button>)}</div></fieldset><label>通常到家<input type="time" value={data.arrival} onChange={e => setData({ ...data, arrival: e.target.value })} /></label></div></details>
@@ -1020,7 +1075,7 @@ export function StartApp() {
       {screen === "home" && <div className="screen with-nav home-screen">
         <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>{liveSessionAvailable && activeNightLabel === "昨晚" ? "昨晚还没收尾，先温和接住" : !liveSessionAvailable && currentNightSummary ? "今晚已经温和收尾" : "今晚，一起找到舒服的节奏"}</h1><p>{liveSessionAvailable && activeNightLabel === "昨晚" ? "进度还在；继续或结束，都不需要重新来过。" : !liveSessionAvailable && currentNightSummary ? "记录已经留下，接下来可以放松一点。" : "先排时间，再一起点亮开始。"}</p></div><Mascot mood={!liveSessionAvailable && currentNightSummary ? "celebrate" : "confirm"} compact /></div>
         {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>这一晚已经温和收尾</small><strong>今晚的合作已经留下来了</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "完成多少都不需要重新比较。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>完成阶段</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>还有新的安排</button><small className="settled-energy-rule">再次安排不会重复获得“共同收尾”能量</small></div> : <button className="primary-button large" onClick={startAnotherPlan}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
-        {!liveSessionAvailable && !currentNightSummary && <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>}
+        {!liveSessionAvailable && !currentNightSummary && <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${formatPlanClock(draftStart, data.planStart, data.planEnd)}—${formatPlanClock(draftEnd, data.planStart, data.planEnd)} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>}
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         {currentWeekFocus && <button className="insight-card weekly-focus-home" onClick={() => go("review")}><span className="big-icon"><AppIcon name="home-heart" /></span><div><small>这周只试这一件 · 给大人的提醒</small><strong>{currentWeekFocus.text}</strong></div><span>›</span></button>}
         <button className={`insight-card support-entry goal-entry-${goalState}`} onClick={goalState === "empty" ? openRewardSetup : goalState === "ready" ? openRewardAchieved : () => go("energy")}><span className="big-icon"><AppIcon name={goalState === "empty" ? "home-heart" : goalState === "ready" ? data.rewardGoal.icon : "plant"} /></span><div><small>{goalState === "empty" ? "下一份家庭期待" : goalState === "ready" ? "家庭期待已点亮" : "家庭期待"}</small><strong>{goalState === "empty" ? "一起定下想共度的家庭时光" : data.rewardGoal.title}</strong><small>{goalState === "empty" ? "从0开始，不用急着定" : goalState === "ready" ? "等你们真的一起实现后再记录" : `还差${progress}点，一起积累`}</small></div><span>›</span></button>
@@ -1029,12 +1084,12 @@ export function StartApp() {
       </div>}
 
       {screen === "plan" && <div className="screen plan-screen">
-        <Header back={() => go("home")} title="一起安排今晚" step="1/3" />
-        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData({ ...data, planStart: e.target.value })} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData({ ...data, planEnd: e.target.value })} /></div></div><Mascot compact /></div>
+        <Header back={() => back("home")} title="一起安排今晚" step="1/3" />
+        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData(current => ({ ...current, planStart: e.target.value }))} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData(current => ({ ...current, planEnd: e.target.value }))} /></div>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
         <div className={`plan-balance ${planHasErrors ? "has-error" : ""}`} role="status"><div><span>{planHasErrors ? "先调整一下时间" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "从空白开始"}</button>}</div>
-        <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <div className="empty-plan"><Mascot mood="breathe" compact /><strong>今晚还没有节点</strong><span>先加一件最容易开始的小事就好</span></div>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = !stage.title.trim(); const timeInvalid = durationMinutes(stage.start, stage.end) <= 0 || stage.start < data.planStart || stage.end > data.planEnd || Boolean(index > 0 && stage.start < stages[index - 1].end); return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${hasIssue ? "has-stage-issue" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
-          <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stage.title || "未命名事项"}`} onClick={() => setEditingStageId(expanded ? "" : stage.id)}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stage.title.trim() || "未命名事项"}</strong><small>{hasIssue ? "需要调整这一项" : `${stage.start}—${stage.end} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className="stage-summary-energy"><b>{stage.energy}</b><small>能量</small></span><i aria-hidden="true">⌄</i></button>
+        <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <div className="empty-plan"><Mascot mood="breathe" compact /><strong>今晚还没有节点</strong><span>先加一件最容易开始的小事就好</span></div>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = Boolean(planItemErrors[index]?.title); const timeInvalid = Boolean(planItemErrors[index]?.time); return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${hasIssue ? "has-stage-issue" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
+          <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stage.title || "未命名事项"}`} onClick={() => setEditingStageId(expanded ? "" : stage.id)}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stage.title.trim() || "未命名事项"}</strong><small>{hasIssue ? "需要调整这一项" : `${formatPlanClock(stage.start, data.planStart, data.planEnd)}—${formatPlanClock(stage.end, data.planStart, data.planEnd)} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className="stage-summary-energy"><b>{stage.energy}</b><small>能量</small></span><i aria-hidden="true">⌄</i></button>
           {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body"><button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input data-stage-title className="stage-title-input" aria-label={`第${index + 1}项名称`} aria-invalid={titleInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="done" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title || `第${index + 1}项`}开始时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title || `第${index + 1}项`}结束时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta"><button className={`effort-pill effort-${stage.kind === "rest" ? "rest" : stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]} · 调整</button><label className="task-energy"><span><b>共同商量能量</b><strong>{stage.energy} 点</strong></span><input className="task-energy-range branded-range" type="range" min="1" max="5" step="1" value={stage.energy} aria-label={`${stage.title}完成后的家庭能量`} aria-valuetext={`${stage.energy}点家庭能量`} style={{ "--range-progress": `${(stage.energy - 1) * 25}%` } as CSSProperties} onChange={e => updateStage(stage.id, { energy: Number(e.target.value) })} /><span className="task-energy-scale" aria-hidden="true">{[1,2,3,4,5].map(value => <i key={value}>{value}</i>)}</span></label></div>{issueText && <p id={`stage-issue-${stage.id}`} className="stage-inline-issue" aria-live="polite">{issueText}</p>}</div><div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => removeStage(stage, index)} aria-label={`删除${stage.title}，可撤销`}>×</button></div></div>}
         </div>; })}</div>
         <button className="add-node-button" onClick={addStage} aria-label="增加一个时间节点"><span>＋</span><strong>增加一个节点</strong></button>
@@ -1042,26 +1097,26 @@ export function StartApp() {
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
-        <Header back={() => go("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
-        <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); setShowAllIcons(false); go("plan"); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
+        <Header back={() => back("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
+        <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); setShowAllIcons(false); back("plan"); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
         <button className="icon-library-toggle" aria-expanded={showAllIcons} onClick={() => setShowAllIcons(value => !value)}>{showAllIcons ? "收起到常用图标" : `显示全部 ${ICON_LIBRARY.length} 个图标`}</button>
       </div>}
 
       {screen === "effort" && <div className="screen effort-screen">
-        <Header back={() => go("plan")} />
+        <Header back={() => back("plan")} />
         <span className="eyebrow">先确定它是投入，还是恢复</span><h1>这段时间更像什么？</h1>
         <div className="current-task-card"><AppIcon name={editingStage?.icon ?? "pencil"} /><div><strong>{editingStage?.title}</strong><small>同一件事在不同晚上，也可以有不同感觉</small></div></div>
         <div className="stage-kind-picker" role="group" aria-label="节点类型"><button aria-pressed={editingStage?.kind === "task"} className={editingStage?.kind === "task" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "task" })}><AppIcon name="pencil" /><span><strong>要做的事</strong><small>需要投入一点注意力</small></span></button><button aria-pressed={editingStage?.kind === "rest"} className={editingStage?.kind === "rest" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "rest", effort: 1 })}><AppIcon name="quiet" /><span><strong>休息放松</strong><small>让身体和情绪恢复</small></span></button></div>
         {editingStage?.kind === "task" ? <><h2 className="detail-heading">今天需要多少力气？</h2><div className="effort-options">{([1,2,3] as Effort[]).map(level => { const copy = { 1: ["一小步", "我可以先自己试试"], 2: ["需要专注", "请帮我把第一步说清楚"], 3: ["今天比较费力", "先缩小任务或多休息"] }[level]; const selected = editingStage?.effort === level; return <button key={level} aria-pressed={selected} className={selected ? `selected effort-${level}` : `effort-${level}`} onClick={() => updateStage(editingStageId, { effort: level })}><span className="effort-leaves">{Array.from({ length: level }).map((_, i) => <i key={i} />)}</span><span><strong>{copy[0]}</strong><small>{copy[1]}</small></span><b>{selected ? "✓" : "○"}</b></button>; })}</div></> : <div className="rest-duration"><span>这次准备休息多久？</span><div>{[5,10,15].map(minutes => { const selected = durationMinutes(editingStage?.start ?? "00:00", editingStage?.end ?? "00:00") === minutes; return <button key={minutes} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => editingStage && updateStage(editingStageId, { end: addMinutes(editingStage.start, minutes) })}>{minutes}分钟</button>; })}</div><small>先约定时长，到点再一起看看下一步，不用突然打断。</small></div>}
         <div className="support-suggestion"><Mascot mood="support" compact /><div><small>今晚建议</small><strong>{editingStage?.kind === "rest" ? "休息也算照顾计划的一部分" : (editingStage?.effort ?? 1) === 3 ? "先休息10分钟，再缩小第一步" : "从第一小步开始，卡住时再求助"}</strong><p>{editingStage?.kind === "rest" ? "休息不会被当作偷懒，也不需要用屏幕填满。" : "用力程度不会改变奖励，也不会给孩子打分。"}</p></div></div>
-        <button className="primary-button" onClick={() => go("plan")}>保存到时间表</button>
+        <button className="primary-button" onClick={() => back("plan")}>保存到时间表</button>
       </div>}
 
       {screen === "confirm" && <div className="screen confirm-screen">
-        <Header back={() => go("plan")} title="共同确认" step="2/3" />
+        <Header back={() => back("plan")} title="共同确认" step="2/3" />
         <div className="confirm-hero"><div><span className="eyebrow">先确认今晚，再确认彼此</span><h1>这份安排，<br />我们都可以调整</h1></div><Mascot mood="confirm" compact /></div>
         <div className="summary-strip"><span><strong>{stages[0]?.start}</strong><small>计划开始</small></span><span><strong>{tonightStageCount}</strong><small>个阶段</small></span><span><strong>{draftEnergy}</strong><small>点能量</small></span></div>
-        <div className="first-stage-confirm"><AppIcon name={stages[0]?.icon ?? "custom"} /><span><small>先从最容易开始的一步</small><strong>{stages[0]?.title}</strong><em>{stages[0]?.start}—{stages[0]?.end} · 完成 +{stages[0]?.energy} 能量</em></span><button onClick={() => go("plan")}>修改</button></div>
+        <div className="first-stage-confirm"><AppIcon name={stages[0]?.icon ?? "custom"} /><span><small>先从最容易开始的一步</small><strong>{stages[0]?.title}</strong><em>{formatPlanClock(stages[0]?.start ?? "", data.planStart, data.planEnd)}—{formatPlanClock(stages[0]?.end ?? "", data.planStart, data.planEnd)} · 完成 +{stages[0]?.energy} 能量</em></span><button onClick={() => back("plan")}>修改</button></div>
         <div className="family-agreement"><div><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>先给第一步留出空间</small></span></div><div><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>卡住时可以主动说</small></span></div></div>
         <div className="privacy-note">时间表不是命令。中途换顺序、休息或移到明天，都不算失败。</div><div className="confirm-action-dock"><button className="primary-button" onClick={enterDualStart}>两个人一起点亮开始</button><small>下一步只需要两个人各点一下自己的名字</small></div>
       </div>}
@@ -1077,17 +1132,17 @@ export function StartApp() {
       {screen === "running" && <div className="screen running-screen">
         <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
         {stageDue && <span className="sr-only" role="status">{activeStage.title}预计到时间了，可以完成、继续或调整。</span>}
-        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
+        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {formatPlanClock(activeStage.start, data.planStart, data.planEnd)}—{formatPlanClock(activeStage.end, data.planStart, data.planEnd)}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
         <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
-        <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
-        <details className="timeline-disclosure"><summary><span><small>今晚进度 · 最晚 {data.planEnd} 收尾</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div></details>
+        <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{formatPlanClock(nextPendingStage.start, data.planStart, data.planEnd)}</time>}</div>
+        <details className="timeline-disclosure"><summary><span><small>今晚进度 · 最晚 {formatPlanClock(data.planEnd, data.planStart, data.planEnd)} 收尾</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : formatPlanClock(stage.start, data.planStart, data.planEnd)}</small></div>)}</div></details>
         <div className={`running-action-dock ${stageDue ? "due-action-dock" : ""}`}>{stageDue ? <><div className="due-choice-copy"><strong>到时间只是提醒，不代表必须完成</strong><small>现在更适合哪一步，就选哪一步</small></div><button className="primary-button" onClick={stageFinished}>已经完成这一段</button><div className="due-quick-actions"><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? "再继续 10 分钟" : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>更多调整</button></> : <><button className="primary-button" onClick={stageFinished}>提前完成这一阶段</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></>}</div>
       </div>}
 
       {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
         <div className="transition-hero"><div><span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}告一段落` : `${activeStage.title}预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p></div><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} compact /></div></div>
         <div className="transition-result"><AppIcon name={activeStage.icon} /><span><small>{transitionReason === "completed" ? "已经记下" : "当前阶段"}</small><strong>{activeStage.title}</strong><em>{transitionReason === "completed" ? `+${activeStage.energy} 家庭能量` : canStartRest ? "完成、继续或休息都可以" : "结束、延长或调整都可以"}</em></span></div>
-        <div className="transition-next"><span><small>接下来</small><strong>{nextPendingStage ? nextPendingStage.title : "今晚温和收尾"}</strong></span>{nextPendingStage && <time>{nextPendingStage.start}</time>}</div>
+        <div className="transition-next"><span><small>接下来</small><strong>{nextPendingStage ? nextPendingStage.title : "今晚温和收尾"}</strong></span>{nextPendingStage && <time>{formatPlanClock(nextPendingStage.start, data.planStart, data.planEnd)}</time>}</div>
         <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? `进入${nextPendingStage?.title ?? "下一阶段"}` : "进入今晚收尾"}</button><div><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? (transitionReason === "completed" ? "还想继续 10 分钟" : "再继续 10 分钟") : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>调整今晚计划</button></div>
         <div className="privacy-note">{transitionReason === "completed" ? "提前完成不是必须；按自己的节奏走，也可以停下来调整。" : "只提醒这一次，不会连续催促。"}</div>
       </div>}
@@ -1124,7 +1179,7 @@ export function StartApp() {
       </div>}
 
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
-        <Header back={() => go("energy")} title="家庭期待" step="一起商量" />
+        <Header back={() => back("energy")} title="家庭期待" step="一起商量" />
         <div className="reward-setup-hero"><div><span className="eyebrow">不是奖品清单</span><h1>想一起度过怎样的时光？</h1><p>先选家庭时光，再共同商量积累节奏。</p></div><Mascot mood="support" compact /></div>
         <section className="reward-step"><div className="reward-step-heading"><b>1</b><span><strong>先选想一起做的事</strong><small>优先选择陪伴和共同体验</small></span></div><div className="reward-idea-grid">{REWARD_IDEAS.map(idea => <button type="button" key={idea.label} aria-pressed={rewardDraft.title === idea.title} className={rewardDraft.title === idea.title ? "selected" : ""} onClick={() => setRewardDraft({ ...rewardDraft, icon: idea.icon, title: idea.title })}><AppIcon name={idea.icon} /><span><strong>{idea.label}</strong><small>{idea.title}</small></span></button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>也可以写下你们自己的想法</span><small>{rewardDraft.title.length}/24</small></span><input name="reward-title" aria-label="家庭期待" value={rewardDraft.title} placeholder="例如：周末一起去公园" maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="done" onChange={e => setRewardDraft({ ...rewardDraft, title: e.target.value })} /></label></section>
         <section className="reward-step"><div className="reward-step-heading"><b>2</b><span><strong>商量什么时候一起实现</strong><small>这是共同约定，不是限时任务</small></span></div><div className="reward-date-chips">{REWARD_DATE_IDEAS.map(date => <button type="button" key={date} aria-pressed={rewardDraft.date === date} className={rewardDraft.date === date ? "selected" : ""} onClick={() => setRewardDraft({ ...rewardDraft, date })}>{date}</button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>或自己写一个时间</span><small>{rewardDraft.date.length}/16</small></span><input name="reward-date" aria-label="期待实现时间" value={rewardDraft.date} placeholder="例如：下周六下午" maxLength={16} autoComplete="off" spellCheck={false} enterKeyHint="done" onChange={e => setRewardDraft({ ...rewardDraft, date: e.target.value })} /></label></section>
@@ -1175,7 +1230,7 @@ export function StartApp() {
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 
-      {screen === "risk" && <div className="screen risk-screen"><Header back={() => go("settings")} /><span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p><div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div><div className="next-actions"><h2>接下来可以</h2><button onClick={() => setToast("今晚流程已暂停")}>1　先暂停今晚流程</button><button onClick={() => setToast("建议记录事实后联系老师")}>2　联系学校老师</button><button onClick={() => setToast("请选择正规医疗机构")}>3　寻找正规医疗机构</button></div><div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div></div>}
+      {screen === "risk" && <div className="screen risk-screen"><Header back={() => back("settings")} /><span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p><div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div><div className="next-actions"><h2>接下来可以</h2><button onClick={() => setToast("今晚流程已暂停")}>1　先暂停今晚流程</button><button onClick={() => setToast("建议记录事实后联系老师")}>2　联系学校老师</button><button onClick={() => setToast("请选择正规医疗机构")}>3　寻找正规医疗机构</button></div><div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div></div>}
 
       {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} />}
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
