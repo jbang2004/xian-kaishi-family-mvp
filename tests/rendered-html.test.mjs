@@ -128,6 +128,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /planStageIssueIds/);
   assert.match(app, /scrollIntoView\(\{ block: "center"/);
   assert.match(styles, /\.stage-editor\.is-expanded/);
+  assert.match(styles, /\.screen h1\[tabindex="-1"\]:focus \{ outline: none; \}/);
+  assert.match(styles, /@media \(pointer: coarse\)/);
+  assert.match(styles, /\.phone-shell button \{ min-height: 44px; \}/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(styles, /transition-duration: \.001ms !important/);
+  assert.match(app, /也会跟随系统设置/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
