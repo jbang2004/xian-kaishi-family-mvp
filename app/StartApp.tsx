@@ -29,6 +29,7 @@ type Stage = {
 type RewardGoal = {
   threshold: number;
   title: string;
+  icon: "game" | "book" | "move";
   date: string;
   participants: string[];
   redeemed: boolean;
@@ -47,7 +48,7 @@ type SessionRecord = {
   promptReflection: PromptReflection | null;
 };
 
-type RewardHistory = { id: string; title: string; threshold: number; redeemedAt: string };
+type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"; threshold: number; redeemedAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
@@ -86,7 +87,7 @@ const DEFAULT_DATA: AppData = {
   energy: 0,
   sound: true,
   reducedMotion: false,
-  rewardGoal: { threshold: 30, title: "周末一起玩桌游", date: "周六", participants: ["妈妈", "小橙"], redeemed: false },
+  rewardGoal: { threshold: 30, title: "周末一起玩桌游", icon: "game", date: "周六", participants: ["妈妈", "小橙"], redeemed: false },
   rewardHistory: [],
   sessions: [],
 };
@@ -183,7 +184,9 @@ function normalizeData(value: unknown): AppData {
   const old = value as Record<string, unknown>;
   const childAlias = String(old.childAlias ?? old.alias ?? DEFAULT_DATA.childAlias).slice(0, 12);
   const guardianAlias = String(old.guardianAlias ?? DEFAULT_DATA.guardianAlias).slice(0, 12);
-  const goal = old.rewardGoal && typeof old.rewardGoal === "object" ? old.rewardGoal as RewardGoal : DEFAULT_DATA.rewardGoal;
+  const goal = old.rewardGoal && typeof old.rewardGoal === "object" ? old.rewardGoal as Partial<RewardGoal> : DEFAULT_DATA.rewardGoal;
+  const goalIcon: RewardGoal["icon"] = goal.icon === "book" || goal.icon === "move" || goal.icon === "game" ? goal.icon : String(goal.title).includes("故事") ? "book" : String(goal.title).includes("散步") ? "move" : "game";
+  const goalThreshold = Math.max(10, Math.min(100, Math.round(Number(goal.threshold) || DEFAULT_DATA.rewardGoal.threshold)));
   const sessions = Array.isArray(old.sessions) ? old.sessions.map((item, index) => {
     const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
     const legacyTasks = Array.isArray(record.tasks) ? record.tasks.length : 0;
@@ -199,11 +202,16 @@ function normalizeData(value: unknown): AppData {
   return {
     consent: Boolean(old.consent ?? DEFAULT_DATA.consent), childAlias, guardianAlias,
     planningMode: old.planningMode === "adult" || old.planningMode === "child" || old.planningMode === "together" ? old.planningMode : DEFAULT_DATA.planningMode,
-    arrival: String(old.arrival ?? DEFAULT_DATA.arrival), planStart: String(old.planStart ?? DEFAULT_DATA.planStart), planEnd: String(old.planEnd ?? DEFAULT_DATA.planEnd), energy: Number(old.energy ?? DEFAULT_DATA.energy),
+    arrival: String(old.arrival ?? DEFAULT_DATA.arrival), planStart: String(old.planStart ?? DEFAULT_DATA.planStart), planEnd: String(old.planEnd ?? DEFAULT_DATA.planEnd), energy: Math.max(0, Number(old.energy ?? DEFAULT_DATA.energy) || 0),
     sound: typeof old.sound === "boolean" ? old.sound : DEFAULT_DATA.sound,
     reducedMotion: typeof old.reducedMotion === "boolean" ? old.reducedMotion : DEFAULT_DATA.reducedMotion,
-    rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, participants: [guardianAlias, childAlias] },
-    rewardHistory: Array.isArray(old.rewardHistory) ? old.rewardHistory as RewardHistory[] : [], sessions,
+    rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, threshold: goalThreshold, icon: goalIcon, title: String(goal.title || DEFAULT_DATA.rewardGoal.title).slice(0, 24), date: String(goal.date || DEFAULT_DATA.rewardGoal.date).slice(0, 16), participants: [guardianAlias, childAlias], redeemed: Boolean(goal.redeemed) },
+    rewardHistory: Array.isArray(old.rewardHistory) ? old.rewardHistory.flatMap((item, index) => {
+      if (!item || typeof item !== "object") return [];
+      const record = item as Partial<RewardHistory>;
+      const icon: RewardHistory["icon"] = record.icon === "book" || record.icon === "move" || record.icon === "game" ? record.icon : "game";
+      return [{ id: String(record.id || `reward-${index}`), title: String(record.title || "家庭期待").slice(0, 24), icon, threshold: Math.max(0, Number(record.threshold) || 0), redeemedAt: String(record.redeemedAt || new Date().toISOString()) }];
+    }) : [], sessions,
   };
 }
 
@@ -246,6 +254,8 @@ export function StartApp() {
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
+  const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
+  const [redeemArmed, setRedeemArmed] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<ReminderPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
   const [backgroundReminder, setBackgroundReminder] = useState(() => typeof window !== "undefined" && localStorage.getItem(REMINDER_PREF_KEY) === "true");
   const dueReminderPlayed = useRef(false);
@@ -270,6 +280,10 @@ export function StartApp() {
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
   const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
   const openAdjust = () => { setAdjustChoice("extend"); go("adjust"); };
+  const openRewardSetup = () => {
+    const next = data.rewardGoal.redeemed ? { ...data.rewardGoal, title: "", icon: "game" as const, threshold: 20, redeemed: false } : { ...data.rewardGoal };
+    setRewardDraft(next); go("reward-setup");
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -597,12 +611,19 @@ export function StartApp() {
 
   const redeemReward = () => {
     const redeemedAt = new Date().toISOString();
-    const history: RewardHistory = { id: createId("reward"), title: data.rewardGoal.title, threshold: data.rewardGoal.threshold, redeemedAt };
+    const history: RewardHistory = { id: createId("reward"), title: data.rewardGoal.title, icon: data.rewardGoal.icon, threshold: data.rewardGoal.threshold, redeemedAt };
     const next: AppData = {
       ...data, energy: 0, rewardHistory: [history, ...data.rewardHistory].slice(0, 60),
-      rewardGoal: { threshold: 20, title: "新的家庭期待", date: "周六", participants: [data.guardianAlias, data.childAlias], redeemed: true },
+      rewardGoal: { threshold: 20, title: "新的家庭期待", icon: "game", date: "周六", participants: [data.guardianAlias, data.childAlias], redeemed: true },
     };
-    persist(next, "已经记录，家庭能量从0重新积累"); go("energy");
+    setRedeemArmed(false); persist(next, "已经记录，家庭能量从0重新积累"); go("energy");
+  };
+
+  const saveRewardDraft = () => {
+    const title = rewardDraft.title.trim(); const date = rewardDraft.date.trim();
+    if (!title || !date) { setToast("先一起写下期待和计划兑现时间"); return; }
+    const nextGoal: RewardGoal = { ...rewardDraft, title, date, participants: [data.guardianAlias, data.childAlias], redeemed: false };
+    persist({ ...data, rewardGoal: nextGoal }, "家庭期待已保存"); go("energy");
   };
 
   const exportData = () => {
@@ -622,6 +643,8 @@ export function StartApp() {
   const effortCopy = { 1: "一小步", 2: "需要专注", 3: "今天比较费力" } as const;
   const promptReflectionCopy: Record<PromptReflection, string> = { less: "催促感少一些", same: "和往常差不多", more: "催促感多一些" };
   const progress = Math.max(0, data.rewardGoal.threshold - data.energy);
+  const rewardMinimumThreshold = Math.max(10, Math.ceil((data.energy + 1) / 5) * 5);
+  const rewardDraftValid = Boolean(rewardDraft.title.trim() && rewardDraft.date.trim());
   const goalReady = !data.rewardGoal.redeemed && progress === 0;
   const hasDeferredStages = stages.some(item => item.status === "tomorrow");
   const monthStart = calendarCursor;
@@ -791,33 +814,33 @@ export function StartApp() {
       {screen === "energy" && <div className="screen with-nav energy-screen">
         <Header title="家庭能量房间" /><div className="room-scene"><img className="room-art" src="/assets/energy-room-v2.png" alt="温暖的家庭学习角" /><div className="room-light" /><Mascot mood={goalReady ? "celebrate" : "ready"} /></div>
         <div className="energy-panel"><span className="eyebrow">共同积累，不给孩子打分</span><h1>{data.energy} 点家庭能量</h1><div className="energy-bar"><i style={{ width: `${Math.min(100, data.energy / data.rewardGoal.threshold * 100)}%` }} /></div></div>
-        <div className="goal-card"><AppIcon name="game" /><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><p>{data.rewardGoal.redeemed ? "已经一起兑现，可以开始新的家庭期待" : progress ? `还差${progress}点，一起积累，不用赶` : "已经点亮，可以一起兑现"}</p></div></div>
-        {data.rewardGoal.redeemed ? <button className="secondary-button" onClick={() => go("reward-setup")}>设置新的家庭期待</button> : progress ? <button className="secondary-button" onClick={() => go("reward-setup")}>调整家庭期待</button> : <button className="primary-button" onClick={() => go("reward-achieved")}>查看达成图</button>}
-        <div className="gentle-note">能量不会清零、倒扣或过期，也不会因为暂停而减少。</div>
+        <div className="goal-card"><AppIcon name={data.rewardGoal.icon} /><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><p>{data.rewardGoal.redeemed ? "已经一起兑现，可以开始新的家庭期待" : progress ? `还差${progress}点，一起积累，不用赶` : "已经点亮，可以一起兑现"}</p></div></div>
+        {data.rewardGoal.redeemed ? <button className="secondary-button" onClick={openRewardSetup}>设置新的家庭期待</button> : progress ? <button className="secondary-button" onClick={openRewardSetup}>调整家庭期待</button> : <button className="primary-button" onClick={() => { setRedeemArmed(false); go("reward-achieved"); }}>查看达成图</button>}
+        <div className="gentle-note">未完成或暂停不会倒扣、过期；一起兑现期待后，能量会从0重新积累。</div>
       </div>}
 
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
         <Header back={() => go("energy")} /><span className="eyebrow">一起定义值得期待的家庭时光</span><h1>一起定一个家庭期待</h1>
-        <div className="threshold-card"><small>达到多少能量</small><div><button onClick={() => setData({ ...data, rewardGoal: { ...data.rewardGoal, threshold: Math.max(data.energy + 1, data.rewardGoal.threshold - 5) } })}>−</button><strong>{data.rewardGoal.threshold}</strong><button onClick={() => setData({ ...data, rewardGoal: { ...data.rewardGoal, threshold: data.rewardGoal.threshold + 5 } })}>＋</button></div></div>
-        <label className="reward-input">实现这个期待：做什么<input value={data.rewardGoal.title} maxLength={24} onChange={e => setData({ ...data, rewardGoal: { ...data.rewardGoal, title: e.target.value } })} /></label>
-        <div className="reward-row">{[["game","家庭游戏","周末一起玩桌游"],["book","选择故事","一起选睡前故事"],["move","一起散步","周末一起散步"]].map(([icon,label,title]) => <button key={label} aria-pressed={data.rewardGoal.title === title} className={data.rewardGoal.title === title ? "selected" : ""} onClick={() => setData({ ...data, rewardGoal: { ...data.rewardGoal, title } })}><AppIcon name={icon} /><small>{label}</small></button>)}</div>
-        <label className="reward-input">计划兑现<input value={data.rewardGoal.date} onChange={e => setData({ ...data, rewardGoal: { ...data.rewardGoal, date: e.target.value } })} /></label>
+        <div className="threshold-card"><small>达到多少能量</small><div><button aria-label="减少5点目标能量" disabled={rewardDraft.threshold <= rewardMinimumThreshold} onClick={() => setRewardDraft({ ...rewardDraft, threshold: Math.max(rewardMinimumThreshold, rewardDraft.threshold - 5) })}>−</button><strong>{rewardDraft.threshold}</strong><button aria-label="增加5点目标能量" disabled={rewardDraft.threshold >= 100} onClick={() => setRewardDraft({ ...rewardDraft, threshold: Math.min(100, rewardDraft.threshold + 5) })}>＋</button></div><p>当前已有{data.energy}点，新门槛会高于已积累能量。</p></div>
+        <label className="reward-input">实现这个期待：做什么<input value={rewardDraft.title} placeholder="例如：周末一起去公园" maxLength={24} onChange={e => setRewardDraft({ ...rewardDraft, title: e.target.value })} /></label>
+        <div className="reward-row">{[["game","家庭游戏","周末一起玩桌游"],["book","选择故事","一起选睡前故事"],["move","一起散步","周末一起散步"]].map(([icon,label,title]) => <button key={label} aria-pressed={rewardDraft.icon === icon} className={rewardDraft.icon === icon ? "selected" : ""} onClick={() => setRewardDraft({ ...rewardDraft, icon: icon as RewardGoal["icon"], title })}><AppIcon name={icon} /><small>{label}</small></button>)}</div>
+        <label className="reward-input">计划兑现<input value={rewardDraft.date} placeholder="例如：周六下午" maxLength={16} onChange={e => setRewardDraft({ ...rewardDraft, date: e.target.value })} /></label>
         <div className="participant-row"><span>谁会一起参与</span><strong>{data.guardianAlias}　✓</strong><strong>{data.childAlias}　✓</strong></div><div className="gentle-note">不建议设置现金、充值或高价商品。优先选择可以一起完成的家庭活动。</div>
-        <button className="primary-button" onClick={() => { persist({ ...data, rewardGoal: { ...data.rewardGoal, participants: [data.guardianAlias, data.childAlias], redeemed: false } }, "家庭期待已保存"); go("energy"); }}>保存家庭期待</button>
+        <div className="reward-save-dock"><button className="primary-button" disabled={!rewardDraftValid} onClick={saveRewardDraft}>保存家庭期待</button><small>{rewardDraftValid ? "只有点保存后才会替换现在的期待" : "先写下期待和计划兑现时间"}</small></div>
       </div>}
 
       {screen === "reward-achieved" && <div className="screen achievement-screen">
         <span className="eyebrow">家庭期待已点亮</span><h1>你们一起积累到了</h1><div className="achievement-energy"><strong>{data.rewardGoal.threshold}</strong><span>点家庭能量</span></div>
-        <div className="achievement-art"><img src="/assets/energy-room-v2.png" alt="点亮的家庭房间" /><Mascot mood="celebrate" /><AppIcon name="game" /></div>
-        <div className="achievement-card"><AppIcon name="game" /><div><strong>{data.rewardGoal.title}</strong><p>这是一起兑现的家庭时光</p></div></div>
-        <button className="primary-button" onClick={redeemReward}>记录兑换并开始新的期待</button><button className="secondary-button" onClick={() => { setToast(`已计划到${data.rewardGoal.date}`); go("energy"); }}>计划到{data.rewardGoal.date}</button><p className="microcopy">记录兑换后能量归零，完成的期待会出现在日历里。</p>
+        <div className="achievement-art"><img src="/assets/energy-room-v2.png" alt="点亮的家庭房间" /><Mascot mood="celebrate" /><AppIcon name={data.rewardGoal.icon} /></div>
+        <div className="achievement-card"><AppIcon name={data.rewardGoal.icon} /><div><strong>{data.rewardGoal.title}</strong><p>这是一起兑现的家庭时光</p></div></div>
+        {!redeemArmed ? <button className="primary-button" onClick={() => setRedeemArmed(true)}>准备记录兑换</button> : <div className="redeem-confirm" role="alert"><strong>已经一起兑现了吗？</strong><p>确认后会记入日历，家庭能量从0开始新的期待。</p><button className="primary-button" onClick={redeemReward}>确认已兑现，能量归零</button><button className="text-button" onClick={() => setRedeemArmed(false)}>先不记录</button></div>}<button className="secondary-button" onClick={() => { setToast(`已计划到${data.rewardGoal.date}`); go("energy"); }}>计划到{data.rewardGoal.date}</button><p className="microcopy">只有确认已经兑现后才会归零；完成的期待会留在日历里。</p>
       </div>}
 
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
-        <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
-        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{item.completedCount ? "完成晚间流程" : "今晚已温和收尾"}</strong><small>{item.completedCount}个完成阶段 · 获得{item.energyEarned}点能量{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name="game" /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
+          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{item.completedCount ? "完成晚间流程" : "今晚已温和收尾"}</strong><small>{item.completedCount}个完成阶段 · 获得{item.energyEarned}点能量{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name={item.icon} /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}
       </div>}
 
