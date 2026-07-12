@@ -134,6 +134,10 @@ p { line-height: 1.65; }
 .draft-saved { color: #4a8069; background: var(--sage-soft); border-radius: 99px; padding: 5px 7px; font-size: 9px; font-weight: 900; }
 .live-session-panel { display: grid; gap: 8px; }
 .live-resume-card { width: 100%; min-height: 104px; border: 1.5px solid rgba(117,184,155,.55); border-radius: 24px; background: linear-gradient(135deg, #edf7ef, #fffaf0); padding: 15px; display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 12px; text-align: left; color: var(--navy); cursor: pointer; box-shadow: 0 12px 28px rgba(83,125,100,.12); }
+.live-session-panel[data-state="completed"] .live-resume-card { border-color: rgba(117,184,155,.72); background: linear-gradient(135deg, #e8f6ed, #fff9e8); }
+.live-session-panel[data-state="due"] .live-resume-card { border-color: rgba(104,149,185,.55); background: linear-gradient(135deg, #edf4fb, #fffaf0); }
+.live-session-panel[data-state="adjust"] .live-resume-card { border-color: rgba(245,184,75,.58); background: linear-gradient(135deg, #fff5d9, #fffdf8); }
+.live-session-panel[data-state="wrap"] .live-resume-card { border-color: rgba(245,184,75,.55); background: linear-gradient(135deg, #fff2c9, #f2f8ef); }
 .live-resume-card small, .live-resume-card strong, .live-resume-card em { display: block; }
 .live-resume-card small { color: #4a8069; font-size: 10px; margin-bottom: 5px; }
 .live-resume-card strong { font-size: 17px; }
@@ -141,7 +145,10 @@ p { line-height: 1.65; }
 .live-resume-card b { color: #397259; font-size: 12px; white-space: nowrap; }
 .live-pulse { width: 50px; height: 50px; border-radius: 17px; display: grid; place-items: center; background: rgba(255,255,255,.86); box-shadow: 0 0 0 0 rgba(117,184,155,.2); animation: live-soft-pulse 2.8s ease-in-out infinite; }
 .live-pulse .app-icon { width: 44px; height: 44px; }
+.live-session-panel:not([data-state="running"]) .live-pulse { animation: live-state-arrive .38s cubic-bezier(.2,.85,.25,1.12) both; }
+.live-session-panel[data-state="due"] .live-pulse { animation: live-soft-pulse 2.8s ease-in-out infinite; }
 @keyframes live-soft-pulse { 50% { box-shadow: 0 0 0 8px rgba(117,184,155,.08); transform: translateY(-1px); } }
+@keyframes live-state-arrive { from { opacity: .4; transform: scale(.82) rotate(-4deg); } to { opacity: 1; transform: none; } }
 .soft-end-button { justify-self: center; border: 0; background: transparent; color: #587365; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; }
 .insight-card { display: grid; grid-template-columns: 50px 1fr auto; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 16px; margin-top: 14px; border: 1px solid var(--border); color: var(--navy); cursor: default; }
 button.insight-card { cursor: pointer; }
