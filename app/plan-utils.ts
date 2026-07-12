@@ -58,6 +58,7 @@ export function insertRestBreak<T extends TimedSessionItem>(
   remainingMinutes: number,
   restMinutes = 10,
   dueResumeMinutes = 10,
+  planEndTime?: string,
 ) {
   const current = items[activeIndex];
   if (!current) return { items, restIndex: -1, planEnd: nowTime, resumedMinutes: 0 };
@@ -68,23 +69,28 @@ export function insertRestBreak<T extends TimedSessionItem>(
   const restEnd = addMinutes(nowTime, restMinutes);
   const rest = { ...restItem, start: nowTime, end: restEnd, status: "active" };
   const withRest = [...items.slice(0, restIndex), rest, ...items.slice(restIndex)];
+  const lastTonightItem = [...items].reverse().find(item => item.status !== "tomorrow");
+  const trailingBuffer = planEndTime && lastTonightItem ? durationMinutes(lastTonightItem.end, planEndTime) : 0;
   let cursor = restEnd;
 
   const nextItems = withRest.map((item, index) => {
     if (index <= restIndex || item.status === "tomorrow") return item;
     const isResumedCurrent = !currentIsDone && index === restIndex + 1;
     const minutes = isResumedCurrent ? resumedMinutes : Math.max(1, durationMinutes(item.start, item.end));
+    const previousOriginal = withRest[index - 1];
+    const preservedGap = isResumedCurrent || previousOriginal.status === "tomorrow" ? 0 : Math.max(0, timeToMinutes(item.start) - timeToMinutes(previousOriginal.end));
+    const start = addMinutes(cursor, preservedGap);
     const next = {
       ...item,
-      start: cursor,
-      end: addMinutes(cursor, minutes),
+      start,
+      end: addMinutes(start, minutes),
       status: isResumedCurrent ? "pending" : item.status,
     };
     cursor = next.end;
     return next;
   });
 
-  return { items: nextItems, restIndex, planEnd: cursor, resumedMinutes };
+  return { items: nextItems, restIndex, planEnd: addMinutes(cursor, trailingBuffer), resumedMinutes };
 }
 
 export function analyzePlan(planStart: string, planEnd: string, items: TimedPlanItem[]) {

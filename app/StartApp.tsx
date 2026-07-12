@@ -734,6 +734,9 @@ export function StartApp() {
       { id: createId("rest"), title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
       clockTimeFromDate(new Date(startedAt)),
       Math.ceil(remainingSeconds / 60),
+      10,
+      10,
+      data.planEnd,
     );
     setStages(result.items); setData(current => ({ ...current, planEnd: result.planEnd }));
     setActiveIndex(result.restIndex); setActiveEndsAt(startedAt + 10 * 60_000); setClockNow(startedAt); setStageDue(false); dueReminderPlayed.current = false;
@@ -907,6 +910,9 @@ export function StartApp() {
     { id: "rest-preview", title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
     startNowLabel,
     Math.ceil(remainingSeconds / 60),
+    10,
+    10,
+    data.planEnd,
   );
   const startsAtPlannedTime = startNowLabel === (stages[0]?.start ?? data.planStart);
   const completedStageCount = stages.filter(item => item.status === "done").length;

@@ -300,11 +300,11 @@ test("inserts a live rest break from now and resumes only the unfinished time", 
     { title: "数学", start: "19:00", end: "19:30", status: "active" },
     { title: "阅读", start: "19:30", end: "20:00", status: "pending" },
     { title: "整理", start: "20:00", end: "20:10", status: "pending" },
-  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:12", 18);
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:12", 18, 10, 10, "20:30");
 
   assert.equal(result.restIndex, 0);
   assert.equal(result.resumedMinutes, 18);
-  assert.equal(result.planEnd, "20:20");
+  assert.equal(result.planEnd, "20:40");
   assert.deepEqual(result.items.map(item => [item.title, item.start, item.end, item.status]), [
     ["安静休息", "19:12", "19:22", "active"],
     ["数学", "19:22", "19:40", "pending"],
@@ -324,6 +324,22 @@ test("gives a due stage a small follow-up window after resting", () => {
     ["19:31", "19:41"], ["19:41", "19:51"], ["19:51", "20:21"],
   ]);
   assert.equal(result.planEnd, "20:21");
+});
+
+test("preserves planned gaps and the trailing buffer after a live rest", () => {
+  const result = insertRestBreak([
+    { title: "数学", start: "19:00", end: "19:30", status: "active" },
+    { title: "阅读", start: "19:40", end: "20:00", status: "pending" },
+    { title: "整理", start: "20:10", end: "20:20", status: "pending" },
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:10", 20, 10, 10, "20:30");
+
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end]), [
+    ["安静休息", "19:10", "19:20"],
+    ["数学", "19:20", "19:40"],
+    ["阅读", "19:50", "20:10"],
+    ["整理", "20:20", "20:30"],
+  ]);
+  assert.equal(result.planEnd, "20:40");
 });
 
 test("rests after a completed stage without reviving it", () => {
