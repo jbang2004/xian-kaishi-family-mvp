@@ -7,7 +7,7 @@ import { addMinutes, analyzePlan, durationMinutes } from "./plan-utils";
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PlanningMode = "adult" | "together" | "child";
-type Screen = "welcome" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
+type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 
 type Stage = {
@@ -75,7 +75,7 @@ const DEFAULT_DATA: AppData = {
   arrival: "17:30",
   planStart: "18:10",
   planEnd: "20:30",
-  energy: 18,
+  energy: 0,
   sound: true,
   reducedMotion: false,
   rewardGoal: { threshold: 30, title: "周末一起玩桌游", date: "周六", participants: ["妈妈", "小橙"], redeemed: false },
@@ -211,6 +211,7 @@ export function StartApp() {
   const [clearPlanArmed, setClearPlanArmed] = useState(false);
   const [liveSessionAvailable, setLiveSessionAvailable] = useState(false);
   const [liveResumeScreen, setLiveResumeScreen] = useState<LiveScreen>("running");
+  const [privacyReturn, setPrivacyReturn] = useState<"welcome" | "settings">("welcome");
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
@@ -220,6 +221,8 @@ export function StartApp() {
     setScreen(next);
     phoneShellRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
+
+  const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -298,9 +301,11 @@ export function StartApp() {
   }, [toast]);
 
   const persist = (next: AppData, message?: string) => {
+    const activeFamilyId = familyId || createId("family");
+    if (!familyId) { localStorage.setItem("xian-kaishi-family-id", activeFamilyId); setFamilyId(activeFamilyId); }
     setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSyncLabel("正在保存…");
     if (message) setToast(message);
-    if (familyId) fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(next) })
+    fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(next) })
       .then(r => r.json()).then(result => setSyncLabel(result.localOnly ? "仅保存在本机" : "云端已同步")).catch(() => setSyncLabel("仅保存在本机"));
   };
 
@@ -316,7 +321,7 @@ export function StartApp() {
 
   const finishProfile = () => {
     const next = { ...data, consent: true, rewardGoal: { ...data.rewardGoal, participants: [data.guardianAlias, data.childAlias] } };
-    persist(next, "家庭称呼已保存"); playTone("confirm"); go("home");
+    setPlanHydrated(true); persist(next, "家庭称呼已保存"); playTone("confirm"); go("home");
   };
 
   const addStage = () => {
@@ -452,14 +457,16 @@ export function StartApp() {
   };
 
   const exportData = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data }, null, 2)], { type: "application/json" }));
+    const planDraft: PlanDraft = { updatedAt: draftUpdatedAt || new Date().toISOString(), planStart: data.planStart, planEnd: data.planEnd, stages: stages.map(item => ({ ...item, status: "pending" })) };
+    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { updatedAt: new Date().toISOString(), screen: liveResumeScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue } : null;
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data, planDraft, activeSession }, null, 2)], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
   };
 
   const deleteData = async () => {
     if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
     if (familyId) await fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "DELETE" }).catch(() => null);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setLiveSessionAvailable(false); go("welcome");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem("xian-kaishi-family-id"); setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setLiveSessionAvailable(false); go("welcome");
   };
 
   const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
@@ -495,8 +502,22 @@ export function StartApp() {
         <h1>今晚，一起商量再开始</h1><p className="lead">安排时间、共同启动、需要时随时调整。孩子只短暂看屏幕。</p>
         <Mascot />
         <div className="privacy-card"><strong>先把家庭数据放在安全边界内</strong><div className="privacy-points"><span>不读取社交平台</span><span>不录音监控</span><span>不收集年级学校</span></div></div>
-        <label className="consent-row"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><span>我已阅读并同意监护人授权与儿童隐私说明</span></label>
+        <div className="consent-row"><input id="guardian-consent" type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><label htmlFor="guardian-consent">我已阅读并同意监护人授权与儿童隐私说明</label><button type="button" onClick={() => openPrivacy("welcome")}>查看说明</button></div>
         <button className="primary-button" disabled={!consent} onClick={() => go("profile")}>继续设置</button>
+      </div>}
+
+      {screen === "privacy" && <div className="screen privacy-screen">
+        <Header back={() => go(privacyReturn)} title="隐私与数据说明" />
+        <div className="title-with-mascot"><div><span className="eyebrow">监护人先看清楚，再决定是否使用</span><h1>哪些数据保存在哪里？</h1></div><Mascot mood="support" compact /></div>
+        <p className="lead">我们只保留完成核心流程需要的信息，不收集孩子真实姓名、年级、学校、精确位置、通讯录、人脸、声音或持续行为监控数据。</p>
+        <div className="privacy-storage-list">
+          <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；进行中状态超过18小时会自动失效。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与兑换记录</strong><p>通过随机家庭 ID 关联，不使用手机号、真实姓名或 OpenAI 登录身份作为家庭账号。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
+        </div>
+        <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
+        <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={deleteData}>删除数据</button></div>}</div>
+        <button className="primary-button" onClick={() => go(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
 
       {screen === "profile" && <div className="screen">
@@ -628,7 +649,7 @@ export function StartApp() {
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => go("profile")}>修改家庭设置 <span>›</span></button></div>
         <div className="settings-group"><h2>体验偏好</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
-        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteData}>删除孩子全部数据 <span>›</span></button></div>
+        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteData}>删除孩子全部数据 <span>›</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 

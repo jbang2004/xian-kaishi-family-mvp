@@ -21,6 +21,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /今晚草稿 · 仅保存在这台设备/);
   assert.match(app, /今晚等待温和收尾/);
   assert.match(app, /愿意一起停下来调整/);
+  assert.match(app, /哪些数据保存在哪里/);
+  assert.match(app, /随机家庭 ID 不是正式账号鉴权/);
+  assert.match(app, /family: data, planDraft, activeSession/);
+  assert.match(app, /energy: 0,/);
+  assert.match(app, /setPlanHydrated\(false\).*setFamilyId\(""\)/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
