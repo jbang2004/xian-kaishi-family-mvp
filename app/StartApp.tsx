@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PlanningMode = "adult" | "together" | "child";
-type Screen = "welcome" | "profile" | "home" | "plan" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
+type Screen = "welcome" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
 
 type Stage = {
   id: string;
@@ -15,6 +15,7 @@ type Stage = {
   start: string;
   end: string;
   effort: Effort;
+  energy: number;
   status: StageStatus;
   kind: "task" | "rest";
 };
@@ -35,7 +36,11 @@ type SessionRecord = {
   adjustments: number;
   childEnergy: number;
   guardianEnergy: number;
+  energyEarned: number;
+  stageTitles: string[];
 };
+
+type RewardHistory = { id: string; title: string; threshold: number; redeemedAt: string };
 
 type AppData = {
   consent: boolean;
@@ -43,10 +48,13 @@ type AppData = {
   guardianAlias: string;
   planningMode: PlanningMode;
   arrival: string;
+  planStart: string;
+  planEnd: string;
   energy: number;
   sound: boolean;
   reducedMotion: boolean;
   rewardGoal: RewardGoal;
+  rewardHistory: RewardHistory[];
   sessions: SessionRecord[];
 };
 
@@ -58,24 +66,30 @@ const DEFAULT_DATA: AppData = {
   guardianAlias: "妈妈",
   planningMode: "together",
   arrival: "17:30",
+  planStart: "18:10",
+  planEnd: "20:30",
   energy: 18,
   sound: true,
   reducedMotion: false,
   rewardGoal: { threshold: 30, title: "周末一起玩桌游", date: "周六", participants: ["妈妈", "小橙"], redeemed: false },
+  rewardHistory: [],
   sessions: [],
 };
 
 const DEFAULT_STAGES: Stage[] = [
-  { id: "snack", title: "吃点东西", icon: "snack", start: "18:10", end: "18:30", effort: 1, status: "pending", kind: "rest" },
-  { id: "math", title: "数学练习", icon: "chart", start: "18:30", end: "19:00", effort: 2, status: "pending", kind: "task" },
-  { id: "move", title: "活动一下", icon: "move", start: "19:00", end: "19:10", effort: 1, status: "pending", kind: "rest" },
-  { id: "reading", title: "阅读", icon: "book", start: "19:10", end: "19:35", effort: 1, status: "pending", kind: "task" },
-  { id: "bag", title: "整理书包", icon: "backpack", start: "19:35", end: "19:45", effort: 1, status: "pending", kind: "task" },
+  { id: "snack", title: "吃点东西", icon: "snack", start: "18:10", end: "18:30", effort: 1, energy: 1, status: "pending", kind: "rest" },
+  { id: "math", title: "数学练习", icon: "chart", start: "18:30", end: "19:00", effort: 2, energy: 3, status: "pending", kind: "task" },
+  { id: "move", title: "活动一下", icon: "move", start: "19:00", end: "19:10", effort: 1, energy: 1, status: "pending", kind: "rest" },
+  { id: "reading", title: "阅读", icon: "book", start: "19:10", end: "19:35", effort: 1, energy: 2, status: "pending", kind: "task" },
+  { id: "bag", title: "整理书包", icon: "backpack", start: "19:35", end: "19:45", effort: 1, energy: 1, status: "pending", kind: "task" },
 ];
 
-const STAGE_TEMPLATES = [
-  ["book", "阅读", "task"], ["chart", "数学练习", "task"], ["pencil", "书写练习", "task"],
-  ["backpack", "整理书包", "task"], ["speech", "朗读背诵", "task"], ["quiet", "安静休息", "rest"],
+const ICON_LIBRARY = [
+  ["custom","自定义"],["book","阅读"],["chinese","语文"],["english","英语"],["abacus","口算"],["science","科学"],["handwriting","书写"],["recite","朗读"],
+  ["art","绘画"],["piano","钢琴"],["violin","小提琴"],["craft","手工"],["coding","编程"],["blocks","积木"],["chess","棋类"],["speech","表达"],
+  ["rope","跳绳"],["basketball","篮球"],["badminton","羽毛球"],["move","活动"],["walk","散步"],["eye-rest","眼睛休息"],["quiet","安静休息"],["free-play","自由活动"],
+  ["snack","加餐"],["dinner","晚餐"],["shower","洗澡"],["teeth","刷牙"],["clothes","整理衣物"],["lunchbox","准备餐盒"],["bedtime","睡前"],["alarm","准备出发"],
+  ["backpack","整理书包"],["chores","家务"],["watering","浇水"],["pet","照顾宠物"],["dishes","洗碗"],["family-talk","家庭交流"],["family","亲子一起"],["plant","照顾植物"],
 ] as const;
 
 function createId(prefix: string) {
@@ -111,7 +125,7 @@ function Header({ title, back, step }: { title?: string; back?: () => void; step
 }
 
 function BottomNav({ screen, go }: { screen: Screen; go: (screen: Screen) => void }) {
-  const items: Array<[Screen, string, string]> = [["home", "home-heart", "首页"], ["review", "chart", "复盘"], ["energy", "plant", "能量"], ["settings", "privacy", "设置"]];
+  const items: Array<[Screen, string, string]> = [["home", "home-heart", "首页"], ["review", "chart", "日历"], ["energy", "plant", "能量"], ["settings", "privacy", "设置"]];
   return <nav className="bottom-nav" aria-label="主导航">{items.map(([id, icon, label]) => <button key={id} className={screen === id ? "active" : ""} onClick={() => go(id)}><AppIcon name={icon} /><small>{label}</small></button>)}</nav>;
 }
 
@@ -128,15 +142,18 @@ function normalizeData(value: unknown): AppData {
       id: String(record.id ?? `legacy-${index}`), date: String(record.date ?? new Date().toISOString()),
       stageCount: Number(record.stageCount ?? legacyTasks), completedCount: Number(record.completedCount ?? legacyTasks),
       adjustments: Number(record.adjustments ?? 0), childEnergy: Number(record.childEnergy ?? 0), guardianEnergy: Number(record.guardianEnergy ?? record.parentEnergy ?? 0),
+      energyEarned: Number(record.energyEarned ?? (Number(record.childEnergy ?? 0) + Number(record.guardianEnergy ?? record.parentEnergy ?? 0))),
+      stageTitles: Array.isArray(record.stageTitles) ? record.stageTitles.map(String) : Array.isArray(record.tasks) ? record.tasks.map(String) : [],
     } satisfies SessionRecord;
   }) : [];
   return {
     consent: Boolean(old.consent ?? DEFAULT_DATA.consent), childAlias, guardianAlias,
     planningMode: old.planningMode === "adult" || old.planningMode === "child" || old.planningMode === "together" ? old.planningMode : DEFAULT_DATA.planningMode,
-    arrival: String(old.arrival ?? DEFAULT_DATA.arrival), energy: Number(old.energy ?? DEFAULT_DATA.energy),
+    arrival: String(old.arrival ?? DEFAULT_DATA.arrival), planStart: String(old.planStart ?? DEFAULT_DATA.planStart), planEnd: String(old.planEnd ?? DEFAULT_DATA.planEnd), energy: Number(old.energy ?? DEFAULT_DATA.energy),
     sound: typeof old.sound === "boolean" ? old.sound : DEFAULT_DATA.sound,
     reducedMotion: typeof old.reducedMotion === "boolean" ? old.reducedMotion : DEFAULT_DATA.reducedMotion,
-    rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, participants: [guardianAlias, childAlias] }, sessions,
+    rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, participants: [guardianAlias, childAlias] },
+    rewardHistory: Array.isArray(old.rewardHistory) ? old.rewardHistory as RewardHistory[] : [], sessions,
   };
 }
 
@@ -146,13 +163,14 @@ export function StartApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [consent, setConsent] = useState(false);
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
-  const [customTitle, setCustomTitle] = useState("");
   const [editingStageId, setEditingStageId] = useState(DEFAULT_STAGES[1].id);
   const [activeIndex, setActiveIndex] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
   const [adjustChoice, setAdjustChoice] = useState<"extend" | "rest" | "swap" | "tomorrow">("extend");
   const [guardianConfirmed, setGuardianConfirmed] = useState(false);
   const [childConfirmed, setChildConfirmed] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
 
@@ -206,11 +224,11 @@ export function StartApp() {
     persist(next, "家庭称呼已保存"); playTone("confirm"); go("home");
   };
 
-  const addStage = (icon = "pencil", title?: string, kind: Stage["kind"] = "task") => {
-    const lastEnd = stages.at(-1)?.end ?? "18:10";
-    const name = title || customTitle.trim() || "新事项";
-    setStages(items => [...items, { id: createId("stage"), title: name, icon, start: lastEnd, end: addMinutes(lastEnd, kind === "rest" ? 10 : 20), effort: 1, status: "pending", kind }]);
-    setCustomTitle("");
+  const addStage = () => {
+    const lastEnd = stages.at(-1)?.end ?? data.planStart;
+    const id = createId("stage");
+    setStages(items => [...items, { id, title: "新事项", icon: "custom", start: lastEnd, end: addMinutes(lastEnd, 20), effort: 1, energy: 1, status: "pending", kind: "task" }]);
+    setEditingStageId(id);
   };
 
   const updateStage = (id: string, patch: Partial<Stage>) => setStages(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
@@ -254,7 +272,7 @@ export function StartApp() {
 
   const insertRest = (startNow = false) => {
     const start = activeStage.end;
-    const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, status: startNow ? "active" : "pending", kind: "rest" };
+    const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, energy: 1, status: startNow ? "active" : "pending", kind: "rest" };
     setStages(items => [...items.slice(0, activeIndex + 1), rest, ...items.slice(activeIndex + 1)]);
     if (startNow) setActiveIndex(activeIndex + 1);
     setAdjustments(value => value + 1); setToast(startNow ? "现在先休息10分钟" : "已在下一阶段前加入休息"); go("running");
@@ -275,12 +293,23 @@ export function StartApp() {
 
   const finishNight = () => {
     const completedCount = stages.filter(item => item.status === "done").length;
-    const childEnergy = 2; const guardianEnergy = 2; const adjustmentEnergy = adjustments ? 1 : 0;
+    const childEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
+    const guardianEnergy = 2; const adjustmentEnergy = adjustments ? 1 : 0;
     const nextEnergy = data.energy + childEnergy + guardianEnergy + adjustmentEnergy;
-    const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, childEnergy, guardianEnergy };
+    const record: SessionRecord = { id: createId("session"), date: new Date().toISOString(), stageCount: stages.length, completedCount, adjustments, childEnergy, guardianEnergy, energyEarned: childEnergy + guardianEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title) };
     const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
     persist(next, "今晚已经温和收尾"); playTone("complete");
     if (!next.rewardGoal.redeemed && nextEnergy >= next.rewardGoal.threshold) go("reward-achieved"); else go("home");
+  };
+
+  const redeemReward = () => {
+    const redeemedAt = new Date().toISOString();
+    const history: RewardHistory = { id: createId("reward"), title: data.rewardGoal.title, threshold: data.rewardGoal.threshold, redeemedAt };
+    const next: AppData = {
+      ...data, energy: 0, rewardHistory: [history, ...data.rewardHistory].slice(0, 60),
+      rewardGoal: { threshold: 20, title: "新的家庭期待", date: "周六", participants: [data.guardianAlias, data.childAlias], redeemed: true },
+    };
+    persist(next, "已经记录，家庭能量从0重新积累"); go("energy");
   };
 
   const metrics = useMemo(() => {
@@ -304,6 +333,16 @@ export function StartApp() {
   const effortCopy = { 1: "一小步", 2: "需要专注", 3: "今天比较费力" } as const;
   const progress = Math.max(0, data.rewardGoal.threshold - data.energy);
   const goalReady = !data.rewardGoal.redeemed && progress === 0;
+  const monthStart = calendarCursor;
+  const calendarYear = monthStart.getFullYear(); const calendarMonth = monthStart.getMonth();
+  const firstWeekday = monthStart.getDay(); const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const dateKey = (date: string | Date) => new Date(date).toLocaleDateString("en-CA");
+  const selectedSessions = data.sessions.filter(item => dateKey(item.date) === selectedDay);
+  const selectedRewards = data.rewardHistory.filter(item => dateKey(item.redeemedAt) === selectedDay);
+  const shiftMonth = (delta: number) => {
+    const next = new Date(calendarYear, calendarMonth + delta, 1);
+    setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA"));
+  };
 
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
@@ -338,14 +377,18 @@ export function StartApp() {
 
       {screen === "plan" && <div className="screen plan-screen">
         <Header back={() => go("home")} title="一起安排今晚" step="1/3" />
-        <div className="availability-card"><AppIcon name="moon" /><div><small>今晚可用时间</small><strong>{stages[0]?.start ?? "18:10"}—{stages.at(-1)?.end ?? "20:30"}</strong></div><Mascot compact /></div>
+        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData({ ...data, planStart: e.target.value })} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData({ ...data, planEnd: e.target.value })} /></div></div><Mascot compact /></div>
         <div className="plan-list">{stages.map((stage, index) => <div className={`stage-editor ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
-          <AppIcon name={stage.icon} /><div className="stage-main"><input className="stage-title-input" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title}开始时间`} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title}结束时间`} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div>{stage.kind === "task" && <button className={`effort-pill effort-${stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{effortCopy[stage.effort]} · 调整</button>}</div>
+          <button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input className="stage-title-input" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title}开始时间`} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title}结束时间`} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta">{stage.kind === "task" && <button className={`effort-pill effort-${stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{effortCopy[stage.effort]} · 调整</button>}<span className="task-energy"><b>能量 {stage.energy}</b>{[1,2,3,4,5].map(value => <button key={value} className={value <= stage.energy ? "filled" : ""} onClick={() => updateStage(stage.id, { energy: value })} aria-label={`${stage.title}设置${value}点能量`} />)}</span></div></div>
           <div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => setStages(items => items.filter(item => item.id !== stage.id))} aria-label={`删除${stage.title}`}>×</button></div>
         </div>)}</div>
-        <div className="add-stage"><input placeholder="写下新的事项" value={customTitle} onChange={e => setCustomTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && addStage()} /><button onClick={() => addStage()} disabled={!customTitle.trim()}>添加</button></div>
-        <div className="template-row">{STAGE_TEMPLATES.map(([icon,title,kind]) => <button key={title} onClick={() => addStage(icon,title,kind)}><AppIcon name={icon} />{title}</button>)}</div>
+        <button className="add-node-button" onClick={addStage} aria-label="增加一个时间节点"><span>＋</span><strong>增加一个节点</strong></button>
         <div className="gentle-note">今晚安排可以随时调整。先装下真实需要处理的部分。</div><button className="primary-button" disabled={!stages.length} onClick={() => go("confirm")}>下一步：一起确认</button>
+      </div>}
+
+      {screen === "icon-picker" && <div className="screen icon-picker-screen">
+        <Header back={() => go("plan")} title="选择活动图标" /><span className="eyebrow">图标只是帮助快速识别，名称仍然由你们决定</span><h1>这件事看起来像什么？</h1>
+        <div className="icon-library">{ICON_LIBRARY.map(([icon,label]) => <button key={icon} className={stages.find(item => item.id === editingStageId)?.icon === icon ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); go("plan"); }}><AppIcon name={icon} /><small>{label}</small></button>)}</div>
       </div>}
 
       {screen === "effort" && <div className="screen effort-screen">
@@ -373,7 +416,7 @@ export function StartApp() {
 
       {screen === "running" && <div className="screen running-screen">
         <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
-        <div className="active-stage-card"><AppIcon name={activeStage.icon} /><div><small>{activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span></div></div>
+        <div className="active-stage-card"><AppIcon name={activeStage.icon} /><div><small>{activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div></div>
         <div className="calm-space"><strong>手机留在大人手里</strong><p>不记录坐姿、声音、人脸或孩子是否一直在桌前。</p></div>
         <div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div>
         <button className="primary-button" onClick={stageFinished}>这一阶段可以收尾了</button><button className="secondary-button adjust-button" onClick={() => go("adjust")}>调整今晚计划</button>
@@ -397,7 +440,7 @@ export function StartApp() {
       {screen === "wrap" && <div className="screen wrap-screen">
         <Header back={() => go("running")} /><span className="eyebrow">亲子一起 · 30秒</span><h1>今晚，温和收尾</h1><Mascot mood="celebrate" />
         <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>次主动调整</small></div></div>
-        <div className="energy-summary"><strong>今晚看见的积极行为</strong><span>{data.childAlias}：参与选择、卡住可以说 +2</span><span>{data.guardianAlias}：共同商量、没有连续催促 +2</span>{adjustments > 0 && <span>双方：一起调整计划 +1</span>}</div>
+        <div className="energy-summary"><strong>今晚看见的积极行为</strong><span>{data.childAlias}：完成事项获得 {stages.filter(item => item.status === "done").reduce((sum,item) => sum + item.energy, 0)} 点</span><span>{data.guardianAlias}：共同商量、没有连续催促 +2</span>{adjustments > 0 && <span>双方：一起调整计划 +1</span>}</div>
         <p className="lead">没有完成的事项可以留到明天，能量不会被扣掉。</p><button className="primary-button" onClick={finishNight}>结束今晚</button>
       </div>}
 
@@ -423,12 +466,15 @@ export function StartApp() {
         <span className="eyebrow">家庭期待已点亮</span><h1>你们一起积累到了</h1><div className="achievement-energy"><strong>{data.rewardGoal.threshold}</strong><span>点家庭能量</span></div>
         <div className="achievement-art"><img src="/assets/energy-room-v2.png" alt="点亮的家庭房间" /><Mascot mood="celebrate" /><AppIcon name="game" /></div>
         <div className="achievement-card"><AppIcon name="game" /><div><strong>{data.rewardGoal.title}</strong><p>这是一起兑现的家庭时光</p></div></div>
-        <button className="primary-button" onClick={() => { persist({ ...data, rewardGoal: { ...data.rewardGoal, redeemed: true } }, "已经记录为一起兑现"); go("energy"); }}>已经一起兑现</button><button className="secondary-button" onClick={() => { setToast(`已计划到${data.rewardGoal.date}`); go("energy"); }}>计划到{data.rewardGoal.date}</button><p className="microcopy">能量不会因此清零。</p>
+        <button className="primary-button" onClick={redeemReward}>记录兑换并开始新的期待</button><button className="secondary-button" onClick={() => { setToast(`已计划到${data.rewardGoal.date}`); go("energy"); }}>计划到{data.rewardGoal.date}</button><p className="microcopy">记录兑换后能量归零，完成的期待会出现在日历里。</p>
       </div>}
 
       {screen === "review" && <div className="screen with-nav review-screen">
-        <Header title="每周复盘" /><span className="eyebrow">看见规律，不给孩子打分</span><h1>这一周，什么真正有帮助？</h1>
-        {metrics ? <><div className="metric-grid"><div><AppIcon name="moon" /><small>记录晚数</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="check" /><small>完成阶段</small><strong>{metrics.completed}个</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div></div><div className="review-insight"><AppIcon name="plant" /><div><small>本周观察</small><strong>{metrics.adjustments ? "会调整计划，比硬撑着完成更接近真实的自主" : "先一起安排，再离开屏幕，节奏更清楚"}</strong></div></div></> : <div className="empty-review"><Mascot mood="breathe" compact /><strong>完成一个晚间流程后，这里会出现家庭规律</strong><p>不需要追求连续记录。</p></div>}
+        <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
+        <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
+        <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => dateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => dateKey(item.redeemedAt)===key); return <button key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+        <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>完成晚间流程</strong><small>{item.completedCount}个阶段 · 获得{item.energyEarned}点能量</small><p>{item.stageTitles.join("、") || "已完成当晚计划"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name="game" /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
+        {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="check" /><small>完成阶段</small><strong>{metrics.completed}个</strong></div><div><AppIcon name="game" /><small>期待兑换</small><strong>{data.rewardHistory.length}次</strong></div></div>}
         <BottomNav screen={screen} go={go} />
       </div>}
 
