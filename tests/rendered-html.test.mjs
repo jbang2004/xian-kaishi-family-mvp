@@ -6,10 +6,11 @@ import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
-  const [page, layout, app] = await Promise.all([
+  const [page, layout, app, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StartApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(layout, /先开始｜家庭晚间习惯助手/);
   assert.match(page, /<StartApp \/>/);
@@ -75,6 +76,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /icon: data\.rewardGoal\.icon/);
   assert.doesNotMatch(app, /能量不会清零、倒扣或过期/);
+  assert.match(app, /className="stage-summary" aria-expanded=\{expanded\}/);
+  assert.match(app, /className="stage-editor-body"/);
+  assert.match(app, /data-stage-title/);
+  assert.match(app, /planStageIssueIds/);
+  assert.match(app, /scrollIntoView\(\{ block: "center"/);
+  assert.match(styles, /\.stage-editor\.is-expanded/);
+  assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
