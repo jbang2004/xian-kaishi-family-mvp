@@ -8,6 +8,7 @@ import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
+import { cleanShortText } from "../app/text-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
@@ -23,6 +24,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(page, /<StartApp \/>/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
+  assert.match(app, /name="child-alias" aria-label="孩子化名"/);
+  assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
+  assert.match(app, /className="input-label-row"/);
+  assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
+  assert.match(styles, /\.reward-compact-input input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.equal(ASSET_VERSION, "2026-07-13-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
@@ -189,7 +195,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
-  assert.match(app, /shiftTimedPlanToStart\(stages, actualStart\)/);
+  assert.match(app, /const cleanStages = stages\.map/);
+  assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
   assert.match(app, /setTimeout\(startPlan, 1600\)/);
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
   assert.match(app, /这是一份共同约定，不是身份验证/);
@@ -321,6 +328,12 @@ test("keeps reward targets valid after unusually high family energy", () => {
   assert.deepEqual(rewardThresholdBounds(100), { minimum: 105, maximum: 155 });
   assert.deepEqual(rewardThresholdBounds(215), { minimum: 220, maximum: 270 });
   assert.deepEqual(rewardThresholdBounds(Number.NaN), { minimum: 10, maximum: 100 });
+});
+
+test("cleans short family-entered text only at save boundaries", () => {
+  assert.equal(cleanShortText("  小  橙  ", 12), "小 橙");
+  assert.equal(cleanShortText("  阅读二十四个字以内的任务名称  ", 8), "阅读二十四个字以");
+  assert.equal(cleanShortText("   ", 12), "");
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {
