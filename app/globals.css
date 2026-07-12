@@ -331,6 +331,15 @@ button.insight-card { cursor: pointer; }
 .toggle-row input::after { content: ""; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: white; top: 3px; left: 3px; transition: .2s; box-shadow: 0 2px 7px rgba(0,0,0,.16); }
 .toggle-row input:checked { background: var(--sage); }
 .toggle-row input:checked::after { transform: translateX(20px); }
+.toggle-row input:disabled { cursor: not-allowed; opacity: .55; }
+.permission-note { display: grid; grid-template-columns: 38px 1fr; align-items: center; gap: 10px; margin: -1px 0 4px; padding: 11px 12px; border: 1px solid rgba(117,184,155,.22); border-radius: 16px; background: rgba(237,246,239,.64); }
+.permission-note .app-icon { width: 34px; height: 34px; }
+.permission-note strong, .permission-note small { display: block; }
+.permission-note strong { color: #397259; font-size: 11px; }
+.permission-note small { color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 2px; }
+.permission-denied { border-color: rgba(242,140,126,.3); background: rgba(255,241,237,.72); }
+.permission-denied strong { color: #a45c52; }
+.permission-unsupported { border-color: var(--border); background: rgba(246,241,232,.7); }
 .setting-row { font-size: 14px; }
 .setting-row strong { color: #4c8269; }
 .setting-action { width: 100%; border-left: 0; border-right: 0; border-top: 0; background: transparent; font-weight: 800; cursor: pointer; }
