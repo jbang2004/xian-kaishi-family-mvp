@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -85,6 +85,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /title: canStartRest \? "延长当前阶段" : "再休息10分钟"/);
   assert.match(app, /if \(screen !== "adjust"\) return/);
   assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
+  assert.match(app, /!planHydrated \|\| LIVE_SCREENS\.includes\(screen as LiveScreen\)/);
+  assert.match(app, /setStages\(prepareNextRoundPlan\(stages, completedStageTitles\)\)/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
   assert.match(app, /可选，不影响能量，也不评价孩子/);
@@ -345,6 +347,26 @@ test("uses the confirmation moment for whole remaining timer minutes", () => {
 test("never nests an adaptive rest inside an active rest stage", () => {
   assert.equal(canInsertRestBreak("task"), true);
   assert.equal(canInsertRestBreak("rest"), false);
+});
+
+test("keeps only unfinished planned items for another round", () => {
+  const next = prepareNextRoundPlan([
+    { id: "rest-live", title: "安静休息", start: "19:00", end: "19:10", status: "done" },
+    { id: "snack", title: "吃点东西", start: "19:10", end: "19:30", status: "done" },
+    { id: "math", title: "数学练习", start: "19:30", end: "20:00", status: "tomorrow" },
+    { id: "book", title: "阅读", start: "20:00", end: "20:20", status: "pending" },
+  ], ["吃点东西"]);
+
+  assert.deepEqual(next.map(item => [item.id, item.status]), [["math", "pending"], ["book", "pending"]]);
+});
+
+test("does not remove an unfinished duplicate after its completed twin", () => {
+  const next = prepareNextRoundPlan([
+    { id: "math-a", title: "数学练习", start: "19:00", end: "19:20", status: "done" },
+    { id: "math-b", title: "数学练习", start: "19:20", end: "19:40", status: "pending" },
+  ], ["数学练习"]);
+
+  assert.deepEqual(next.map(item => [item.id, item.status]), [["math-b", "pending"]]);
 });
 
 test("preserves planned gaps and the trailing buffer after a live rest", () => {

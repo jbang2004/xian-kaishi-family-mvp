@@ -31,6 +31,20 @@ export function canInsertRestBreak(activeKind: string) {
   return activeKind !== "rest";
 }
 
+export function prepareNextRoundPlan<T extends TimedSessionItem & { id: string }>(items: T[], completedTitles: string[] = []): T[] {
+  const completedCounts = completedTitles.reduce((counts, title) => counts.set(title, (counts.get(title) ?? 0) + 1), new Map<string, number>());
+  return items.flatMap(item => {
+    const recordedCount = completedCounts.get(item.title) ?? 0;
+    if (item.status === "done") {
+      if (recordedCount > 0) completedCounts.set(item.title, recordedCount - 1);
+      return [];
+    }
+    if (item.id.startsWith("rest-")) return [];
+    if (recordedCount > 0) { completedCounts.set(item.title, recordedCount - 1); return []; }
+    return [{ ...item, status: "pending" }];
+  });
+}
+
 export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
   return items.map((item, index) => index < startIndex ? item : {
     ...item,

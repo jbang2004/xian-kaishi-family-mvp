@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
@@ -473,7 +473,7 @@ export function StartApp() {
   }, []);
 
   useEffect(() => {
-    if (!planHydrated) return;
+    if (!planHydrated || LIVE_SCREENS.includes(screen as LiveScreen)) return;
     const timer = window.setTimeout(() => {
       const updatedAt = new Date().toISOString();
       const safeStages = stages.map(item => ({ ...item, status: "pending" as const }));
@@ -481,7 +481,7 @@ export function StartApp() {
       setDraftUpdatedAt(updatedAt);
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [data.planEnd, data.planStart, planHydrated, stages]);
+  }, [data.planEnd, data.planStart, planHydrated, screen, stages]);
 
   useEffect(() => {
     if (!planHydrated || !LIVE_SCREENS.includes(screen as LiveScreen) || !stages.length) return;
@@ -795,12 +795,13 @@ export function StartApp() {
     const nightKey = familyNightKey(liveSessionStartedAt || recordDate);
     const priorNightSessions = data.sessions.filter(item => item.nightKey === nightKey);
     const completedCount = stages.filter(item => item.status === "done").length;
+    const completedStageTitles = stages.filter(item => item.status === "done").map(item => item.title);
     const taskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
     const { cooperationEnergy, adjustmentEnergy } = calculateNightBonus(priorNightSessions, adjustments);
     const nextEnergy = data.energy + taskEnergy + cooperationEnergy + adjustmentEnergy;
-    const record: SessionRecord = { id: createId("session"), date: recordDate, nightKey, stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: stages.filter(item => item.status === "done").map(item => item.title), promptReflection };
+    const record: SessionRecord = { id: createId("session"), date: recordDate, nightKey, stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: completedStageTitles, promptReflection };
     const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
-    setLastSavedSession(record);
+    setLastSavedSession(record); setStages(prepareNextRoundPlan(stages, completedStageTitles));
     localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false); setLiveSessionStartedAt("");
     persist(next, "今晚已经记入家庭日历"); playTone("complete");
     if (!next.rewardGoal.redeemed && !next.rewardGoal.acknowledged && nextEnergy >= next.rewardGoal.threshold) openRewardAchieved(); else go("night-saved");
@@ -970,7 +971,7 @@ export function StartApp() {
     go("review");
   };
   const startAnotherPlan = () => {
-    setStages(items => items.map(item => ({ ...item, status: "pending" })));
+    setStages(items => prepareNextRoundPlan(items, currentNightSummary?.stageTitles ?? []));
     go("plan");
   };
   const toggleWeeklyFocus = () => {
