@@ -28,6 +28,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(app, /loading\?: "eager" \| "lazy"/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
+  assert.match(app, /const COMMON_ICON_NAMES = new Set<string>/);
+  assert.match(app, /showAllIcons \? ICON_LIBRARY/);
+  assert.match(app, /显示全部 \$\{ICON_LIBRARY\.length\} 个图标/);
+  assert.match(styles, /\.icon-library-toggle/);
   assert.match(app, /energy-room-v3\.jpg\?v=\$\{ASSET_VERSION\}/);
   assert.match(app, /fetchPriority="high" alt="温暖的家庭学习角"/);
   assert.match(app, /每阶段只提醒一次/);
