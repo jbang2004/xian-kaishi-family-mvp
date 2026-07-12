@@ -8,6 +8,7 @@ type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PlanningMode = "adult" | "together" | "child";
 type PromptReflection = "less" | "same" | "more";
+type TransitionReason = "completed" | "due";
 type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "energy" | "reward-setup" | "reward-achieved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 
@@ -46,7 +47,7 @@ type SessionRecord = {
 
 type RewardHistory = { id: string; title: string; threshold: number; redeemedAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
-type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null };
+type LiveSessionDraft = { updatedAt: string; screen: LiveScreen; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
   consent: boolean;
@@ -133,6 +134,10 @@ function localDateKey(date: string | Date) {
 
 function normalizePromptReflection(value: unknown): PromptReflection | null {
   return value === "less" || value === "same" || value === "more" ? value : null;
+}
+
+function normalizeTransitionReason(value: unknown, wasDue = false): TransitionReason {
+  return value === "completed" || value === "due" ? value : wasDue ? "due" : "completed";
 }
 
 function formatCountdown(seconds: number) {
@@ -225,6 +230,7 @@ export function StartApp() {
   const [profileReturn, setProfileReturn] = useState<"welcome" | "settings">("welcome");
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
+  const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
@@ -269,7 +275,7 @@ export function StartApp() {
           if (fresh && liveStages.length) {
             setStages(liveStages); setActiveIndex(Math.max(0, Math.min(liveStages.length - 1, Number(live.activeIndex) || 0)));
             setAdjustments(Math.max(0, Number(live.adjustments) || 0)); setActiveEndsAt(Math.max(0, Number(live.activeEndsAt) || 0));
-            setStageDue(Boolean(live.stageDue)); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionAvailable(true);
+            setStageDue(Boolean(live.stageDue)); setTransitionReason(normalizeTransitionReason(live.transitionReason, Boolean(live.stageDue))); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionAvailable(true);
           } else localStorage.removeItem(LIVE_SESSION_KEY);
         } catch { localStorage.removeItem(LIVE_SESSION_KEY); }
       }
@@ -312,8 +318,8 @@ export function StartApp() {
     if (!planHydrated || !LIVE_SCREENS.includes(screen as LiveScreen) || !stages.length) return;
     const updatedAt = new Date().toISOString();
     const liveScreen = screen as LiveScreen;
-    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ updatedAt, screen: liveScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection } satisfies LiveSessionDraft));
-  }, [activeEndsAt, activeIndex, adjustments, planHydrated, promptReflection, screen, stageDue, stages]);
+    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ updatedAt, screen: liveScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } satisfies LiveSessionDraft));
+  }, [activeEndsAt, activeIndex, adjustments, planHydrated, promptReflection, screen, stageDue, stages, transitionReason]);
 
   useEffect(() => {
     if (!toast) return;
@@ -343,6 +349,7 @@ export function StartApp() {
     const ctx = new AudioCtx(); const gain = ctx.createGain(); const osc = ctx.createOscillator();
     osc.type = "sine"; osc.frequency.value = kind === "complete" ? 720 : kind === "transition" ? 540 : 620;
     gain.gain.setValueAtTime(.0001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.055, ctx.currentTime + .02); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .55);
+    osc.addEventListener("ended", () => { void ctx.close(); });
     osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .58);
   };
 
@@ -387,7 +394,7 @@ export function StartApp() {
     setStages(items => items.map((item, index) => ({ ...item, status: index === 0 ? "active" : "pending" })));
     const firstDuration = Math.max(1, durationMinutes(stages[0]?.start ?? data.planStart, stages[0]?.end ?? addMinutes(data.planStart, 1)));
     setActiveEndsAt(Date.now() + firstDuration * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
-    setActiveIndex(0); setAdjustments(0); setPromptReflection(null); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
+    setActiveIndex(0); setAdjustments(0); setPromptReflection(null); setTransitionReason("completed"); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
   };
 
   useEffect(() => {
@@ -400,6 +407,7 @@ export function StartApp() {
 
   const activeStage = stages[activeIndex] ?? stages[0];
   const nextPendingIndex = (from: number) => stages.findIndex((item, index) => index > from && item.status === "pending");
+  const hasNextPending = nextPendingIndex(activeIndex) >= 0;
   const remainingSeconds = activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - clockNow) / 1000)) : 0;
 
   useEffect(() => {
@@ -417,8 +425,9 @@ export function StartApp() {
   }, [screen, activeEndsAt]);
 
   const stageFinished = () => {
+    setTransitionReason(stageDue ? "due" : "completed");
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
-    playTone("transition"); navigator.vibrate?.([25, 35, 25]); go("transition");
+    playTone("confirm"); navigator.vibrate?.([20]); go("transition");
   };
 
   const continueToNext = () => {
@@ -431,8 +440,9 @@ export function StartApp() {
   };
 
   const extendCurrent = () => {
+    const restartFromNow = activeStage.status === "done";
     setStages(items => shiftTimedItemsFrom(items, activeIndex + 1, 10).map((item, index) => index === activeIndex ? { ...item, end: addMinutes(item.end, 10), status: "active" } : item));
-    setActiveEndsAt(value => Math.max(value, Date.now()) + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
+    setActiveEndsAt(value => restartFromNow ? Date.now() + 10 * 60_000 : Math.max(value, Date.now()) + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setAdjustments(value => value + 1); setToast("当前阶段和后续时间都顺延了10分钟"); go("running");
   };
 
@@ -503,7 +513,7 @@ export function StartApp() {
 
   const exportData = () => {
     const planDraft: PlanDraft = { updatedAt: draftUpdatedAt || new Date().toISOString(), planStart: data.planStart, planEnd: data.planEnd, stages: stages.map(item => ({ ...item, status: "pending" })) };
-    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { updatedAt: new Date().toISOString(), screen: liveResumeScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection } : null;
+    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { updatedAt: new Date().toISOString(), screen: liveResumeScreen, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } : null;
     const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data, planDraft, activeSession }, null, 2)], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
   };
@@ -642,10 +652,10 @@ export function StartApp() {
         <button className="primary-button" onClick={stageFinished}>{stageDue ? "完成这一段，看看下一步" : "提前完成这一阶段"}</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button>
       </div>}
 
-      {screen === "transition" && <div className="screen transition-screen">
-        <span className="eyebrow">阶段提醒 · 只提醒一次</span><h1>{activeStage.title}这一段预计到时间了</h1><p className="lead">不用马上切换，看看现在更适合哪一步。</p><div className="transition-art"><AppIcon name="moon" /><Mascot mood="confirm" /></div>
-        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>进入下一阶段</button><button className="secondary-button" onClick={extendCurrent}>再继续10分钟</button><button className="soft-button" onClick={startRestNow}>先休息一下</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button>
-        <div className="privacy-note">页面保持打开时，会有一次柔和声音或震动提醒；不会连续催促。</div>
+      {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
+        <span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}已经告一段落` : `${activeStage.title}这一段预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} /></div>
+        <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? "进入下一阶段" : "进入今晚收尾"}</button><button className="secondary-button" onClick={extendCurrent}>{transitionReason === "completed" ? "还想继续10分钟" : "再继续10分钟"}</button><button className="soft-button" onClick={startRestNow}>先休息一下</button></div><button className="text-button" onClick={openAdjust}>调整今晚计划</button>
+        <div className="privacy-note">{transitionReason === "completed" ? "提前完成不是必须；按自己的节奏走，也可以停下来调整。" : "页面保持打开时，会有一次柔和声音或震动提醒；不会连续催促。"}</div>
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">

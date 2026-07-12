@@ -500,10 +500,14 @@ button.insight-card { cursor: pointer; }
 .adjust-button { margin-top: 10px; }
 
 .transition-screen { text-align: center; padding-top: 52px; }
+.completed-transition { background: radial-gradient(circle at 50% 35%, rgba(117,184,155,.17), transparent 38%); }
+.due-transition { background: radial-gradient(circle at 50% 35%, rgba(104,149,185,.12), transparent 38%); }
 .transition-art { height: 250px; display: grid; place-items: center; position: relative; }
 .transition-art > .app-icon { position: absolute; width: 82px; height: 82px; left: 28px; bottom: 35px; }
+.completed-transition .transition-art > .app-icon { animation: completion-pop .48s cubic-bezier(.2,.9,.25,1.2) both; }
 .transition-art .mascot { width: 220px; height: 220px; margin: 0 0 0 65px; }
 .transition-actions { display: grid; gap: 10px; }
+@keyframes completion-pop { from { opacity: 0; transform: translateY(8px) scale(.7) rotate(-8deg); } to { opacity: 1; transform: none; } }
 .soft-button { width: 100%; min-height: 58px; border: 1px solid var(--border); border-radius: 21px; background: rgba(255,255,255,.75); font-weight: 900; cursor: pointer; }
 
 .adjust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; }
