@@ -507,6 +507,7 @@ button.insight-card { cursor: pointer; }
 .change-preview small { color: var(--muted); }
 
 .wrap-screen { text-align: center; background: radial-gradient(circle at 50% 13%, rgba(245,184,75,.28), transparent 28%); }
+.wrap-resume-button { margin-top: 10px; }
 .wrap-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; }
 .wrap-summary div { border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.78); padding: 14px; }
 .wrap-summary strong, .wrap-summary small { display: block; }
