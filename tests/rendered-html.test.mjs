@@ -15,6 +15,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /监护人授权与儿童隐私说明/);
   assert.match(app, /删除孩子全部数据/);
   assert.match(app, /寻找正规医疗机构/);
+  assert.match(app, /xian-kaishi-plan-draft-v1/);
+  assert.match(app, /休息也算照顾计划的一部分/);
+  assert.match(app, /今晚草稿 · 仅保存在这台设备/);
+  assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
