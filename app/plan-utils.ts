@@ -19,6 +19,25 @@ export function addMinutes(time: string, amount: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
+  return items.map((item, index) => index < startIndex ? item : {
+    ...item,
+    start: addMinutes(item.start, amount),
+    end: addMinutes(item.end, amount),
+  });
+}
+
+export function reflowTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, startTime: string): T[] {
+  let cursor = startTime;
+  return items.map((item, index) => {
+    if (index < startIndex) return item;
+    const minutes = Math.max(1, durationMinutes(item.start, item.end));
+    const next = { ...item, start: cursor, end: addMinutes(cursor, minutes) };
+    cursor = next.end;
+    return next;
+  });
+}
+
 export function analyzePlan(planStart: string, planEnd: string, items: TimedPlanItem[]) {
   const availableMinutes = durationMinutes(planStart, planEnd);
   const scheduledMinutes = items.reduce((sum, item) => sum + durationMinutes(item.start, item.end), 0);
