@@ -48,6 +48,45 @@ export function reflowTimedItemsFrom<T extends TimedPlanItem>(items: T[], startI
   });
 }
 
+export type TimedSessionItem = TimedPlanItem & { status: string };
+
+export function insertRestBreak<T extends TimedSessionItem>(
+  items: T[],
+  activeIndex: number,
+  restItem: T,
+  nowTime: string,
+  remainingMinutes: number,
+  restMinutes = 10,
+  dueResumeMinutes = 10,
+) {
+  const current = items[activeIndex];
+  if (!current) return { items, restIndex: -1, planEnd: nowTime, resumedMinutes: 0 };
+
+  const currentIsDone = current.status === "done";
+  const resumedMinutes = currentIsDone ? 0 : Math.max(1, Math.ceil(remainingMinutes) || dueResumeMinutes);
+  const restIndex = currentIsDone ? activeIndex + 1 : activeIndex;
+  const restEnd = addMinutes(nowTime, restMinutes);
+  const rest = { ...restItem, start: nowTime, end: restEnd, status: "active" };
+  const withRest = [...items.slice(0, restIndex), rest, ...items.slice(restIndex)];
+  let cursor = restEnd;
+
+  const nextItems = withRest.map((item, index) => {
+    if (index <= restIndex || item.status === "tomorrow") return item;
+    const isResumedCurrent = !currentIsDone && index === restIndex + 1;
+    const minutes = isResumedCurrent ? resumedMinutes : Math.max(1, durationMinutes(item.start, item.end));
+    const next = {
+      ...item,
+      start: cursor,
+      end: addMinutes(cursor, minutes),
+      status: isResumedCurrent ? "pending" : item.status,
+    };
+    cursor = next.end;
+    return next;
+  });
+
+  return { items: nextItems, restIndex, planEnd: cursor, resumedMinutes };
+}
+
 export function analyzePlan(planStart: string, planEnd: string, items: TimedPlanItem[]) {
   const availableMinutes = durationMinutes(planStart, planEnd);
   const scheduledMinutes = items.reduce((sum, item) => sum + durationMinutes(item.start, item.end), 0);

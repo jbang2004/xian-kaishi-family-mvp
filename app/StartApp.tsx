@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
@@ -727,17 +727,17 @@ export function StartApp() {
   };
 
   const startRestNow = () => {
-    const insertAt = activeStage.status === "done" ? activeIndex + 1 : activeIndex;
-    const start = activeStage.status === "done" ? activeStage.end : activeStage.start;
-    const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, energy: 1, status: "active", kind: "rest" };
-    setStages(items => {
-      const shifted = shiftTimedItemsFrom(items, insertAt, 10).map((item, index) => index === activeIndex && item.status === "active" ? { ...item, status: "pending" as const } : item);
-      return [...shifted.slice(0, insertAt), rest, ...shifted.slice(insertAt)];
-    });
-    const nextPlanEnd = addMinutes(data.planEnd, 10);
-    setData(current => ({ ...current, planEnd: addMinutes(current.planEnd, 10) }));
-    setActiveIndex(insertAt); setActiveEndsAt(Date.now() + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
-    setAdjustments(value => value + 1); setToast(`现在休息10分钟，预计${nextPlanEnd}收尾`); go("running");
+    const startedAt = Date.now();
+    const result = insertRestBreak(
+      stages,
+      activeIndex,
+      { id: createId("rest"), title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
+      clockTimeFromDate(new Date(startedAt)),
+      Math.ceil(remainingSeconds / 60),
+    );
+    setStages(result.items); setData(current => ({ ...current, planEnd: result.planEnd }));
+    setActiveIndex(result.restIndex); setActiveEndsAt(startedAt + 10 * 60_000); setClockNow(startedAt); setStageDue(false); dueReminderPlayed.current = false;
+    setAdjustments(value => value + 1); setToast(`现在休息10分钟，预计${result.planEnd}收尾`); go("running");
   };
 
   const applyAdjustment = () => {
@@ -878,10 +878,16 @@ export function StartApp() {
   const currentWeekFocus = data.weeklyFocus?.weekKey === weekStartKey ? data.weeklyFocus : null;
   const planAnalysis = analyzePlan(data.planStart, data.planEnd, stages);
   const { availableMinutes, scheduledMinutes, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
-  const planStageIssueIds = new Set(stages.flatMap((stage, index) => {
+  const stageIssueById = new Map<string, string>(stages.flatMap((stage, index): Array<[string, string]> => {
     const previous = stages[index - 1];
-    return !stage.title.trim() || durationMinutes(stage.start, stage.end) <= 0 || stage.start < data.planStart || stage.end > data.planEnd || Boolean(previous && stage.start < previous.end) ? [stage.id] : [];
+    const issues: string[] = [];
+    if (!stage.title.trim()) issues.push("先写下这件事的名称");
+    if (durationMinutes(stage.start, stage.end) <= 0) issues.push("结束时间要晚于开始时间");
+    if (stage.start < data.planStart || stage.end > data.planEnd) issues.push("时间要放在今晚可用范围内");
+    if (previous && stage.start < previous.end) issues.push("开始时间与上一项重叠");
+    return issues.length ? [[stage.id, issues.join("；")]] : [];
   }));
+  const planStageIssueIds = new Set(stageIssueById.keys());
   const draftEnergy = stages.reduce((sum, item) => sum + item.energy, 0);
   const activeSettlementNightKey = familyNightKey(liveSessionStartedAt || new Date());
   const priorSettlementSessions = data.sessions.filter(item => item.nightKey === activeSettlementNightKey);
@@ -895,6 +901,13 @@ export function StartApp() {
   const selectedIconEntry = ICON_LIBRARY.find(([icon]) => icon === editingStage?.icon);
   const visibleIconLibrary = showAllIcons ? ICON_LIBRARY : selectedIconEntry && !COMMON_ICON_NAMES.has(selectedIconEntry[0]) ? [selectedIconEntry, ...commonIconLibrary] : commonIconLibrary;
   const startNowLabel = clockTimeFromDate(new Date(clockNow));
+  const restPlanPreview = insertRestBreak(
+    stages,
+    activeIndex,
+    { id: "rest-preview", title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 1, status: "active", kind: "rest" },
+    startNowLabel,
+    Math.ceil(remainingSeconds / 60),
+  );
   const startsAtPlannedTime = startNowLabel === (stages[0]?.start ?? data.planStart);
   const completedStageCount = stages.filter(item => item.status === "done").length;
   const tonightStageCount = stages.filter(item => item.status !== "tomorrow").length;
@@ -985,9 +998,9 @@ export function StartApp() {
         <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData({ ...data, planStart: e.target.value })} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData({ ...data, planEnd: e.target.value })} /></div></div><Mascot compact /></div>
         <div className={`plan-balance ${planHasErrors ? "has-error" : ""}`} role="status"><div><span>{planHasErrors ? "先调整一下时间" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "从空白开始"}</button>}</div>
-        <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <div className="empty-plan"><Mascot mood="breathe" compact /><strong>今晚还没有节点</strong><span>先加一件最容易开始的小事就好</span></div>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${hasIssue ? "has-stage-issue" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
+        <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <div className="empty-plan"><Mascot mood="breathe" compact /><strong>今晚还没有节点</strong><span>先加一件最容易开始的小事就好</span></div>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = !stage.title.trim(); const timeInvalid = durationMinutes(stage.start, stage.end) <= 0 || stage.start < data.planStart || stage.end > data.planEnd || Boolean(index > 0 && stage.start < stages[index - 1].end); return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${hasIssue ? "has-stage-issue" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
           <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stage.title || "未命名事项"}`} onClick={() => setEditingStageId(expanded ? "" : stage.id)}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stage.title.trim() || "未命名事项"}</strong><small>{hasIssue ? "需要调整这一项" : `${stage.start}—${stage.end} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className="stage-summary-energy"><b>{stage.energy}</b><small>能量</small></span><i aria-hidden="true">⌄</i></button>
-          {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body"><button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input data-stage-title className="stage-title-input" aria-label={`第${index + 1}项名称`} maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="done" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title}开始时间`} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title}结束时间`} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta"><button className={`effort-pill effort-${stage.kind === "rest" ? "rest" : stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]} · 调整</button><label className="task-energy"><span><b>共同商量能量</b><strong>{stage.energy} 点</strong></span><input className="task-energy-range branded-range" type="range" min="1" max="5" step="1" value={stage.energy} aria-label={`${stage.title}完成后的家庭能量`} aria-valuetext={`${stage.energy}点家庭能量`} style={{ "--range-progress": `${(stage.energy - 1) * 25}%` } as CSSProperties} onChange={e => updateStage(stage.id, { energy: Number(e.target.value) })} /><span className="task-energy-scale" aria-hidden="true">{[1,2,3,4,5].map(value => <i key={value}>{value}</i>)}</span></label></div></div><div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => removeStage(stage, index)} aria-label={`删除${stage.title}，可撤销`}>×</button></div></div>}
+          {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body"><button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input data-stage-title className="stage-title-input" aria-label={`第${index + 1}项名称`} aria-invalid={titleInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="done" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title || `第${index + 1}项`}开始时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title || `第${index + 1}项`}结束时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta"><button className={`effort-pill effort-${stage.kind === "rest" ? "rest" : stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]} · 调整</button><label className="task-energy"><span><b>共同商量能量</b><strong>{stage.energy} 点</strong></span><input className="task-energy-range branded-range" type="range" min="1" max="5" step="1" value={stage.energy} aria-label={`${stage.title}完成后的家庭能量`} aria-valuetext={`${stage.energy}点家庭能量`} style={{ "--range-progress": `${(stage.energy - 1) * 25}%` } as CSSProperties} onChange={e => updateStage(stage.id, { energy: Number(e.target.value) })} /><span className="task-energy-scale" aria-hidden="true">{[1,2,3,4,5].map(value => <i key={value}>{value}</i>)}</span></label></div>{issueText && <p id={`stage-issue-${stage.id}`} className="stage-inline-issue" aria-live="polite">{issueText}</p>}</div><div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => removeStage(stage, index)} aria-label={`删除${stage.title}，可撤销`}>×</button></div></div>}
         </div>; })}</div>
         <button className="add-node-button" onClick={addStage} aria-label="增加一个时间节点"><span>＋</span><strong>增加一个节点</strong></button>
         <div className="gentle-note">今晚安排可以随时调整。留一点空白，比把时间装满更容易开始。</div><button className="primary-button" disabled={!stages.length || planHasErrors} onClick={() => go("confirm")}>{planHasErrors ? "先调整标出的时间" : "下一步：一起确认"}</button>
@@ -1050,7 +1063,7 @@ export function StartApp() {
           ["extend", "steps", "延长当前阶段", "后续时间顺延10分钟"], ["rest", "quiet", "现在休息10分钟", "原事项随后继续"], ["swap", "speech", "调换后两项", "时间会自动重排"], ["tomorrow", "moon", "下一项移到明天", "保留已经完成的进展"],
           ["finish", "home-heart", "今晚先到这里", "保留进展，温和收尾"],
         ] as const).map(([id,icon,title,copy]) => <button key={id} aria-pressed={adjustChoice === id} className={`${adjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "rest" ? `先休息10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
+        <div className="change-preview"><small>本次调整预览</small><strong>{adjustChoice === "extend" ? `${activeStage.title}延长10分钟，预计${addMinutes(data.planEnd, 10)}收尾` : adjustChoice === "rest" ? `从现在休息10分钟，之后只继续剩余时长，预计${restPlanPreview.planEnd}收尾` : adjustChoice === "swap" ? "调换后两项，并重新排好时间" : adjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
         <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{adjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
       </div>}
 

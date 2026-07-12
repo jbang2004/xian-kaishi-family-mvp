@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, insertRestBreak, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -26,8 +26,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
   assert.match(app, /name="child-alias" aria-label="孩子化名"/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
+  assert.match(app, /aria-invalid=\{titleInvalid\}/);
+  assert.match(app, /className="stage-inline-issue" aria-live="polite"/);
   assert.match(app, /className="input-label-row"/);
   assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
+  assert.match(styles, /\.window-inputs input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.match(styles, /\.reward-compact-input input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.equal(ASSET_VERSION, "2026-07-13-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
@@ -73,11 +76,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
   assert.match(app, /className="transition-result"/);
-  assert.match(app, /现在休息10分钟，预计\$\{nextPlanEnd\}收尾/);
-  assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: addMinutes\(current\.planEnd, 10\) \}\)\)/);
+  assert.match(app, /现在休息10分钟，预计\$\{result\.planEnd\}收尾/);
+  assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
   assert.match(app, /预计\$\{nextPlanEnd\}收尾/);
   assert.match(app, /今晚进度 · 预计 \{data\.planEnd\} 收尾/);
-  assert.match(app, /预计\$\{addMinutes\(data\.planEnd, 10\)\}收尾/);
+  assert.match(app, /之后只继续剩余时长/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
   assert.match(app, /可选，不影响能量，也不评价孩子/);
@@ -290,6 +293,53 @@ test("calculates stage durations and automatic time shifts", () => {
   ], "20:00");
   assert.deepEqual(shiftedToNow.map(item => [item.start, item.end]), [["20:00", "20:20"], ["20:30", "20:50"]]);
   assert.equal(clockTimeFromDate(new Date(2026, 0, 1, 20, 5)), "20:05");
+});
+
+test("inserts a live rest break from now and resumes only the unfinished time", () => {
+  const result = insertRestBreak([
+    { title: "数学", start: "19:00", end: "19:30", status: "active" },
+    { title: "阅读", start: "19:30", end: "20:00", status: "pending" },
+    { title: "整理", start: "20:00", end: "20:10", status: "pending" },
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:12", 18);
+
+  assert.equal(result.restIndex, 0);
+  assert.equal(result.resumedMinutes, 18);
+  assert.equal(result.planEnd, "20:20");
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end, item.status]), [
+    ["安静休息", "19:12", "19:22", "active"],
+    ["数学", "19:22", "19:40", "pending"],
+    ["阅读", "19:40", "20:10", "pending"],
+    ["整理", "20:10", "20:20", "pending"],
+  ]);
+});
+
+test("gives a due stage a small follow-up window after resting", () => {
+  const result = insertRestBreak([
+    { title: "数学", start: "19:00", end: "19:30", status: "active" },
+    { title: "阅读", start: "19:30", end: "20:00", status: "pending" },
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:31", 0);
+
+  assert.equal(result.resumedMinutes, 10);
+  assert.deepEqual(result.items.map(item => [item.start, item.end]), [
+    ["19:31", "19:41"], ["19:41", "19:51"], ["19:51", "20:21"],
+  ]);
+  assert.equal(result.planEnd, "20:21");
+});
+
+test("rests after a completed stage without reviving it", () => {
+  const result = insertRestBreak([
+    { title: "数学", start: "19:00", end: "19:20", status: "done" },
+    { title: "阅读", start: "19:20", end: "19:50", status: "pending" },
+  ], 0, { title: "安静休息", start: "", end: "", status: "active" }, "19:24", 0);
+
+  assert.equal(result.restIndex, 1);
+  assert.equal(result.resumedMinutes, 0);
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end, item.status]), [
+    ["数学", "19:00", "19:20", "done"],
+    ["安静休息", "19:24", "19:34", "active"],
+    ["阅读", "19:34", "20:04", "pending"],
+  ]);
+  assert.equal(result.planEnd, "20:04");
 });
 
 test("only uses a system reminder after guardian permission while hidden", () => {
