@@ -183,14 +183,14 @@ function formatCountdown(seconds: number) {
 }
 
 function AppIcon({ name, className = "" }: { name: string; className?: string }) {
-  return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png`} alt="" aria-hidden="true" />;
+  return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png`} width="256" height="256" decoding="async" alt="" aria-hidden="true" />;
 }
 
 function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "confirm" | "breathe" | "support" | "celebrate"; compact?: boolean }) {
   return <div className={`mascot mascot-${mood} ${compact ? "mascot-compact" : ""}`} aria-hidden="true">
     <div className="mascot-halo" />
-    <img className="mascot-pose" src={`/assets/mascot/${mood}.png`} alt="" />
-    {mood === "ready" && <img className="mascot-pose mascot-blink-frame" src="/assets/mascot/blink.png" alt="" />}
+    <img className="mascot-pose" src={`/assets/mascot/${mood}.png`} width="640" height="640" decoding="async" alt="" />
+    {mood === "ready" && <img className="mascot-pose mascot-blink-frame" src="/assets/mascot/blink.png" width="640" height="640" decoding="async" alt="" />}
     {mood === "celebrate" && <><i className="mascot-spark spark-one" /><i className="mascot-spark spark-two" /><i className="mascot-spark spark-three" /></>}
   </div>;
 }
@@ -960,7 +960,7 @@ export function StartApp() {
       </div>}
 
       {screen === "energy" && <div className="screen with-nav energy-screen">
-        <Header title="家庭能量房间" /><div className="room-scene"><img className="room-art" src="/assets/energy-room-v2.png" alt="温暖的家庭学习角" /><div className="room-light" /><Mascot mood={goalReady ? "celebrate" : "ready"} /></div>
+        <Header title="家庭能量房间" /><div className="room-scene"><img className="room-art" src="/assets/energy-room-v3.jpg" width="960" height="720" decoding="async" alt="温暖的家庭学习角" /><div className="room-light" /><Mascot mood={goalReady ? "celebrate" : "ready"} /></div>
         <div className="energy-panel"><span className="eyebrow">共同积累，不给孩子打分</span><h1>{data.energy} 点家庭能量</h1>{goalState !== "empty" ? <div className="energy-bar"><i style={{ width: `${Math.min(100, data.energy / data.rewardGoal.threshold * 100)}%` }} /></div> : <p className="energy-fresh-copy">上一份期待已经留在日历里，这里是新的开始。</p>}</div>
         {goalState === "empty" ? <div className="empty-goal-card"><AppIcon name="home-heart" /><div><small>还没有新的家庭期待</small><strong>先想一段真正想一起度过的时光</strong><p>不是给孩子定奖品；由大人和孩子一起商量。</p></div></div> : <div className={`goal-card goal-${goalState}`}><AppIcon name={data.rewardGoal.icon} /><div><small>{goalState === "ready" ? "已经达到共同门槛" : `计划在${data.rewardGoal.date}`}</small><strong>{data.rewardGoal.title}</strong><p>{progress ? `还差${progress}点，一起积累，不用赶` : "已经点亮，等真正实现后再记录"}</p></div></div>}
         {goalState === "empty" ? <button className="primary-button" onClick={openRewardSetup}>一起定新的家庭期待</button> : goalState === "building" ? <button className="secondary-button" onClick={openRewardSetup}>一起调整这个期待</button> : <button className="primary-button" onClick={openRewardAchieved}>查看达成与兑现</button>}
@@ -981,7 +981,7 @@ export function StartApp() {
       {screen === "reward-achieved" && <div className="screen achievement-screen">
         <Header title="家庭期待" back={keepRewardForLater} />
         <div className="achievement-hero"><div><span className="eyebrow">家庭期待已点亮</span><h1>一起积累到了</h1><p><strong>{data.energy}</strong> 点家庭能量</p></div><Mascot mood="celebrate" compact /></div>
-        <div className="achievement-scene"><img src="/assets/energy-room-v2.png" alt="点亮的家庭房间" /><span className="achievement-glow" /><AppIcon name={data.rewardGoal.icon} /></div>
+        <div className="achievement-scene"><img src="/assets/energy-room-v3.jpg" width="960" height="720" decoding="async" alt="点亮的家庭房间" /><span className="achievement-glow" /><AppIcon name={data.rewardGoal.icon} /></div>
         <div className="achievement-card"><AppIcon name={data.rewardGoal.icon} /><div><small>计划在{data.rewardGoal.date}</small><strong>{data.rewardGoal.title}</strong><p>{data.guardianAlias}和{data.childAlias}一起参与</p></div></div>
         <div className="achievement-boundary"><AppIcon name="home-heart" /><p><strong>达到门槛，不等于已经兑现</strong><span>这是一起期待的家庭时光，不是完成任务后必须支付的奖品。</span></p></div>
         {!redeemArmed ? <div className="achievement-actions"><button className="primary-button" onClick={() => setRedeemArmed(true)}>已经一起兑现了</button><button className="secondary-button" onClick={keepRewardForLater}>先保留能量，稍后兑现</button></div> : <div className="redeem-confirm" role="alert"><strong>确认已经一起兑现？</strong><p>“{data.rewardGoal.title}”会记入今天的家庭日历。当前 {data.energy} 点家庭能量将全部归零，再开始新的期待。</p><button className="primary-button" onClick={redeemReward}>确认已兑现并从0开始</button><button className="text-button" onClick={() => setRedeemArmed(false)}>返回再看看</button></div>}
