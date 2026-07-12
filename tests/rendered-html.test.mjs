@@ -48,6 +48,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /进入今晚收尾/);
   assert.match(app, /restartFromNow \? Date\.now\(\) \+ 10 \* 60_000/);
   assert.match(app, /osc\.addEventListener\("ended"/);
+  assert.match(app, /const liveResumeView/);
+  assert.match(app, /今晚计划正在调整 · 进度已保存在本机/);
+  assert.match(app, /这一段已完成 · 进度已保存在本机/);
+  assert.match(app, /阶段预计到时 · 只提醒一次/);
+  assert.match(app, /data-state=\{liveResumeView\.state\}/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
