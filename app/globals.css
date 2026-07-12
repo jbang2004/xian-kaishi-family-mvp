@@ -1010,6 +1010,19 @@ button.insight-card { cursor: pointer; }
 
 @media (max-width: 380px) {
   .screen { padding-left: 18px; padding-right: 18px; }
+  .home-hero { grid-template-columns: minmax(0,1fr) 86px; }
+  .home-hero h1 { font-size: 28px; }
+  .home-hero .mascot { width: 86px; height: 86px; }
+  .availability-card { grid-template-columns: 46px minmax(0,1fr); padding-right: 16px; }
+  .availability-card .mascot { display: none; }
+  .stage-editor-body { grid-template-columns: 52px minmax(0,1fr); align-items: start; padding-right: 11px; }
+  .stage-icon-button { grid-column: 1; grid-row: 1; min-height: 116px; }
+  .stage-icon-button .app-icon { width: 48px; height: 48px; }
+  .stage-main { grid-column: 2; grid-row: 1; }
+  .stage-actions { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3,1fr); }
+  .stage-actions button { width: 100%; }
+  .reward-idea-grid button { min-height: 90px; }
+  .reward-idea-grid small { display: none; }
   .choice-grid { gap: 8px; }
   .choice-card { padding: 10px; }
   .first-step-card { min-height: 200px; }
