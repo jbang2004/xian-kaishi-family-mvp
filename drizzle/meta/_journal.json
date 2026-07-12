@@ -8,6 +8,13 @@
       "when": 1783856612294,
       "tag": "0000_huge_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783882244876,
+      "tag": "0001_slimy_moonstone",
+      "breakpoints": true
     }
   ]
 }

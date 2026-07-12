@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
+import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app] = await Promise.all([
@@ -61,6 +62,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /页面在后台时提醒/);
   assert.match(app, /xian-kaishi-background-reminder-v1/);
   assert.match(app, /关闭浏览器后不承诺提醒送达/);
+  assert.match(app, /xian-kaishi-family-revision-v1/);
+  assert.match(app, /旧状态不会静默覆盖更新的本机记录/);
+  assert.match(app, /正在合并另一处更新/);
+  assert.match(app, /正在找回这个家庭的今晚/);
+  assert.match(app, /if \(validLocal\) setAppReady\(true\)/);
+  assert.match(app, /catch \{ localStorage\.removeItem\(STORAGE_KEY\)/);
+  assert.match(app, /finally\(\(\) => setAppReady\(true\)\)/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
@@ -70,9 +78,16 @@ test("contains the complete 先开始 product shell", async () => {
 
 test("ships the mascot and persistent-state migration", async () => {
   await access(new URL("../public/assets/warm-lamp.png", import.meta.url));
-  const migration = await readFile(new URL("../drizzle/0000_huge_randall.sql", import.meta.url), "utf8");
-  assert.match(migration, /CREATE TABLE `family_state`/);
-  assert.match(migration, /`family_id` text PRIMARY KEY/);
+  const [initialMigration, revisionMigration, route] = await Promise.all([
+    readFile(new URL("../drizzle/0000_huge_randall.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_slimy_moonstone.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/state/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(initialMigration, /CREATE TABLE `family_state`/);
+  assert.match(initialMigration, /`family_id` text PRIMARY KEY/);
+  assert.match(revisionMigration, /ADD `revision` integer DEFAULT 0 NOT NULL/);
+  assert.match(route, /excluded\.revision > family_state\.revision/);
+  assert.match(route, /status: 409/);
 });
 
 test("validates the family plan before dual confirmation", () => {
@@ -118,4 +133,19 @@ test("only uses a system reminder after guardian permission while hidden", () =>
   assert.equal(shouldUseBackgroundReminder(true, "visible", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(false, "hidden", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(true, "hidden", "denied"), false);
+});
+
+test("keeps the newest family snapshot and merges durable history", () => {
+  assert.equal(compareSyncSnapshots(
+    { revision: 4, updatedAt: "2026-07-13T10:00:00.000Z" },
+    { revision: 3, updatedAt: "2026-07-13T11:00:00.000Z" },
+  ), "local");
+  assert.equal(compareSyncSnapshots(
+    { revision: 4, updatedAt: "2026-07-13T10:00:00.000Z" },
+    { revision: 4, updatedAt: "2026-07-13T11:00:00.000Z" },
+  ), "remote");
+  assert.deepEqual(mergeUniqueById(
+    [{ id: "local", value: 1 }, { id: "shared", value: 2 }],
+    [{ id: "remote", value: 3 }, { id: "shared", value: 9 }],
+  ), [{ id: "local", value: 1 }, { id: "shared", value: 2 }, { id: "remote", value: 3 }]);
 });
