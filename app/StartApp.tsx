@@ -71,18 +71,18 @@ const INITIAL_DATA: AppData = {
 };
 
 const TASK_LIBRARY: Task[] = [
-  { id: "reading", title: "阅读15分钟", icon: "📖", steps: ["把书翻到今天开始的那一页", "先读第一段"] },
-  { id: "math", title: "数学练习", icon: "🧮", steps: ["先读第一项要求", "找出最容易的一题"] },
-  { id: "bag", title: "整理书包", icon: "🎒", steps: ["把书包放到桌边", "拿出明天第一节课的书"] },
-  { id: "recite", title: "朗读与背诵", icon: "🗣️", steps: ["先完整读一遍", "只读第一句"] },
-  { id: "writing", title: "书写练习", icon: "✏️", steps: ["先写日期和标题", "先在草稿纸写第一行"] },
+  { id: "reading", title: "阅读15分钟", icon: "book", steps: ["把书翻到今天开始的那一页", "先读第一段"] },
+  { id: "math", title: "数学练习", icon: "chart", steps: ["先读第一项要求", "找出最容易的一题"] },
+  { id: "bag", title: "整理书包", icon: "backpack", steps: ["把书包放到桌边", "拿出明天第一节课的书"] },
+  { id: "recite", title: "朗读与背诵", icon: "speech", steps: ["先完整读一遍", "只读第一句"] },
+  { id: "writing", title: "书写练习", icon: "pencil", steps: ["先写日期和标题", "先在草稿纸写第一行"] },
 ];
 
 const REST_OPTIONS = [
-  { id: "snack", icon: "🥣", title: "吃点东西", time: "15分钟" },
-  { id: "move", icon: "🤸", title: "活动一下", time: "10分钟" },
-  { id: "quiet", icon: "🌿", title: "安静待会儿", time: "10分钟" },
-  { id: "tiny", icon: "🪴", title: "先做一个小动作", time: "再休息" },
+  { id: "snack", icon: "snack", title: "吃点东西", time: "15分钟" },
+  { id: "move", icon: "move", title: "活动一下", time: "10分钟" },
+  { id: "quiet", icon: "quiet", title: "安静待会儿", time: "10分钟" },
+  { id: "tiny", icon: "steps", title: "先做一个小动作", time: "再休息" },
 ];
 
 function createId(prefix: string) {
@@ -92,11 +92,18 @@ function createId(prefix: string) {
   return `${prefix}-${random}`;
 }
 
-function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "breathe" | "celebrate"; compact?: boolean }) {
+function AppIcon({ name, className = "" }: { name: string; className?: string }) {
+  return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png`} alt="" aria-hidden="true" />;
+}
+
+function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "confirm" | "breathe" | "support" | "celebrate"; compact?: boolean }) {
+  const pose = mood === "ready" ? "ready" : mood;
   return (
     <div className={`mascot mascot-${mood} ${compact ? "mascot-compact" : ""}`} aria-hidden="true">
       <div className="mascot-halo" />
-      <img src="/assets/warm-lamp.png" alt="" />
+      <img className="mascot-pose" src={`/assets/mascot/${pose}.png`} alt="" />
+      {mood === "ready" && <img className="mascot-pose mascot-blink-frame" src="/assets/mascot/blink.png" alt="" />}
+      {mood === "celebrate" && <><i className="mascot-spark spark-one" /><i className="mascot-spark spark-two" /><i className="mascot-spark spark-three" /></>}
     </div>
   );
 }
@@ -113,16 +120,16 @@ function Header({ title, onBack, step }: { title?: string; onBack?: () => void; 
 
 function BottomNav({ screen, go }: { screen: Screen; go: (screen: Screen) => void }) {
   const items: Array<{ id: Screen; icon: string; label: string }> = [
-    { id: "home", icon: "⌂", label: "首页" },
-    { id: "review", icon: "▤", label: "复盘" },
-    { id: "energy", icon: "❧", label: "能量" },
-    { id: "settings", icon: "⚙", label: "设置" },
+    { id: "home", icon: "home-heart", label: "首页" },
+    { id: "review", icon: "chart", label: "复盘" },
+    { id: "energy", icon: "plant", label: "能量" },
+    { id: "settings", icon: "privacy", label: "设置" },
   ];
   return (
     <nav className="bottom-nav" aria-label="主导航">
       {items.map((item) => (
         <button key={item.id} className={screen === item.id ? "active" : ""} onClick={() => go(item.id)}>
-          <span>{item.icon}</span><small>{item.label}</small>
+          <AppIcon name={item.icon} /><small>{item.label}</small>
         </button>
       ))}
     </nav>
@@ -131,7 +138,7 @@ function BottomNav({ screen, go }: { screen: Screen; go: (screen: Screen) => voi
 
 function EnergyLeaves({ value }: { value: number }) {
   const filled = Math.min(5, Math.max(1, Math.round(value / 5)));
-  return <div className="energy-leaves" aria-label={`家庭能量 ${value}`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= filled ? "filled" : ""}>◆</span>)}</div>;
+  return <div className="energy-leaves" aria-label={`家庭能量 ${value}`}>{[1, 2, 3, 4, 5].map((n) => <i key={n} className={n <= filled ? "filled" : ""} />)}</div>;
 }
 
 export function StartApp() {
@@ -241,7 +248,7 @@ export function StartApp() {
     const title = customTask.trim();
     if (!title || selectedTasks.length >= 3) return;
     setSelectedTasks((items) => [...items, {
-      id: createId("custom"), title, icon: "📝", steps: ["先读一遍要求", "只完成第一个小动作"],
+      id: createId("custom"), title, icon: "pencil", steps: ["先读一遍要求", "只完成第一个小动作"],
     }]);
     setCustomTask("");
   };
@@ -321,7 +328,7 @@ export function StartApp() {
       <section className="phone-shell" aria-live="polite">
         {screen === "welcome" && (
           <div className="screen welcome-screen">
-            <div className="brand-mark"><span>⌂</span><strong>先开始</strong></div>
+            <div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div>
             <h1>今晚，一起商量再开始</h1>
             <p className="lead">家长是主要使用者，孩子只在选择和收尾时短暂使用。</p>
             <Mascot mood="ready" />
@@ -345,7 +352,7 @@ export function StartApp() {
               <label>孩子化名<input value={data.alias} maxLength={12} onChange={(event) => setData({ ...data, alias: event.target.value })} /></label>
               <fieldset><legend>年级</legend><div className="chip-row">{["一年级", "二年级", "三年级"].map((grade) => <button key={grade} className={data.grade === grade ? "chip selected" : "chip"} onClick={() => setData({ ...data, grade })}>{grade}</button>)}</div></fieldset>
               <label>通常到家<input type="time" value={data.arrival} onChange={(event) => setData({ ...data, arrival: event.target.value })} /></label>
-              <fieldset><legend>到家后更需要</legend><div className="choice-grid compact-grid">{REST_OPTIONS.slice(0, 3).map((item) => <button key={item.id} className={data.defaultRest.startsWith(item.title) ? "choice-card selected" : "choice-card"} onClick={() => setData({ ...data, defaultRest: `${item.title} ${item.time}` })}><span>{item.icon}</span><strong>{item.title}</strong></button>)}</div></fieldset>
+              <fieldset><legend>到家后更需要</legend><div className="choice-grid compact-grid">{REST_OPTIONS.slice(0, 3).map((item) => <button key={item.id} className={data.defaultRest.startsWith(item.title) ? "choice-card selected" : "choice-card"} onClick={() => setData({ ...data, defaultRest: `${item.title} ${item.time}` })}><AppIcon name={item.icon} /><strong>{item.title}</strong></button>)}</div></fieldset>
             </div>
             <p className="microcopy">只使用化名；不需要填写学校、班级或真实姓名。</p>
             <button className="primary-button" onClick={finishOnboarding}>开始使用</button>
@@ -356,11 +363,11 @@ export function StartApp() {
           <div className="screen home-screen with-nav">
             <div className="home-hero">
               <div><span className="eyebrow">{data.arrival} · 放学后</span><h1>今晚，一起商量再开始</h1><p>用3分钟安排任务、休息和第一小步。</p></div>
-              <Mascot compact />
+              <Mascot mood="confirm" compact />
             </div>
             <button className="primary-button large" onClick={() => { playTone("confirm"); go("tasks"); }}>一起安排今晚 <span>›</span></button>
-            <div className="insight-card sage"><span className="big-icon">🌿</span><div><small>上次有效做法</small><strong>先休息15分钟，再从容易的一项开始</strong></div></div>
-            <button className="insight-card support-entry" onClick={() => { setSupportType("parent"); go("intervene"); }}><span className="big-icon">◉</span><div><small>又卡住了</small><strong>获得即时支持</strong></div><span>›</span></button>
+            <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>上次有效做法</small><strong>先休息15分钟，再从容易的一项开始</strong></div></div>
+            <button className="insight-card support-entry" onClick={() => { setSupportType("parent"); go("intervene"); }}><span className="big-icon"><AppIcon name="speech" /></span><div><small>又卡住了</small><strong>获得即时支持</strong></div><span>›</span></button>
             <div className="stats-row">
               <div><small>本周记录</small><strong>{data.sessions.length} 晚</strong></div>
               <div><small>家庭能量</small><strong>{data.energy}</strong><EnergyLeaves value={data.energy} /></div>
@@ -376,8 +383,8 @@ export function StartApp() {
             <span className="eyebrow">今晚事项</span><h1>今晚有哪些事？</h1><p className="lead">只添加真实需要处理的事项，最多先选3件。</p>
             <div className="input-composer"><input placeholder="例：阅读15分钟，整理书包" value={customTask} onChange={(event) => setCustomTask(event.target.value)} onKeyDown={(event) => event.key === "Enter" && addCustomTask()} /><button onClick={addCustomTask} disabled={!customTask.trim() || selectedTasks.length >= 3}>添加</button></div>
             <small className="section-label">常用模板</small>
-            <div className="template-row">{TASK_LIBRARY.map((task) => <button key={task.id} disabled={selectedTasks.some((item) => item.id === task.id) || selectedTasks.length >= 3} onClick={() => addTemplate(task)}>{task.icon} {task.title.replace(/\d+分钟/, "")}</button>)}</div>
-            <div className="selected-list">{selectedTasks.map((task) => <div className="task-row" key={task.id}><span>{task.icon}</span><strong>{task.title}</strong><button onClick={() => removeTask(task.id)} aria-label={`移除${task.title}`}>×</button></div>)}</div>
+            <div className="template-row">{TASK_LIBRARY.map((task) => <button key={task.id} disabled={selectedTasks.some((item) => item.id === task.id) || selectedTasks.length >= 3} onClick={() => addTemplate(task)}><AppIcon name={task.icon} /> {task.title.replace(/\d+分钟/, "")}</button>)}</div>
+            <div className="selected-list">{selectedTasks.map((task) => <div className="task-row" key={task.id}><AppIcon name={task.icon} /><strong>{task.title}</strong><button onClick={() => removeTask(task.id)} aria-label={`移除${task.title}`}>×</button></div>)}</div>
             <div className="privacy-note">粘贴内容只在你确认后成为事项；我们不会读取微信或学校系统。</div>
             <button className="primary-button" disabled={!selectedTasks.length} onClick={() => go("negotiate")}>下一步：一起商量</button>
           </div>
@@ -388,7 +395,7 @@ export function StartApp() {
             <Header onBack={() => go("tasks")} step="2/4" />
             <span className="eyebrow">家长与孩子共用</span><h1>今晚，一起商量</h1><p className="lead">家长提出边界，孩子决定顺序。</p>
             <div className="role-balance"><div><span>家长</span><strong>说明必须处理的范围</strong></div><div><span>孩子</span><strong>选择顺序和第一步</strong></div></div>
-            <div className="ordered-list">{selectedTasks.map((task, index) => <div className="ordered-task" key={task.id}><span className="order-number">{index + 1}</span><span>{task.icon}</span><strong>{task.title}</strong><div className="order-actions"><button onClick={() => moveTask(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveTask(index, 1)} disabled={index === selectedTasks.length - 1} aria-label="向下移动">↓</button></div></div>)}</div>
+            <div className="ordered-list">{selectedTasks.map((task, index) => <div className="ordered-task" key={task.id}><span className="order-number">{index + 1}</span><AppIcon name={task.icon} /><strong>{task.title}</strong><div className="order-actions"><button onClick={() => moveTask(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveTask(index, 1)} disabled={index === selectedTasks.length - 1} aria-label="向下移动">↓</button></div></div>)}</div>
             <div className="gentle-note">今晚最多3件。任务太大时，可以只保留真正需要完成的部分。</div>
             <button className="primary-button" onClick={() => go("rest")}>下一步：选休息</button>
           </div>
@@ -398,7 +405,7 @@ export function StartApp() {
           <div className="screen shared-screen">
             <Header onBack={() => go("negotiate")} step="3/4" />
             <span className="eyebrow">共同选择</span><h1>先选怎么恢复一下</h1><p className="lead">休息不是奖励，是今晚计划的一部分。</p>
-            <div className="choice-grid">{REST_OPTIONS.map((item) => <button key={item.id} className={restChoice.id === item.id ? "choice-card selected" : "choice-card"} onClick={() => setRestChoice(item)}><span>{item.icon}</span><strong>{item.title}</strong><small>{item.time}</small></button>)}</div>
+            <div className="choice-grid">{REST_OPTIONS.map((item) => <button key={item.id} className={restChoice.id === item.id ? "choice-card selected" : "choice-card"} onClick={() => setRestChoice(item)}><AppIcon name={item.icon} /><strong>{item.title}</strong><small>{item.time}</small></button>)}</div>
             <div className="plan-preview">选择后：<strong>{restChoice.title} {restChoice.time}</strong>，再从“{firstTask.title}”开始。</div>
             <button className="primary-button" onClick={() => go("confirm")}>确认休息安排</button>
           </div>
@@ -407,8 +414,8 @@ export function StartApp() {
         {screen === "confirm" && (
           <div className="screen">
             <Header onBack={() => go("rest")} step="4/4" />
-            <div className="title-with-mascot"><div><span className="eyebrow">今晚计划</span><h1>今晚就这样开始</h1></div><Mascot compact /></div>
-            <div className="timeline"><div><span>1</span><p><strong>{data.arrival}</strong> 到家，{restChoice.title}</p></div>{selectedTasks.map((task, index) => <div key={task.id}><span>{index + 2}</span><p>{index === 0 ? "先" : "再"} <strong>{task.title}</strong></p></div>)}<div><span>✓</span><p><strong>温和收尾</strong></p></div></div>
+            <div className="title-with-mascot"><div><span className="eyebrow">今晚计划</span><h1>今晚就这样开始</h1></div><Mascot mood="confirm" compact /></div>
+            <div className="timeline"><div><span>1</span><p><strong>{data.arrival}</strong> 到家，{restChoice.title}</p></div>{selectedTasks.map((task, index) => <div key={task.id}><span>{index + 2}</span><p>{index === 0 ? "先" : "再"} <strong>{task.title}</strong></p></div>)}<div><span><AppIcon name="check" /></span><p><strong>温和收尾</strong></p></div></div>
             <div className="promise-grid"><div><span>家长</span><strong>不连续催促</strong></div><div><span>孩子</span><strong>卡住时主动求助</strong></div></div>
             <button className="primary-button" onClick={() => { playTone("confirm"); go("first-step"); }}>把手机给孩子选第一步</button>
           </div>
@@ -418,7 +425,7 @@ export function StartApp() {
           <div className="screen child-screen">
             <Mascot mood="ready" compact />
             <span className="eyebrow">现在由孩子选择</span><h1>你想从哪一小步开始？</h1>
-            <div className="first-step-grid">{firstTask.steps.map((step, index) => <button key={step} className={firstStep === step ? "first-step-card selected" : "first-step-card"} onClick={() => setFirstStep(step)}><span>{index === 0 ? firstTask.icon : "⭐"}</span><strong>{step}</strong></button>)}</div>
+            <div className="first-step-grid">{firstTask.steps.map((step, index) => <button key={step} className={firstStep === step ? "first-step-card selected" : "first-step-card"} onClick={() => setFirstStep(step)}><AppIcon name={index === 0 ? firstTask.icon : "steps"} /><strong>{step}</strong></button>)}</div>
             <p className="child-copy">没有选错，选一个就可以。</p>
             <button className="primary-button" onClick={() => { playTone("start"); navigator.vibrate?.(30); go("quiet"); }}>我选好了</button>
             <small>选好后，把手机还给大人</small>
@@ -440,7 +447,7 @@ export function StartApp() {
           <div className="screen">
             <Header onBack={() => go("quiet")} />
             <div className="title-with-mascot"><div><span className="eyebrow">离屏执行中</span><h1>第一小步已经开始</h1></div><Mascot compact /></div>
-            <div className="current-task-card"><span>{firstTask.icon}</span><div><small>当前事项</small><strong>{firstTask.title}</strong><p>{firstStep}</p></div></div>
+            <div className="current-task-card"><AppIcon name={firstTask.icon} /><div><small>当前事项</small><strong>{firstTask.title}</strong><p>{firstStep}</p></div></div>
             <div className="calm-space"><span>让屏幕安静下来</span><p>不记录坐姿、声音或人脸。需要时再回来。</p></div>
             <button className="primary-button" onClick={() => go("outcome")}>这一项可以收尾了</button>
             <button className="text-button" onClick={() => go("support")}>中途需要支持</button>
@@ -450,15 +457,15 @@ export function StartApp() {
         {screen === "support" && (
           <div className="screen child-screen">
             <Header onBack={() => go("quiet")} />
-            <Mascot mood="breathe" compact />
+            <Mascot mood="support" compact />
             <h1>卡住了也可以说</h1><p className="lead">选择求助不会扣掉家庭能量。</p>
             <div className="choice-grid support-grid">
               {[
-                ["smaller", "🪜", "把这一步再变小"],
-                ["clarify", "💬", "请大人帮我看要求"],
-                ["break", "🌿", "休息5分钟"],
-                ["pause", "🌙", "今晚先停这项"],
-              ].map(([id, icon, title]) => <button key={id} className="choice-card" onClick={() => { setSupportType(id); go("intervene"); }}><span>{icon}</span><strong>{title}</strong></button>)}
+                ["smaller", "steps", "把这一步再变小"],
+                ["clarify", "speech", "请大人帮我看要求"],
+                ["break", "quiet", "休息5分钟"],
+                ["pause", "moon", "今晚先停这项"],
+              ].map(([id, icon, title]) => <button key={id} className="choice-card" onClick={() => { setSupportType(id); go("intervene"); }}><AppIcon name={icon} /><strong>{title}</strong></button>)}
             </div>
           </div>
         )}
@@ -469,9 +476,9 @@ export function StartApp() {
             <span className="eyebrow">给家长的即时支持</span>
             <h1>{supportType === "pause" ? "今晚可以先停这项" : supportType === "break" ? "先让状态缓下来" : supportType === "smaller" ? "把任务再变小一点" : "先帮他看要求，不替他完成"}</h1>
             <div className="speech-card"><small>可以这样说</small><blockquote>{supportType === "pause" ? "“我们先把这项放在这里，明天再决定怎么处理。”" : supportType === "break" ? "“我们先休息五分钟，回来只讨论第一步。”" : supportType === "smaller" ? "“我们先只做刚才选的这一小步，其他的等一下再看。”" : "“你指出最不明白的那一句，我先帮你看要求。”"}</blockquote></div>
-            <div className="boundary-card"><span>✓</span><p><strong>介入边界</strong><br />只澄清任务，不评价速度和态度。</p></div>
+            <div className="boundary-card"><span><AppIcon name="check" /></span><p><strong>介入边界</strong><br />只澄清任务，不评价速度和态度。</p></div>
             <div className="action-stack"><button className="primary-button" onClick={() => supportType === "pause" ? go("outcome") : go("work")}>继续下一步</button><button className="secondary-button" onClick={() => go("outcome")}>先暂停</button></div>
-            <button className="parent-pause" onClick={() => { setSupportType("parent"); setToast("请先离开现场两分钟，必要时让另一位成人接替"); }}><Mascot mood="breathe" compact /><span><strong>我快忍不住了</strong><small>先离开一步，等情绪平稳再回来。</small></span></button>
+            <button className="parent-pause" onClick={() => { setSupportType("parent"); setToast("请先离开现场两分钟，必要时让另一位成人接替"); }}><Mascot mood="support" compact /><span><strong>我快忍不住了</strong><small>先离开一步，等情绪平稳再回来。</small></span></button>
           </div>
         )}
 
@@ -480,10 +487,10 @@ export function StartApp() {
             <Header onBack={() => go("work")} />
             <div className="title-with-mascot"><div><span className="eyebrow">结束这一项</span><h1>这一项怎么收尾？</h1></div><Mascot compact /></div>
             <div className="outcome-list">{[
-              ["done", "✓", "完成了", "这项可以收好了"],
-              ["partial", "◔", "完成了一部分", "保留进展，明天接着来"],
-              ["paused", "☾", "今晚先暂停", "状态比勉强继续更重要"],
-            ].map(([id, icon, title, copy]) => <button key={id} className={outcome === id ? "outcome-card selected" : "outcome-card"} onClick={() => setOutcome(id as SessionRecord["outcome"])}><span>{icon}</span><div><strong>{title}</strong><small>{copy}</small></div></button>)}</div>
+              ["done", "check", "完成了", "这项可以收好了"],
+              ["partial", "plant", "完成了一部分", "保留进展，明天接着来"],
+              ["paused", "moon", "今晚先暂停", "状态比勉强继续更重要"],
+            ].map(([id, icon, title, copy]) => <button key={id} className={outcome === id ? "outcome-card selected" : "outcome-card"} onClick={() => setOutcome(id as SessionRecord["outcome"])}><AppIcon name={icon} /><div><strong>{title}</strong><small>{copy}</small></div></button>)}</div>
             <div className="energy-summary"><strong>已经获得的能量不会被扣掉</strong><span>孩子：主动选择 +1</span><span>家长：没有连续催促 +2</span></div>
             <button className="primary-button" onClick={() => go("wrap")}>进入今晚收尾</button>
           </div>
@@ -494,14 +501,14 @@ export function StartApp() {
             <Header onBack={() => go("outcome")} />
             <div className="night-title"><span className="eyebrow">亲子一起 · 30秒</span><h1>今晚，温和收尾</h1></div>
             <div className="wrap-list">{[
-              ["📚", "放好已经完成的内容"],
-              ["🚩", "标记需要老师帮助的事项"],
-              ["🎒", "整理明天要带的东西"],
-            ].map(([icon, title], index) => <button key={title} className={wrapChecks[index] ? "wrap-item checked" : "wrap-item"} onClick={() => setWrapChecks((items) => items.map((value, i) => i === index ? !value : value))}><span>{icon}</span><strong>{title}</strong><span>{wrapChecks[index] ? "✓" : "○"}</span></button>)}</div>
+              ["book", "放好已经完成的内容"],
+              ["speech", "标记需要老师帮助的事项"],
+              ["backpack", "整理明天要带的东西"],
+            ].map(([icon, title], index) => <button key={title} className={wrapChecks[index] ? "wrap-item checked" : "wrap-item"} onClick={() => setWrapChecks((items) => items.map((value, i) => i === index ? !value : value))}><AppIcon name={icon} /><strong>{title}</strong><span className="wrap-check">{wrapChecks[index] ? "✓" : "○"}</span></button>)}</div>
             <small className="section-label">今天开始时</small>
             <div className="difficulty-row">{[
-              ["easy", "🙂", "比想象中容易"], ["same", "😐", "差不多"], ["hard", "🌧️", "还是有点难"],
-            ].map(([id, icon, label]) => <button key={id} className={difficulty === id ? "selected" : ""} onClick={() => setDifficulty(id as SessionRecord["difficulty"])}><span>{icon}</span><small>{label}</small></button>)}</div>
+              ["easy", "confirm", "比想象中容易"], ["same", "ready", "差不多"], ["hard", "breathe", "还是有点难"],
+            ].map(([id, pose, label]) => <button key={id} className={difficulty === id ? "selected" : ""} onClick={() => setDifficulty(id as SessionRecord["difficulty"])}><img src={`/assets/mascot/${pose}.png`} alt="" /><small>{label}</small></button>)}</div>
             <button className="primary-button" onClick={completeSession}>结束今晚</button>
           </div>
         )}
@@ -509,10 +516,10 @@ export function StartApp() {
         {screen === "energy" && (
           <div className="screen with-nav energy-screen">
             <Header title="家庭能量房间" />
-            <div className="room-scene"><div className="window-light" /><div className="room-plant">☘</div><Mascot mood="celebrate" /><div className="room-rug" /></div>
+            <div className="room-scene"><img className="room-art" src="/assets/energy-room-v2.png" alt="温暖的家庭学习角" /><div className="room-light" /><Mascot mood="celebrate" /></div>
             <div className="energy-panel"><span className="eyebrow">这周一起积累</span><h1>{data.energy} 点能量</h1><div className="energy-bar"><i style={{ width: `${Math.min(100, data.energy * 4)}%` }} /></div><div className="contribution-grid"><div><small>孩子的自主选择</small><strong>{Math.round(data.energy * .45)}</strong></div><div><small>家长的支持行为</small><strong>{Math.round(data.energy * .55)}</strong></div></div></div>
             <small className="section-label">可以一起选择</small>
-            <div className="reward-row">{[["🎲", "周末家庭游戏"], ["📚", "选择一次睡前故事"], ["🪴", "给房间添一盆植物"]].map(([icon, title]) => <button key={title} onClick={() => setToast("已经加入本周家庭选择")}><span>{icon}</span><small>{title}</small></button>)}</div>
+            <div className="reward-row">{[["game", "周末家庭游戏"], ["book", "选择一次睡前故事"], ["plant", "给房间添一盆植物"]].map(([icon, title]) => <button key={title} onClick={() => setToast("已经加入本周家庭选择")}><AppIcon name={icon} /><small>{title}</small></button>)}</div>
             <div className="gentle-note">能量不会清零，也不会因为暂停而减少。</div>
             <BottomNav screen={screen} go={go} />
           </div>
@@ -522,7 +529,7 @@ export function StartApp() {
           <div className="screen with-nav review-screen">
             <Header title="每周复盘" />
             <span className="eyebrow">看见规律，不给孩子打分</span><h1>这一周，什么真正有帮助？</h1>
-            {metrics ? <><div className="metric-grid"><div><span>◷</span><small>启动等待</small><strong>{metrics.latency}分钟</strong></div><div><span>♢</span><small>提醒次数</small><strong>{metrics.reminders}次</strong></div><div><span>☾</span><small>明显冲突</small><strong>{metrics.conflict}晚</strong></div></div><div className="review-insight"><span>✎</span><div><small>本周观察</small><strong>{data.sessions.some((item) => item.difficulty === "hard") ? "困难更常出现在状态不足的晚上" : "先休息，再从最小一步开始更顺畅"}</strong></div></div></> : <div className="empty-review"><Mascot mood="breathe" compact /><strong>完成一个晚间流程后，这里会出现家庭规律</strong><p>不需要追求连续记录。</p></div>}
+            {metrics ? <><div className="metric-grid"><div><AppIcon name="steps" /><small>启动等待</small><strong>{metrics.latency}分钟</strong></div><div><AppIcon name="speech" /><small>提醒次数</small><strong>{metrics.reminders}次</strong></div><div><AppIcon name="moon" /><small>明显冲突</small><strong>{metrics.conflict}晚</strong></div></div><div className="review-insight"><AppIcon name="chart" /><div><small>本周观察</small><strong>{data.sessions.some((item) => item.difficulty === "hard") ? "困难更常出现在状态不足的晚上" : "先休息，再从最小一步开始更顺畅"}</strong></div></div></> : <div className="empty-review"><Mascot mood="breathe" compact /><strong>完成一个晚间流程后，这里会出现家庭规律</strong><p>不需要追求连续记录。</p></div>}
             <div className="one-change"><span>下周只改一件事</span><strong>到家后固定恢复15分钟</strong><button onClick={() => setToast("已经保存为下周尝试")}>保存尝试</button></div>
             <BottomNav screen={screen} go={go} />
           </div>
@@ -533,7 +540,7 @@ export function StartApp() {
             <Header title="设置" />
             <div className="settings-group"><h2>体验偏好</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、开始、支持与收尾</small></span><input type="checkbox" checked={data.sound} onChange={(event) => persist({ ...data, sound: event.target.checked })} /></label><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和弹跳动画</small></span><input type="checkbox" checked={data.reducedMotion} onChange={(event) => persist({ ...data, reducedMotion: event.target.checked })} /></label></div>
             <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>监护人授权</span><strong>已同意</strong></div><div className="setting-row"><span>孩子档案</span><strong>仅使用化名</strong></div><div className="setting-row"><span>云端最小记录</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteAllData}>删除孩子全部数据 <span>›</span></button></div>
-            <button className="risk-entry" onClick={() => go("risk")}><span>♡</span><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
+            <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
             <div className="privacy-note">我们不收集学校、精确位置、通讯录、人脸和连续录音。</div>
             <BottomNav screen={screen} go={go} />
           </div>
@@ -543,7 +550,7 @@ export function StartApp() {
           <div className="screen risk-screen">
             <Header onBack={() => go("settings")} />
             <span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p>
-            <div className="risk-list"><div><span>⌂</span><strong>长期存在于家庭和学校多个场景</strong></div><div><span>○</span><strong>持续拒学或明显躯体不适</strong></div><div><span>♡</span><strong>严重情绪变化或自伤表达</strong></div></div>
+            <div className="risk-list"><div><AppIcon name="home-heart" /><strong>长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div>
             <div className="next-actions"><h2>接下来可以</h2><button onClick={() => setToast("今晚流程已暂停")}>1　先暂停今晚流程</button><button onClick={() => setToast("建议记录事实后联系老师")}>2　联系学校老师</button><button onClick={() => setToast("请选择正规医疗机构")}>3　寻找正规医疗机构</button></div>
             <div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div>
           </div>
@@ -551,7 +558,7 @@ export function StartApp() {
 
         {toast && <div className="toast" role="status">{toast}</div>}
       </section>
-      <aside className="desktop-note"><span className="brand-mark"><span>⌂</span><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>这是移动端测试版。请缩窄窗口或直接在手机上使用，体验完整的亲子共商、离屏启动与温和收尾流程。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
+      <aside className="desktop-note"><span className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></span><h2>今晚少催一次，从共同商量开始。</h2><p>这是移动端测试版。请缩窄窗口或直接在手机上使用，体验完整的亲子共商、离屏启动与温和收尾流程。</p><div className="desktop-points"><span>不讲题</span><span>不监控</span><span>不比较</span></div></aside>
     </main>
   );
 }

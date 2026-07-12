@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    icons: { icon: "/assets/warm-lamp.png", shortcut: "/assets/warm-lamp.png" },
+    icons: { icon: "/assets/icons/home-heart.png", shortcut: "/assets/icons/home-heart.png" },
     openGraph: {
       title,
       description,
