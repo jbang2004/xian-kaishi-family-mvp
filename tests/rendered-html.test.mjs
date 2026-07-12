@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
+import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
@@ -107,6 +108,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /item\.nightKey===key/);
   assert.doesNotMatch(app, /const cooperationEnergy = 2/);
   assert.match(styles, /\.settled-home-card/);
+  assert.match(app, /规则建议 · 不评价孩子/);
+  assert.match(app, /只使用本周收尾次数、主动调整和大人的催促感记录/);
+  assert.match(app, /这周只试这一件 · 给大人的提醒/);
+  assert.match(app, /weekKey: weekStartKey/);
+  assert.match(styles, /\.one-change-card/);
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /确认入账并结束今晚/);
   assert.match(app, /已安全记入家庭日历/);
@@ -223,6 +229,14 @@ test("awards shared-night bonuses only once while allowing later task energy", (
   assert.deepEqual(calculateNightBonus([], 1), { cooperationEnergy: 2, adjustmentEnergy: 1 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 1 }], 2), { cooperationEnergy: 0, adjustmentEnergy: 0 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 0 }], 1), { cooperationEnergy: 0, adjustmentEnergy: 1 });
+});
+
+test("suggests one transparent, parent-facing weekly change", () => {
+  assert.equal(suggestWeeklyFocus({ nights: 0, morePromptNights: 0, lessPromptNights: 0, adjustments: 0 }).id, "observe");
+  assert.equal(suggestWeeklyFocus({ nights: 2, morePromptNights: 1, lessPromptNights: 0, adjustments: 0 }).id, "offer-choice");
+  assert.equal(suggestWeeklyFocus({ nights: 2, morePromptNights: 0, lessPromptNights: 0, adjustments: 3 }).id, "leave-space");
+  assert.equal(suggestWeeklyFocus({ nights: 2, morePromptNights: 0, lessPromptNights: 1, adjustments: 0, recentCompletedFirstStep: "阅读" }).id, "keep-first-step");
+  assert.equal(suggestWeeklyFocus({ nights: 1, morePromptNights: 0, lessPromptNights: 0, adjustments: 0 }).id, "smaller-start");
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {

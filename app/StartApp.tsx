@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
+import { suggestWeeklyFocus } from "./review-utils";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById } from "./sync-utils";
 
@@ -53,6 +54,7 @@ type SessionRecord = {
 };
 
 type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"; threshold: number; energyBeforeReset: number; redeemedAt: string };
+type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
@@ -70,6 +72,7 @@ type AppData = {
   rewardGoal: RewardGoal;
   rewardHistory: RewardHistory[];
   sessions: SessionRecord[];
+  weeklyFocus: WeeklyFocus | null;
 };
 
 const STORAGE_KEY = "xian-kaishi-family-v2";
@@ -94,6 +97,7 @@ const DEFAULT_DATA: AppData = {
   rewardGoal: { threshold: 30, title: "周末一起玩桌游", icon: "game", date: "周六", participants: ["妈妈", "小橙"], redeemed: false, acknowledged: false },
   rewardHistory: [],
   sessions: [],
+  weeklyFocus: null,
 };
 
 const DEFAULT_STAGES: Stage[] = [
@@ -227,6 +231,7 @@ function normalizeData(value: unknown): AppData {
       promptReflection: normalizePromptReflection(record.promptReflection),
     } satisfies SessionRecord;
   }) : [];
+  const focus = old.weeklyFocus && typeof old.weeklyFocus === "object" ? old.weeklyFocus as Partial<WeeklyFocus> : null;
   return {
     consent: Boolean(old.consent ?? DEFAULT_DATA.consent), childAlias, guardianAlias,
     planningMode: old.planningMode === "adult" || old.planningMode === "child" || old.planningMode === "together" ? old.planningMode : DEFAULT_DATA.planningMode,
@@ -241,6 +246,7 @@ function normalizeData(value: unknown): AppData {
       const threshold = Math.max(0, Number(record.threshold) || 0);
       return [{ id: String(record.id || `reward-${index}`), title: String(record.title || "家庭期待").slice(0, 24), icon, threshold, energyBeforeReset: Math.max(threshold, Number(record.energyBeforeReset) || threshold), redeemedAt: String(record.redeemedAt || new Date().toISOString()) }];
     }) : [], sessions,
+    weeklyFocus: focus && /^\d{4}-\d{2}-\d{2}$/.test(String(focus.weekKey)) && String(focus.text).trim() ? { weekKey: String(focus.weekKey), text: String(focus.text).slice(0, 80), createdAt: String(focus.createdAt || new Date().toISOString()) } : null,
   };
 }
 
@@ -757,7 +763,11 @@ export function StartApp() {
   const weeklyNights = new Set(weeklySessions.map(item => item.nightKey)).size;
   const weeklyReflections = weeklySessions.filter(item => item.promptReflection);
   const weeklyLessPromptNights = weeklySessions.filter(item => item.promptReflection === "less").length;
+  const weeklyMorePromptNights = weeklySessions.filter(item => item.promptReflection === "more").length;
   const weeklyAdjustments = weeklySessions.reduce((sum, item) => sum + item.adjustments, 0);
+  const recentCompletedFirstStep = weeklySessions.find(item => item.stageTitles.length)?.stageTitles[0];
+  const reviewSuggestion = suggestWeeklyFocus({ nights: weeklyNights, morePromptNights: weeklyMorePromptNights, lessPromptNights: weeklyLessPromptNights, adjustments: weeklyAdjustments, recentCompletedFirstStep });
+  const currentWeekFocus = data.weeklyFocus?.weekKey === weekStartKey ? data.weeklyFocus : null;
   const planAnalysis = analyzePlan(data.planStart, data.planEnd, stages);
   const { availableMinutes, scheduledMinutes, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
   const planStageIssueIds = new Set(stages.flatMap((stage, index) => {
@@ -805,6 +815,12 @@ export function StartApp() {
     setStages(items => items.map(item => ({ ...item, status: "pending" })));
     go("plan");
   };
+  const toggleWeeklyFocus = () => {
+    if (currentWeekFocus?.text === reviewSuggestion.text) {
+      persist({ ...data, weeklyFocus: null }, "已从首页移除这项尝试"); return;
+    }
+    persist({ ...data, weeklyFocus: { weekKey: weekStartKey, text: reviewSuggestion.text, createdAt: new Date().toISOString() } }, "已放到首页，这周只试这一件");
+  };
 
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
@@ -846,6 +862,7 @@ export function StartApp() {
         {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>这一晚已经温和收尾</small><strong>今晚的合作已经留下来了</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "完成多少都不需要重新比较。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>完成阶段</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>还有新的安排</button><small className="settled-energy-rule">再次安排不会重复获得“共同收尾”能量</small></div> : <button className="primary-button large" onClick={startAnotherPlan}>{stages.length ? "继续安排今晚" : "开始安排今晚"} <span>›</span></button>}
         {!liveSessionAvailable && !currentNightSummary && <div className="draft-summary"><span className="big-icon"><AppIcon name="moon" /></span><div><small>今晚草稿 · 仅保存在这台设备</small><strong>{stages.length ? `${stages.length}个节点 · ${draftStart}—${draftEnd} · ${draftEnergy}点能量` : "还没有节点，可以从空白开始"}</strong></div><span className="draft-saved">{draftUpdatedAt ? "已保存" : "准备中"}</span></div>}
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
+        {currentWeekFocus && <button className="insight-card weekly-focus-home" onClick={() => go("review")}><span className="big-icon"><AppIcon name="home-heart" /></span><div><small>这周只试这一件 · 给大人的提醒</small><strong>{currentWeekFocus.text}</strong></div><span>›</span></button>}
         <button className={`insight-card support-entry goal-entry-${goalState}`} onClick={goalState === "empty" ? openRewardSetup : goalState === "ready" ? openRewardAchieved : () => go("energy")}><span className="big-icon"><AppIcon name={goalState === "empty" ? "home-heart" : goalState === "ready" ? data.rewardGoal.icon : "plant"} /></span><div><small>{goalState === "empty" ? "下一份家庭期待" : goalState === "ready" ? "家庭期待已点亮" : "家庭期待"}</small><strong>{goalState === "empty" ? "一起定下想共度的家庭时光" : data.rewardGoal.title}</strong><small>{goalState === "empty" ? "从0开始，不用急着定" : goalState === "ready" ? "等你们真的一起实现后再记录" : `还差${progress}点，一起积累`}</small></div><span>›</span></button>
         <div className="stats-row"><div><small>本周记录</small><strong>{weeklyNights} 晚</strong></div><div><small>家庭能量</small><strong>{data.energy}</strong><div className="energy-leaves">{[1,2,3,4,5].map(n => <i className={n <= Math.min(5, Math.ceil(data.energy / 6)) ? "filled" : ""} key={n} />)}</div></div></div>
         <p className="sync-label">{syncLabel}</p>
@@ -990,6 +1007,7 @@ export function StartApp() {
           </>}
         </div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}
+        <section className="one-change-card"><div className="one-change-heading"><span><AppIcon name={reviewSuggestion.icon} /></span><div><small>规则建议 · 不评价孩子</small><h2>接下来只试一个小变化</h2></div></div><strong className="one-change-text">{reviewSuggestion.text}</strong><p>{reviewSuggestion.evidence}</p><div className="rule-transparency"><b>建议怎么来的</b><span>只使用本周收尾次数、主动调整和大人的催促感记录；不分析孩子身份或能力。</span></div><button aria-pressed={currentWeekFocus?.text === reviewSuggestion.text} className={currentWeekFocus?.text === reviewSuggestion.text ? "saved" : ""} onClick={toggleWeeklyFocus}>{currentWeekFocus?.text === reviewSuggestion.text ? "已放到首页 · 点击移除" : "这周就试这一件"}</button></section>
       </div>}
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
