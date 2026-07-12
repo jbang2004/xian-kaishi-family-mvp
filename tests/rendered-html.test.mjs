@@ -69,6 +69,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /if \(validLocal\) setAppReady\(true\)/);
   assert.match(app, /catch \{ localStorage\.removeItem\(STORAGE_KEY\)/);
   assert.match(app, /finally\(\(\) => setAppReady\(true\)\)/);
+  assert.match(app, /const \[rewardDraft, setRewardDraft\]/);
+  assert.match(app, /只有点保存后才会替换现在的期待/);
+  assert.match(app, /确认已兑现，能量归零/);
+  assert.match(app, /未完成或暂停不会倒扣、过期/);
+  assert.match(app, /icon: data\.rewardGoal\.icon/);
+  assert.doesNotMatch(app, /能量不会清零、倒扣或过期/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
