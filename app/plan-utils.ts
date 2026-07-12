@@ -19,12 +19,22 @@ export function addMinutes(time: string, amount: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+export function clockTimeFromDate(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
   return items.map((item, index) => index < startIndex ? item : {
     ...item,
     start: addMinutes(item.start, amount),
     end: addMinutes(item.end, amount),
   });
+}
+
+export function shiftTimedPlanToStart<T extends TimedPlanItem>(items: T[], newStart: string): T[] {
+  if (!items.length) return [];
+  const offset = timeToMinutes(newStart) - timeToMinutes(items[0].start);
+  return shiftTimedItemsFrom(items, 0, offset);
 }
 
 export function reflowTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, startTime: string): T[] {
