@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addMinutes, analyzePlan, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
+import { compareSyncSnapshots, mergeUniqueById } from "./sync-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
@@ -70,6 +71,8 @@ const STORAGE_KEY = "xian-kaishi-family-v2";
 const PLAN_DRAFT_KEY = "xian-kaishi-plan-draft-v1";
 const LIVE_SESSION_KEY = "xian-kaishi-live-session-v1";
 const REMINDER_PREF_KEY = "xian-kaishi-background-reminder-v1";
+const FAMILY_REVISION_KEY = "xian-kaishi-family-revision-v1";
+const FAMILY_UPDATED_AT_KEY = "xian-kaishi-family-updated-at-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 
 const DEFAULT_DATA: AppData = {
@@ -204,8 +207,18 @@ function normalizeData(value: unknown): AppData {
   };
 }
 
+function mergeFamilyData(preferred: AppData, other: AppData): AppData {
+  return {
+    ...other,
+    ...preferred,
+    sessions: mergeUniqueById(preferred.sessions, other.sessions),
+    rewardHistory: mergeUniqueById(preferred.rewardHistory, other.rewardHistory),
+  };
+}
+
 export function StartApp() {
   const [data, setData] = useState(DEFAULT_DATA);
+  const [appReady, setAppReady] = useState(false);
   const [familyId, setFamilyId] = useState("");
   const [screen, setScreen] = useState<Screen>("welcome");
   const [consent, setConsent] = useState(false);
@@ -238,6 +251,9 @@ export function StartApp() {
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const clearPlanDeadline = useRef(0);
+  const familyRevisionRef = useRef(0);
+  const familyUpdatedAtRef = useRef("");
+  const familyDataRef = useRef<AppData>(DEFAULT_DATA);
 
   const go = (next: Screen) => {
     if (LIVE_SCREENS.includes(next as LiveScreen)) { setLiveResumeScreen(next as LiveScreen); setLiveSessionAvailable(true); }
@@ -289,20 +305,49 @@ export function StartApp() {
         planEnd: /^\d{2}:\d{2}$/.test(String(parsedDraft?.planEnd)) ? String(parsedDraft?.planEnd) : next.planEnd,
       });
       const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("xian-kaishi-family-v1");
+      let validLocal = false;
       if (local) {
         try {
           const next = withDraftWindow(normalizeData(JSON.parse(local)));
+          const revision = Math.max(0, Math.floor(Number(localStorage.getItem(FAMILY_REVISION_KEY)) || 0));
+          const updatedAt = localStorage.getItem(FAMILY_UPDATED_AT_KEY) || new Date().toISOString();
+          familyDataRef.current = next; familyRevisionRef.current = revision; familyUpdatedAtRef.current = updatedAt;
+          localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt);
+          validLocal = true;
           setData(next); setConsent(next.consent); setScreen(next.consent ? "home" : "welcome");
-        } catch { /* keep safe defaults */ }
+        } catch { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); }
       }
       setPlanHydrated(true);
+      if (validLocal) setAppReady(true);
       fetch(`/api/state?familyId=${encodeURIComponent(id)}`).then(r => r.json()).then(result => {
+        const hasLocal = validLocal || familyRevisionRef.current > 0;
         if (result.data) {
-          const next = withDraftWindow(normalizeData(result.data));
-          setData(next); setConsent(next.consent); setScreen(next.consent ? "home" : "welcome");
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSyncLabel("云端已同步");
+          const remote = withDraftWindow(normalizeData(result.data));
+          const remoteRevision = Math.max(0, Math.floor(Number(result.revision) || 0));
+          const remoteUpdatedAt = String(result.updatedAt || "");
+          const winner = hasLocal ? compareSyncSnapshots(
+            { revision: familyRevisionRef.current, updatedAt: familyUpdatedAtRef.current },
+            { revision: remoteRevision, updatedAt: remoteUpdatedAt },
+          ) : "remote";
+          if (winner === "remote") {
+            familyDataRef.current = remote; familyRevisionRef.current = remoteRevision; familyUpdatedAtRef.current = remoteUpdatedAt;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(remote)); localStorage.setItem(FAMILY_REVISION_KEY, String(remoteRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, remoteUpdatedAt);
+            setData(remote); setConsent(remote.consent); setScreen(remote.consent ? "home" : "welcome"); setSyncLabel("云端已同步");
+          } else if (winner === "local") {
+            const localRevision = familyRevisionRef.current <= remoteRevision ? remoteRevision + 1 : familyRevisionRef.current;
+            familyRevisionRef.current = localRevision; localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
+            fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+              .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
+              .catch(() => setSyncLabel("仅保存在本机"));
+          } else setSyncLabel("云端已同步");
+        } else if (hasLocal) {
+          const localRevision = Math.max(1, familyRevisionRef.current); familyRevisionRef.current = localRevision;
+          localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
+          fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+            .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
+            .catch(() => setSyncLabel("仅保存在本机"));
         }
-      }).catch(() => setSyncLabel("仅保存在本机"));
+      }).catch(() => setSyncLabel("仅保存在本机")).finally(() => setAppReady(true));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -340,10 +385,30 @@ export function StartApp() {
   const persist = (next: AppData, message?: string) => {
     const activeFamilyId = familyId || createId("family");
     if (!familyId) { localStorage.setItem("xian-kaishi-family-id", activeFamilyId); setFamilyId(activeFamilyId); }
-    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSyncLabel("正在保存…");
+    const revision = Math.max(familyRevisionRef.current, Math.floor(Number(localStorage.getItem(FAMILY_REVISION_KEY)) || 0)) + 1;
+    const updatedAt = new Date().toISOString();
+    familyDataRef.current = next; familyRevisionRef.current = revision; familyUpdatedAtRef.current = updatedAt;
+    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("正在保存…");
     if (message) setToast(message);
-    fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(next) })
-      .then(r => r.json()).then(result => setSyncLabel(result.localOnly ? "仅保存在本机" : "云端已同步")).catch(() => setSyncLabel("仅保存在本机"));
+    fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
+      .then(async response => {
+        const result = await response.json();
+        if (revision !== familyRevisionRef.current) return;
+        if (response.status === 409 && result.data) {
+          const merged = mergeFamilyData(next, normalizeData(result.data));
+          const retryRevision = Math.max(revision, Math.floor(Number(result.revision) || 0)) + 1;
+          const retryUpdatedAt = new Date().toISOString();
+          familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
+          setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt); setSyncLabel("正在合并另一处更新…");
+          const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
+          const retryResult = await retry.json();
+          if (retryRevision !== familyRevisionRef.current) return;
+          if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
+          setSyncLabel(retry.ok ? "已合并并同步" : "已保留本机更新"); return;
+        }
+        if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
+        setSyncLabel(result.localOnly ? "仅保存在本机" : response.ok ? "云端已同步" : "已保留本机更新");
+      }).catch(() => setSyncLabel("仅保存在本机"));
   };
 
   const changeBackgroundReminder = async (enabled: boolean) => {
@@ -550,7 +615,7 @@ export function StartApp() {
   const deleteData = async () => {
     if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
     if (familyId) await fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "DELETE" }).catch(() => null);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem("xian-kaishi-family-id"); setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); go("welcome");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); go("welcome");
   };
 
   const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
@@ -602,7 +667,8 @@ export function StartApp() {
   return <main className={`site-shell ${data.reducedMotion ? "reduce-motion" : ""}`}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <section className="phone-shell" ref={phoneShellRef}>
-      {screen === "welcome" && <div className="screen welcome-screen">
+      {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在找回这个家庭的今晚</strong><span>先确认本机记录，再看看是否有更新</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
+      {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div>
         <h1>今晚，一起商量再开始</h1><p className="lead">安排时间、共同启动、需要时随时调整。孩子只短暂看屏幕。</p>
         <Mascot />
@@ -611,14 +677,14 @@ export function StartApp() {
         <button className="primary-button" disabled={!consent} onClick={() => openProfile("welcome")}>继续设置</button>
       </div>}
 
-      {screen === "privacy" && <div className="screen privacy-screen">
+      {appReady && screen === "privacy" && <div className="screen privacy-screen">
         <Header back={() => go(privacyReturn)} title="隐私与数据说明" />
         <div className="title-with-mascot"><div><span className="eyebrow">监护人先看清楚，再决定是否使用</span><h1>哪些数据保存在哪里？</h1></div><Mascot mood="support" compact /></div>
         <p className="lead">我们只保留完成核心流程需要的信息，不收集孩子真实姓名、年级、学校、精确位置、通讯录、人脸、声音或持续行为监控数据。</p>
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；进行中状态超过18小时会自动失效。</p></section></div>
           <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
-          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与兑换记录</strong><p>通过随机家庭 ID 关联，不使用手机号、真实姓名或 OpenAI 登录身份作为家庭账号。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与兑换记录</strong><p>通过随机家庭 ID 关联；设备与云端会比较版本，旧状态不会静默覆盖更新的本机记录。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
         <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
@@ -626,7 +692,7 @@ export function StartApp() {
         <button className="primary-button" onClick={() => go(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
 
-      {screen === "profile" && <div className="screen">
+      {appReady && screen === "profile" && <div className="screen">
         <Header back={() => go(profileReturn)} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，谁一起安排？</h1></div><Mascot compact /></div>
         <div className="form-card family-form"><label>孩子怎么称呼<input maxLength={12} value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<input maxLength={12} value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label>
