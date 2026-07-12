@@ -45,8 +45,8 @@ p { line-height: 1.65; }
 .section-label { display: block; color: var(--navy); font-weight: 800; margin: 20px 0 10px; }
 
 .app-header { min-height: 46px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; margin-bottom: 22px; text-align: center; }
-.app-header [data-screen-heading]:focus, .screen > h1[tabindex="-1"]:focus { outline: none; }
-.icon-button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255,255,255,.7); font-size: 32px; line-height: 1; box-shadow: var(--shadow-soft); cursor: pointer; }
+.app-header [data-screen-heading]:focus, .screen h1[tabindex="-1"]:focus { outline: none; }
+.icon-button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255,255,255,.7); font-size: 32px; line-height: 1; box-shadow: var(--shadow-soft); cursor: pointer; }
 .header-spacer { width: 42px; }
 .step-pill { justify-self: end; padding: 7px 10px; border-radius: 999px; background: #fff2d7; font-weight: 800; font-size: 12px; }
 .title-with-mascot { display: grid; grid-template-columns: 1fr 98px; gap: 12px; align-items: start; margin-bottom: 8px; }
@@ -795,10 +795,10 @@ button.insight-card { cursor: pointer; }
 .reward-compact-input input { width: 100%; min-height: 42px; margin-top: 5px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 13px; background: var(--paper); color: var(--navy); }
 .reward-compact-input input::placeholder { color: #a6a092; font-weight: 500; }
 .reward-date-chips { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
-.reward-date-chips button { min-height: 38px; border: 1px solid var(--border); border-radius: 13px; background: var(--paper); font-size: 10px; font-weight: 900; cursor: pointer; }
+.reward-date-chips button { min-height: 44px; border: 1px solid var(--border); border-radius: 13px; background: var(--paper); font-size: 11px; font-weight: 900; cursor: pointer; }
 .reward-date-chips button.selected { border-color: var(--sage); background: var(--sage-soft); color: #397259; }
 .energy-target-row { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; }
-.energy-target-row button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f4ede1; font-size: 22px; cursor: pointer; }
+.energy-target-row button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: #f4ede1; font-size: 22px; cursor: pointer; }
 .energy-target-row button:disabled { opacity: .35; cursor: not-allowed; }
 .energy-target-row span { display: grid; place-items: center; }
 .energy-target-row strong { color: #a66d0d; font-size: 32px; line-height: 1; }
@@ -882,14 +882,14 @@ button.insight-card { cursor: pointer; }
 .calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 10px; margin: -3px 0 7px; }
 .month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin: 5px 0 5px; }
 .month-nav h1 { text-align: center; margin: 0; }
-.month-nav button { width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 50%; background: rgba(255,255,255,.8); font-size: 25px; cursor: pointer; }
+.month-nav button { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 50%; background: rgba(255,255,255,.8); font-size: 25px; cursor: pointer; }
 .calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .session-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sage); }
 .reward-star { color: var(--amber-deep); font-style: normal; }
 .calendar-card { border: 1px solid var(--border); border-radius: 22px; padding: 8px 9px; background: rgba(255,255,255,.8); box-shadow: var(--shadow-soft); }
 .weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .weekdays b { text-align: center; color: var(--muted); font-size: 10px; padding: 3px 0 5px; }
-.calendar-grid > button, .blank-day { min-height: 38px; }
+.calendar-grid > button, .blank-day { min-height: 44px; }
 .calendar-grid > button { border: 1px solid transparent; border-radius: 13px; background: transparent; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }
 .calendar-grid > button.selected { border-color: var(--amber); background: #fff7df; box-shadow: 0 0 0 2px rgba(245,184,75,.1); }
 .calendar-grid > button strong { font-size: 13px; }
@@ -968,6 +968,25 @@ button.insight-card { cursor: pointer; }
 
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
 
+/* Family screens are read at arm's length and often shared by two people.
+   Prefer legibility and forgiving touch targets over fitting everything above the fold. */
+.screen small,
+.screen .settled-energy-rule,
+.screen .review-insight p,
+.screen .energy-step > p,
+.screen .reward-preview p,
+.screen .achievement-boundary span,
+.screen .reward-saved-note span,
+.screen .daily-summary-note span,
+.screen .reward-highlight p,
+.screen .one-change-card > p,
+.screen .rule-transparency b,
+.screen .rule-transparency span { font-size: 11px; line-height: 1.45; }
+
+@media (pointer: coarse) {
+  .phone-shell button { min-height: 44px; }
+}
+
 @media (max-width: 900px) {
   .site-shell { padding: 0; display: block; }
   .phone-shell { width: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
@@ -993,5 +1012,5 @@ button.insight-card { cursor: pointer; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
 }
