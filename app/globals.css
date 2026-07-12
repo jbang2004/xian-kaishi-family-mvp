@@ -1075,6 +1075,10 @@ button.insight-card { cursor: pointer; }
   .home-plan-icon .app-icon { width: 43px; height: 43px; }
   .availability-card { grid-template-columns: 46px minmax(0,1fr); padding-right: 16px; }
   .availability-card .mascot { display: none; }
+  .stage-summary { grid-template-columns: 46px minmax(0,1fr) 38px 12px; gap: 8px; padding: 9px 10px 9px 9px; }
+  .stage-summary-icon { width: 46px; height: 46px; }
+  .stage-summary-icon .app-icon { width: 42px; height: 42px; }
+  .stage-summary-energy { min-width: 38px; padding-inline: 4px; }
   .stage-editor-body { grid-template-columns: 52px minmax(0,1fr); align-items: start; padding-right: 11px; }
   .stage-icon-button { grid-column: 1; grid-row: 1; min-height: 116px; }
   .stage-icon-button .app-icon { width: 48px; height: 48px; }
