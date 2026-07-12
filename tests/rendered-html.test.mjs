@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
-import { familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
+import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
@@ -101,6 +101,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-controls="day-session-details"/);
   assert.match(styles, /\.daily-summary-stats/);
   assert.match(app, /最迟到次日清晨5点自动失效/);
+  assert.match(app, /nightKey: \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
+  assert.match(app, /今晚的合作已经留下来了/);
+  assert.match(app, /再次安排不会重复获得“共同收尾”能量/);
+  assert.match(app, /item\.nightKey===key/);
+  assert.doesNotMatch(app, /const cooperationEnergy = 2/);
+  assert.match(styles, /\.settled-home-card/);
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /确认入账并结束今晚/);
   assert.match(app, /已安全记入家庭日历/);
@@ -211,6 +217,12 @@ test("keeps a late-night session through the early morning but not into the next
   assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-14T05:00:00+08:00")), false);
   assert.equal(liveNightLabel(started, new Date("2026-07-14T01:00:00+08:00")), "昨晚");
   assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-15T00:30:00+08:00")), false);
+});
+
+test("awards shared-night bonuses only once while allowing later task energy", () => {
+  assert.deepEqual(calculateNightBonus([], 1), { cooperationEnergy: 2, adjustmentEnergy: 1 });
+  assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 1 }], 2), { cooperationEnergy: 0, adjustmentEnergy: 0 });
+  assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 0 }], 1), { cooperationEnergy: 0, adjustmentEnergy: 1 });
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {

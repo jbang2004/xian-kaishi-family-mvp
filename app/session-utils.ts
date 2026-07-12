@@ -35,3 +35,10 @@ export function liveNightLabel(startedAt: string, now: Date = new Date()) {
   if (!started) return "这一晚";
   return localKey(started) === localKey(now) ? "今晚" : "昨晚";
 }
+
+export function calculateNightBonus(existing: Array<{ adjustmentEnergy: number }>, adjustments: number) {
+  return {
+    cooperationEnergy: existing.length ? 0 : 2,
+    adjustmentEnergy: adjustments > 0 && !existing.some(item => item.adjustmentEnergy > 0) ? 1 : 0,
+  };
+}
