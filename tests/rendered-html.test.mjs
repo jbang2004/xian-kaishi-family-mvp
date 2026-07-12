@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
+import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
@@ -134,6 +135,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /transition-duration: \.001ms !important/);
   assert.match(app, /也会跟随系统设置/);
+  assert.match(app, /共同商量能量/);
+  assert.match(app, /className="task-energy-range branded-range"/);
+  assert.match(app, /aria-valuetext=\{`\$\{stage\.energy\}点家庭能量`\}/);
+  assert.match(app, /rewardThresholdBounds\(data\.energy\)/);
+  assert.match(app, /max=\{rewardMaximumThreshold\}/);
+  assert.match(styles, /\.branded-range::-webkit-slider-runnable-track/);
+  assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
@@ -243,6 +251,13 @@ test("suggests one transparent, parent-facing weekly change", () => {
   assert.equal(suggestWeeklyFocus({ nights: 2, morePromptNights: 0, lessPromptNights: 0, adjustments: 3 }).id, "leave-space");
   assert.equal(suggestWeeklyFocus({ nights: 2, morePromptNights: 0, lessPromptNights: 1, adjustments: 0, recentCompletedFirstStep: "阅读" }).id, "keep-first-step");
   assert.equal(suggestWeeklyFocus({ nights: 1, morePromptNights: 0, lessPromptNights: 0, adjustments: 0 }).id, "smaller-start");
+});
+
+test("keeps reward targets valid after unusually high family energy", () => {
+  assert.deepEqual(rewardThresholdBounds(4), { minimum: 10, maximum: 100 });
+  assert.deepEqual(rewardThresholdBounds(100), { minimum: 105, maximum: 155 });
+  assert.deepEqual(rewardThresholdBounds(215), { minimum: 220, maximum: 270 });
+  assert.deepEqual(rewardThresholdBounds(Number.NaN), { minimum: 10, maximum: 100 });
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {
