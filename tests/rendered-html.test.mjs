@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import { addMinutes, analyzePlan, durationMinutes } from "../app/plan-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app] = await Promise.all([
@@ -22,4 +23,30 @@ test("ships the mascot and persistent-state migration", async () => {
   const migration = await readFile(new URL("../drizzle/0000_huge_randall.sql", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE `family_state`/);
   assert.match(migration, /`family_id` text PRIMARY KEY/);
+});
+
+test("validates the family plan before dual confirmation", () => {
+  const valid = analyzePlan("18:10", "20:30", [
+    { title: "数学练习", start: "18:10", end: "18:40" },
+    { title: "活动一下", start: "18:40", end: "18:50" },
+    { title: "阅读", start: "18:50", end: "19:15" },
+  ]);
+  assert.equal(valid.hasErrors, false);
+  assert.equal(valid.availableMinutes, 140);
+  assert.equal(valid.scheduledMinutes, 65);
+  assert.equal(valid.balanceMinutes, 75);
+
+  const invalid = analyzePlan("18:10", "19:00", [
+    { title: "", start: "18:10", end: "18:30" },
+    { title: "阅读", start: "18:20", end: "19:15" },
+  ]);
+  assert.equal(invalid.hasErrors, true);
+  assert.ok(invalid.issues.some(issue => issue.includes("还没有名称")));
+  assert.ok(invalid.issues.some(issue => issue.includes("时间重叠")));
+  assert.ok(invalid.issues.some(issue => issue.includes("超出今晚可用时间")));
+});
+
+test("calculates stage durations and automatic time shifts", () => {
+  assert.equal(durationMinutes("18:10", "18:40"), 30);
+  assert.equal(addMinutes("18:40", 25), "19:05");
 });

@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { addMinutes, analyzePlan, durationMinutes } from "./plan-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
@@ -97,10 +98,15 @@ function createId(prefix: string) {
   return `${prefix}-${suffix}`;
 }
 
-function addMinutes(time: string, amount: number) {
-  const [h, m] = time.split(":").map(Number);
-  const total = (h * 60 + m + amount + 1440) % 1440;
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+function localDateKey(date: string | Date) {
+  return new Date(date).toLocaleDateString("en-CA");
+}
+
+function formatCountdown(seconds: number) {
+  const safe = Math.max(0, seconds);
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function AppIcon({ name, className = "" }: { name: string; className?: string }) {
@@ -173,6 +179,10 @@ export function StartApp() {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
+  const [activeEndsAt, setActiveEndsAt] = useState(0);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [stageDue, setStageDue] = useState(false);
+  const dueReminderPlayed = useRef(false);
 
   const go = (next: Screen) => {
     setScreen(next);
@@ -234,11 +244,20 @@ export function StartApp() {
   const updateStage = (id: string, patch: Partial<Stage>) => setStages(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
   const moveStage = (index: number, delta: -1 | 1) => {
     const target = index + delta; if (target < 0 || target >= stages.length) return;
-    const next = [...stages]; [next[index], next[target]] = [next[target], next[index]]; setStages(next);
+    const next = [...stages]; [next[index], next[target]] = [next[target], next[index]];
+    let cursor = data.planStart;
+    setStages(next.map(item => {
+      const minutes = Math.max(5, durationMinutes(item.start, item.end));
+      const reordered = { ...item, start: cursor, end: addMinutes(cursor, minutes) };
+      cursor = reordered.end;
+      return reordered;
+    }));
   };
 
   const startPlan = () => {
     setStages(items => items.map((item, index) => ({ ...item, status: index === 0 ? "active" : "pending" })));
+    const firstDuration = Math.max(1, durationMinutes(stages[0]?.start ?? data.planStart, stages[0]?.end ?? addMinutes(data.planStart, 1)));
+    setActiveEndsAt(Date.now() + firstDuration * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setActiveIndex(0); setAdjustments(0); setGuardianConfirmed(false); setChildConfirmed(false); playTone("confirm"); go("running");
   };
 
@@ -252,6 +271,21 @@ export function StartApp() {
 
   const activeStage = stages[activeIndex] ?? stages[0];
   const nextPendingIndex = (from: number) => stages.findIndex((item, index) => index > from && item.status === "pending");
+  const remainingSeconds = activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - clockNow) / 1000)) : 0;
+
+  useEffect(() => {
+    if (screen !== "running" || !activeEndsAt) return;
+    const tick = () => {
+      const now = Date.now(); setClockNow(now);
+      if (now >= activeEndsAt && !dueReminderPlayed.current) {
+        dueReminderPlayed.current = true; setStageDue(true); playTone("transition"); navigator.vibrate?.([25, 35, 25]);
+      }
+    };
+    tick(); const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+    // playTone uses the latest experience preference; the interval is recreated for each stage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeEndsAt]);
 
   const stageFinished = () => {
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
@@ -262,11 +296,14 @@ export function StartApp() {
     const nextIndex = nextPendingIndex(activeIndex);
     if (nextIndex < 0) { go("wrap"); return; }
     setStages(items => items.map((item, index) => index === nextIndex ? { ...item, status: "active" } : item));
+    const nextStage = stages[nextIndex];
+    setActiveEndsAt(Date.now() + Math.max(1, durationMinutes(nextStage.start, nextStage.end)) * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setActiveIndex(nextIndex); go("running");
   };
 
   const extendCurrent = () => {
     updateStage(activeStage.id, { end: addMinutes(activeStage.end, 10), status: "active" });
+    setActiveEndsAt(value => Math.max(value, Date.now()) + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setAdjustments(value => value + 1); setToast("这一阶段延长了10分钟"); go("running");
   };
 
@@ -274,7 +311,7 @@ export function StartApp() {
     const start = activeStage.end;
     const rest: Stage = { id: createId("rest"), title: "安静休息", icon: "quiet", start, end: addMinutes(start, 10), effort: 1, energy: 1, status: startNow ? "active" : "pending", kind: "rest" };
     setStages(items => [...items.slice(0, activeIndex + 1), rest, ...items.slice(activeIndex + 1)]);
-    if (startNow) setActiveIndex(activeIndex + 1);
+    if (startNow) { setActiveIndex(activeIndex + 1); setActiveEndsAt(Date.now() + 10 * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false; }
     setAdjustments(value => value + 1); setToast(startNow ? "现在先休息10分钟" : "已在下一阶段前加入休息"); go("running");
   };
 
@@ -283,10 +320,12 @@ export function StartApp() {
     if (adjustChoice === "rest") { insertRest(false); return; }
     if (adjustChoice === "swap") {
       const pending = stages.map((item, index) => ({ item, index })).filter(({ item, index }) => index > activeIndex && item.status === "pending");
-      if (pending.length >= 2) { const next = [...stages]; [next[pending[0].index], next[pending[1].index]] = [next[pending[1].index], next[pending[0].index]]; setStages(next); setToast("后两项顺序已调换"); }
+      if (pending.length < 2) { setToast("后面没有两项可以调换"); go("running"); return; }
+      const next = [...stages]; [next[pending[0].index], next[pending[1].index]] = [next[pending[1].index], next[pending[0].index]]; setStages(next); setToast("后两项顺序已调换");
     } else {
       const idx = nextPendingIndex(activeIndex);
-      if (idx >= 0) { setStages(items => items.map((item, index) => index === idx ? { ...item, status: "tomorrow" } : item)); setToast("下一项已移到明天"); }
+      if (idx < 0) { setToast("后面已经没有待安排的事项"); go("running"); return; }
+      setStages(items => items.map((item, index) => index === idx ? { ...item, status: "tomorrow" } : item)); setToast("下一项已移到明天");
     }
     setAdjustments(value => value + 1); go("running");
   };
@@ -312,12 +351,6 @@ export function StartApp() {
     persist(next, "已经记录，家庭能量从0重新积累"); go("energy");
   };
 
-  const metrics = useMemo(() => {
-    if (!data.sessions.length) return null;
-    const recent = data.sessions.slice(0, 7);
-    return { nights: recent.length, completed: recent.reduce((sum, item) => sum + item.completedCount, 0), adjustments: recent.reduce((sum, item) => sum + item.adjustments, 0) };
-  }, [data.sessions]);
-
   const exportData = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data }, null, 2)], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
@@ -336,9 +369,15 @@ export function StartApp() {
   const monthStart = calendarCursor;
   const calendarYear = monthStart.getFullYear(); const calendarMonth = monthStart.getMonth();
   const firstWeekday = monthStart.getDay(); const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
-  const dateKey = (date: string | Date) => new Date(date).toLocaleDateString("en-CA");
-  const selectedSessions = data.sessions.filter(item => dateKey(item.date) === selectedDay);
-  const selectedRewards = data.rewardHistory.filter(item => dateKey(item.redeemedAt) === selectedDay);
+  const monthSessions = data.sessions.filter(item => { const date = new Date(item.date); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth; });
+  const monthRewards = data.rewardHistory.filter(item => { const date = new Date(item.redeemedAt); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth; });
+  const metrics = !monthSessions.length && !monthRewards.length ? null : { nights: new Set(monthSessions.map(item => localDateKey(item.date))).size, completed: monthSessions.reduce((sum, item) => sum + item.completedCount, 0), rewards: monthRewards.length };
+  const selectedSessions = data.sessions.filter(item => localDateKey(item.date) === selectedDay);
+  const selectedRewards = data.rewardHistory.filter(item => localDateKey(item.redeemedAt) === selectedDay);
+  const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const weeklyNights = new Set(data.sessions.filter(item => new Date(item.date) >= weekStart).map(item => localDateKey(item.date))).size;
+  const planAnalysis = analyzePlan(data.planStart, data.planEnd, stages);
+  const { availableMinutes, scheduledMinutes, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
   const shiftMonth = (delta: number) => {
     const next = new Date(calendarYear, calendarMonth + delta, 1);
     setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA"));
@@ -368,22 +407,23 @@ export function StartApp() {
 
       {screen === "home" && <div className="screen with-nav home-screen">
         <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>今晚，一起找到舒服的节奏</h1><p>先排时间，再一起点亮开始。</p></div><Mascot mood="confirm" compact /></div>
-        <button className="primary-button large" onClick={() => { setStages(DEFAULT_STAGES.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>一起安排今晚 <span>›</span></button>
+        <button className="primary-button large" onClick={() => { setStages(items => items.map(item => ({ ...item, status: "pending" }))); go("plan"); }}>一起安排今晚 <span>›</span></button>
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         <button className="insight-card support-entry" onClick={() => go("energy")}><span className="big-icon"><AppIcon name="plant" /></span><div><small>家庭期待</small><strong>{data.rewardGoal.title}</strong><small>{data.rewardGoal.redeemed ? "已一起兑现，可以设置新期待" : progress ? `还差${progress}点` : "已经可以一起兑现"}</small></div><span>›</span></button>
-        <div className="stats-row"><div><small>本周记录</small><strong>{data.sessions.length} 晚</strong></div><div><small>家庭能量</small><strong>{data.energy}</strong><div className="energy-leaves">{[1,2,3,4,5].map(n => <i className={n <= Math.min(5, Math.ceil(data.energy / 6)) ? "filled" : ""} key={n} />)}</div></div></div>
+        <div className="stats-row"><div><small>本周记录</small><strong>{weeklyNights} 晚</strong></div><div><small>家庭能量</small><strong>{data.energy}</strong><div className="energy-leaves">{[1,2,3,4,5].map(n => <i className={n <= Math.min(5, Math.ceil(data.energy / 6)) ? "filled" : ""} key={n} />)}</div></div></div>
         <p className="sync-label">{syncLabel}</p><BottomNav screen={screen} go={go} />
       </div>}
 
       {screen === "plan" && <div className="screen plan-screen">
         <Header back={() => go("home")} title="一起安排今晚" step="1/3" />
         <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData({ ...data, planStart: e.target.value })} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData({ ...data, planEnd: e.target.value })} /></div></div><Mascot compact /></div>
+        <div className={`plan-balance ${planHasErrors ? "has-error" : ""}`} role="status"><div><span>{planHasErrors ? "先调整一下时间" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-list">{stages.map((stage, index) => <div className={`stage-editor ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
-          <button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input className="stage-title-input" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title}开始时间`} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title}结束时间`} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta">{stage.kind === "task" && <button className={`effort-pill effort-${stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{effortCopy[stage.effort]} · 调整</button>}<span className="task-energy"><b>能量 {stage.energy}</b>{[1,2,3,4,5].map(value => <button key={value} className={value <= stage.energy ? "filled" : ""} onClick={() => updateStage(stage.id, { energy: value })} aria-label={`${stage.title}设置${value}点能量`} />)}</span></div></div>
+          <button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input className="stage-title-input" aria-label={`第${index + 1}项名称`} value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} /><div className="time-range"><input aria-label={`${stage.title}开始时间`} type="time" value={stage.start} onChange={e => updateStage(stage.id, { start: e.target.value })} /><span>—</span><input aria-label={`${stage.title}结束时间`} type="time" value={stage.end} onChange={e => updateStage(stage.id, { end: e.target.value })} /></div><div className="stage-meta">{stage.kind === "task" && <button className={`effort-pill effort-${stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{effortCopy[stage.effort]} · 调整</button>}<span className="task-energy"><b>能量</b>{[1,2,3,4,5].map(value => <button key={value} className={value <= stage.energy ? "filled" : ""} onClick={() => updateStage(stage.id, { energy: value })} aria-label={`${stage.title}设置${value}点能量`}>{value}</button>)}</span></div></div>
           <div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => setStages(items => items.filter(item => item.id !== stage.id))} aria-label={`删除${stage.title}`}>×</button></div>
         </div>)}</div>
         <button className="add-node-button" onClick={addStage} aria-label="增加一个时间节点"><span>＋</span><strong>增加一个节点</strong></button>
-        <div className="gentle-note">今晚安排可以随时调整。先装下真实需要处理的部分。</div><button className="primary-button" disabled={!stages.length} onClick={() => go("confirm")}>下一步：一起确认</button>
+        <div className="gentle-note">今晚安排可以随时调整。留一点空白，比把时间装满更容易开始。</div><button className="primary-button" disabled={!stages.length || planHasErrors} onClick={() => go("confirm")}>{planHasErrors ? "先调整标出的时间" : "下一步：一起确认"}</button>
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
@@ -408,24 +448,24 @@ export function StartApp() {
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={() => go("confirm")} title="一起点亮" step="3/3" /><span className="eyebrow">可以同时按，也可以一个一个来</span><h1>两个人都准备好，就开始</h1><Mascot mood={guardianConfirmed && childConfirmed ? "celebrate" : "ready"} />
+        <Header back={() => go("confirm")} title="一起点亮" step="3/3" /><span className="eyebrow">可以同时点，也可以一个一个来</span><h1>两个人都准备好，就开始</h1><Mascot mood={guardianConfirmed && childConfirmed ? "celebrate" : "ready"} />
         <div className="light-bridge" data-ready={guardianConfirmed && childConfirmed} />
-        <div className="dual-press"><button className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onPointerDown={() => setGuardianConfirmed(true)} onClick={() => setGuardianConfirmed(true)}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "准备好了" : "按住"}</small></button><button className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onPointerDown={() => setChildConfirmed(true)} onClick={() => setChildConfirmed(true)}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "准备好了" : "按住"}</small></button></div>
+        <div className="dual-press"><button aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => setGuardianConfirmed(value => !value)}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "已点亮" : "点一下"}</small></button><button aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => setChildConfirmed(value => !value)}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "已点亮" : "点一下"}</small></button></div>
         <p className="child-copy">{guardianConfirmed && childConfirmed ? "今晚的安排，已经一起点亮" : "不需要完全同时，两个名字都亮起来就可以。"}</p>
       </div>}
 
       {screen === "running" && <div className="screen running-screen">
         <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
-        <div className="active-stage-card"><AppIcon name={activeStage.icon} /><div><small>{activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div></div>
+        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {activeStage.start}—{activeStage.end}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
         <div className="calm-space"><strong>手机留在大人手里</strong><p>不记录坐姿、声音、人脸或孩子是否一直在桌前。</p></div>
         <div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : stage.start}</small></div>)}</div>
-        <button className="primary-button" onClick={stageFinished}>这一阶段可以收尾了</button><button className="secondary-button adjust-button" onClick={() => go("adjust")}>调整今晚计划</button>
+        <button className="primary-button" onClick={stageFinished}>{stageDue ? "完成这一段，看看下一步" : "提前完成这一阶段"}</button><button className="secondary-button adjust-button" onClick={() => go("adjust")}>调整今晚计划</button>
       </div>}
 
       {screen === "transition" && <div className="screen transition-screen">
         <span className="eyebrow">阶段提醒 · 只提醒一次</span><h1>{activeStage.title}这一段预计到时间了</h1><p className="lead">不用马上切换，看看现在更适合哪一步。</p><div className="transition-art"><AppIcon name="moon" /><Mascot mood="confirm" /></div>
         <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>进入下一阶段</button><button className="secondary-button" onClick={extendCurrent}>再继续10分钟</button><button className="soft-button" onClick={() => insertRest(true)}>先休息一下</button></div><button className="text-button" onClick={() => go("adjust")}>调整今晚计划</button>
-        <div className="privacy-note">锁屏提醒只显示“该看看下一步了”，不展示孩子任务。</div>
+        <div className="privacy-note">页面保持打开时，会有一次柔和声音或震动提醒；不会连续催促。</div>
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">
@@ -472,9 +512,9 @@ export function StartApp() {
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
-        <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => dateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => dateKey(item.redeemedAt)===key); return <button key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+        <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => localDateKey(item.date)===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => setSelectedDay(key)}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
         <div className="day-detail"><small>{selectedDay}</small>{!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>完成晚间流程</strong><small>{item.completedCount}个阶段 · 获得{item.energyEarned}点能量</small><p>{item.stageTitles.join("、") || "已完成当晚计划"}</p></div></div>)}{selectedRewards.map(item => <div className="history-row reward-history" key={item.id}><AppIcon name="game" /><div><strong>兑换家庭期待</strong><small>{item.threshold}点 · 能量已归零</small><p>{item.title}</p></div></div>)}</>}</div>
-        {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="check" /><small>完成阶段</small><strong>{metrics.completed}个</strong></div><div><AppIcon name="game" /><small>期待兑换</small><strong>{data.rewardHistory.length}次</strong></div></div>}
+        {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="check" /><small>完成阶段</small><strong>{metrics.completed}个</strong></div><div><AppIcon name="game" /><small>期待兑换</small><strong>{metrics.rewards}次</strong></div></div>}
         <BottomNav screen={screen} go={go} />
       </div>}
 
