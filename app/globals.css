@@ -585,12 +585,17 @@ button.insight-card { cursor: pointer; }
 .threshold-card, .reward-input, .participant-row { display: block; border: 1px solid var(--border); border-radius: 22px; padding: 16px; margin: 12px 0; background: rgba(255,255,255,.8); font-weight: 800; }
 .threshold-card > div { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; margin-top: 12px; }
 .threshold-card button { width: 42px; height: 42px; border: 0; border-radius: 50%; background: #f4ede1; font-size: 24px; cursor: pointer; }
+.threshold-card button:disabled { opacity: .35; cursor: not-allowed; }
 .threshold-card strong { text-align: center; font-size: 34px; }
+.threshold-card p { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; font-weight: 500; text-align: center; }
 .reward-input input { width: 100%; border: 1px solid var(--border); background: var(--paper); border-radius: 14px; padding: 13px; margin-top: 10px; color: var(--navy); }
+.reward-input input::placeholder { color: #a6a092; font-weight: 500; }
 .reward-row button.selected { border-color: var(--amber); background: #fff8e5; box-shadow: 0 0 0 3px rgba(245,184,75,.12); }
 .participant-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .participant-row span { margin-right: auto; }
 .participant-row strong { background: var(--sage-soft); color: #397259; border-radius: 99px; padding: 7px 10px; font-size: 12px; }
+.reward-save-dock { position: sticky; bottom: 0; z-index: 8; margin: 4px -8px -36px; padding: 12px 8px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(255,248,236,0), rgba(255,248,236,.97) 18%, var(--cream) 44%); }
+.reward-save-dock small { display: block; color: var(--muted); font-size: 10px; text-align: center; margin-top: 7px; }
 
 .achievement-screen { text-align: center; background: radial-gradient(circle at 50% 20%, rgba(245,184,75,.35), transparent 30%), var(--cream); }
 .achievement-energy { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 24px; border: 2px solid rgba(245,184,75,.35); border-radius: 99px; background: rgba(255,255,255,.8); }
@@ -604,6 +609,11 @@ button.insight-card { cursor: pointer; }
 .achievement-card .app-icon { width: 58px; height: 58px; }
 .achievement-card p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .achievement-screen .secondary-button { margin-top: 10px; }
+.redeem-confirm { margin: 0 0 10px; padding: 16px; border: 1px solid rgba(245,184,75,.46); border-radius: 22px; background: rgba(255,249,230,.92); box-shadow: var(--shadow-soft); animation: redeem-confirm-in .28s ease both; }
+.redeem-confirm strong { display: block; font-size: 16px; }
+.redeem-confirm p { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 6px 0 12px; }
+.redeem-confirm .text-button { min-height: 42px; padding: 9px; }
+@keyframes redeem-confirm-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
 
 .calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 11px; margin: -3px 0 12px; }
 .month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin-bottom: 10px; }
