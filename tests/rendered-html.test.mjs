@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, clockTimeFromDate, durationMinutes, reflowTimedItemsFrom, shiftTimedItemsFrom, shiftTimedPlanToStart } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
+import { familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
@@ -24,7 +25,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /xian-kaishi-live-session-v1/);
   assert.match(app, /休息也算照顾计划的一部分/);
   assert.match(app, /今晚草稿 · 仅保存在这台设备/);
-  assert.match(app, /今晚等待温和收尾/);
+  assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
   assert.match(app, /随机家庭 ID 不是正式账号鉴权/);
@@ -61,7 +62,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /restartFromNow \? Date\.now\(\) \+ 10 \* 60_000/);
   assert.match(app, /osc\.addEventListener\("ended"/);
   assert.match(app, /const liveResumeView/);
-  assert.match(app, /今晚计划正在调整 · 进度已保存在本机/);
+  assert.match(app, /activeNightLabel\}计划正在调整 · 进度已保存在本机/);
   assert.match(app, /这一段已完成 · 进度已保存在本机/);
   assert.match(app, /阶段预计到时 · 只提醒一次/);
   assert.match(app, /data-state=\{liveResumeView\.state\}/);
@@ -89,6 +90,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先保留能量，稍后兑现/);
   assert.match(app, /已经安全记入家庭日历|已安全记入家庭日历/);
   assert.match(styles, /\.reward-saved-screen/);
+  assert.match(app, /这一晚分\$\{selectedSessionSummary\.settlements\}次留下记录/);
+  assert.match(app, /先看整体，不用逐条比较每一次/);
+  assert.match(app, /aria-controls="day-session-details"/);
+  assert.match(styles, /\.daily-summary-stats/);
+  assert.match(app, /最迟到次日清晨5点自动失效/);
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /确认入账并结束今晚/);
   assert.match(app, /已安全记入家庭日历/);
@@ -189,6 +195,16 @@ test("only uses a system reminder after guardian permission while hidden", () =>
   assert.equal(shouldUseBackgroundReminder(true, "visible", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(false, "hidden", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(true, "hidden", "denied"), false);
+});
+
+test("keeps a late-night session through the early morning but not into the next day", () => {
+  const started = "2026-07-13T23:30:00+08:00";
+  const updated = "2026-07-14T04:30:00+08:00";
+  assert.equal(familyNightKey(started), familyNightKey(new Date("2026-07-14T04:59:00+08:00")));
+  assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-14T04:59:00+08:00")), true);
+  assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-14T05:00:00+08:00")), false);
+  assert.equal(liveNightLabel(started, new Date("2026-07-14T01:00:00+08:00")), "昨晚");
+  assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-15T00:30:00+08:00")), false);
 });
 
 test("keeps the newest family snapshot and merges durable history", () => {

@@ -358,17 +358,20 @@ button.insight-card { cursor: pointer; }
 .reward-row button small { line-height: 1.35; }
 
 .review-screen h1 { font-size: 30px; }
+.review-screen .app-header { margin-bottom: 8px; }
+.review-screen > .eyebrow { margin-bottom: 6px; font-size: 11px; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 18px 0; }
 .metric-grid > div { min-height: 130px; background: rgba(255,255,255,.76); border: 1px solid var(--border); border-radius: 20px; padding: 13px; display: grid; align-content: space-between; box-shadow: var(--shadow-soft); }
 .metric-grid .app-icon { width: 46px; height: 46px; }
 .metric-grid small, .metric-grid strong { display: block; }
 .metric-grid small { color: var(--muted); }
 .metric-grid strong { font-size: 18px; }
-.review-insight { padding: 16px; display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: center; }
-.review-insight > .app-icon { width: 44px; height: 44px; }
+.review-insight { padding: 10px 12px; display: grid; grid-template-columns: 36px 1fr; gap: 9px; align-items: center; }
+.review-insight > .app-icon { width: 36px; height: 36px; }
 .review-insight small, .review-insight strong { display: block; }
-.review-insight small { color: var(--muted); margin-bottom: 5px; }
-.review-insight p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.review-insight small { color: var(--muted); margin-bottom: 2px; font-size: 9px; }
+.review-insight strong { font-size: 11px; }
+.review-insight p { margin: 3px 0 0; color: var(--muted); font-size: 9px; line-height: 1.35; }
 .empty-review { min-height: 250px; display: grid; place-items: center; align-content: center; text-align: center; padding: 20px; }
 .empty-review .mascot { margin: 0 auto; }
 .empty-review p { color: var(--muted); font-size: 13px; }
@@ -808,27 +811,50 @@ button.insight-card { cursor: pointer; }
 .reward-saved-note { margin-bottom: 10px; }
 .reward-saved-screen .saved-actions { margin-top: auto; }
 
-.calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 11px; margin: -3px 0 12px; }
-.month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin-bottom: 10px; }
+.calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 10px; margin: -3px 0 7px; }
+.month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin: 5px 0 5px; }
 .month-nav h1 { text-align: center; margin: 0; }
 .month-nav button { width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 50%; background: rgba(255,255,255,.8); font-size: 25px; cursor: pointer; }
 .calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .session-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sage); }
 .reward-star { color: var(--amber-deep); font-style: normal; }
-.calendar-card { border: 1px solid var(--border); border-radius: 24px; padding: 13px 10px; background: rgba(255,255,255,.8); box-shadow: var(--shadow-soft); }
+.calendar-card { border: 1px solid var(--border); border-radius: 22px; padding: 8px 9px; background: rgba(255,255,255,.8); box-shadow: var(--shadow-soft); }
 .weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.weekdays b { text-align: center; color: var(--muted); font-size: 11px; padding: 5px 0 8px; }
-.calendar-grid > button, .blank-day { min-height: 48px; }
+.weekdays b { text-align: center; color: var(--muted); font-size: 10px; padding: 3px 0 5px; }
+.calendar-grid > button, .blank-day { min-height: 38px; }
 .calendar-grid > button { border: 1px solid transparent; border-radius: 13px; background: transparent; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }
 .calendar-grid > button.selected { border-color: var(--amber); background: #fff7df; box-shadow: 0 0 0 2px rgba(245,184,75,.1); }
 .calendar-grid > button strong { font-size: 13px; }
 .calendar-grid > button > span { height: 10px; display: flex; align-items: center; gap: 2px; }
 .calendar-grid > button i { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); display: block; }
 .calendar-grid > button b { color: var(--amber-deep); font-size: 9px; }
-.day-detail { min-height: 136px; border: 1px solid var(--border); border-radius: 22px; padding: 14px; margin: 14px 0; background: rgba(255,255,255,.76); }
-.day-detail > small { color: var(--muted); display: block; margin-bottom: 10px; }
+.day-detail { min-height: 136px; border: 1px solid var(--border); border-radius: 24px; padding: 14px; margin: 10px 0 14px; background: rgba(255,255,255,.76); box-shadow: var(--shadow-soft); }
+.day-detail-header { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.day-detail-header small, .day-detail-header strong { display: block; }
+.day-detail-header small { color: var(--muted); font-size: 9px; }
+.day-detail-header strong { margin-top: 2px; font-size: 14px; }
+.day-detail-header > span { padding: 6px 9px; border-radius: 99px; background: var(--blue-soft); color: #4b6f91; font-size: 9px; font-weight: 900; }
 .empty-day { min-height: 80px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; }
 .empty-day .mascot { width: 74px; height: 74px; margin: 0; }
+.daily-summary { overflow: hidden; border: 1px solid rgba(117,184,155,.3); border-radius: 20px; background: linear-gradient(145deg, #f2f8f3, rgba(255,255,255,.88)); }
+.daily-summary-title { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 9px; padding: 11px 12px 8px; text-align: left; }
+.daily-summary-title .app-icon { width: 42px; height: 42px; }
+.daily-summary-title strong, .daily-summary-title small { display: block; }
+.daily-summary-title strong { font-size: 12px; }
+.daily-summary-title small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.daily-summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 9px 6px; border-block: 1px solid rgba(117,184,155,.2); background: rgba(255,255,255,.48); }
+.daily-summary-stats span { display: grid; place-items: center; gap: 2px; border-left: 1px solid rgba(117,184,155,.2); }
+.daily-summary-stats span:first-child { border-left: 0; }
+.daily-summary-stats b { color: #397259; font-size: 18px; }
+.daily-summary-stats small { color: var(--muted); font-size: 8px; }
+.daily-summary-note { padding: 9px 12px 11px; text-align: left; }
+.daily-summary-note strong, .daily-summary-note span { display: block; }
+.daily-summary-note strong { color: #397259; font-size: 9px; }
+.daily-summary-note span { margin-top: 3px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.day-details-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; margin-top: 9px; padding: 0 13px; border: 1px solid var(--border); border-radius: 15px; background: rgba(255,255,255,.78); color: #55616f; font-size: 10px; font-weight: 900; cursor: pointer; }
+.day-details-toggle b { color: #397259; font-size: 16px; }
+.day-session-details { margin-top: 5px; animation: details-in .24s ease both; }
+@keyframes details-in { from { opacity: 0; transform: translateY(-4px); } }
 .history-row { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
 .history-row:first-of-type { border-top: 0; }
 .history-row .app-icon { width: 48px; height: 48px; }
@@ -838,6 +864,10 @@ button.insight-card { cursor: pointer; }
 .history-energy { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .history-energy span { padding: 4px 7px; border-radius: 99px; background: var(--sage-soft); color: #397259; font-size: 9px; font-weight: 800; }
 .reward-history { background: linear-gradient(90deg, rgba(255,244,205,.5), transparent); border-radius: 14px; padding-inline: 7px; }
+.reward-highlight { margin-top: 9px; padding: 10px; border: 1px solid rgba(245,184,75,.28); background: linear-gradient(135deg, #fff8df, rgba(255,255,255,.82)); }
+.reward-highlight small { color: #8c651d; font-size: 9px; }
+.reward-highlight strong { margin-top: 2px; font-size: 12px; }
+.reward-highlight p { margin-top: 4px; font-size: 9px; }
 .compact-metrics { margin-bottom: 0; }
 .compact-metrics > div { min-height: 104px; }
 
