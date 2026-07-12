@@ -8,7 +8,7 @@ import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-util
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
-import { compareSyncSnapshots, mergeUniqueById } from "./sync-utils";
+import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
@@ -83,6 +83,7 @@ const LIVE_SESSION_KEY = "xian-kaishi-live-session-v1";
 const REMINDER_PREF_KEY = "xian-kaishi-background-reminder-v1";
 const FAMILY_REVISION_KEY = "xian-kaishi-family-revision-v1";
 const FAMILY_UPDATED_AT_KEY = "xian-kaishi-family-updated-at-v1";
+const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 
 const DEFAULT_DATA: AppData = {
@@ -192,6 +193,20 @@ function useOnlineStatus() {
   return useSyncExternalStore(subscribeToNetworkStatus, () => navigator.onLine, () => true);
 }
 
+async function retryPendingCloudDeletion() {
+  const pendingFamilyId = localStorage.getItem(PENDING_DELETE_KEY) || "";
+  if (!pendingFamilyId) return true;
+  try {
+    const response = await fetch(`/api/state?familyId=${encodeURIComponent(pendingFamilyId)}`, { method: "DELETE" });
+    const result = await response.json();
+    if (response.ok && result.ok && !result.localOnly) {
+      localStorage.removeItem(PENDING_DELETE_KEY);
+      return true;
+    }
+  } catch { /* retry after the browser reports that the network is back */ }
+  return false;
+}
+
 function AppIcon({ name, className = "" }: { name: string; className?: string }) {
   return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png`} width="256" height="256" decoding="async" alt="" aria-hidden="true" />;
 }
@@ -289,6 +304,8 @@ export function StartApp() {
   const [toast, setToast] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
   const isOnline = useOnlineStatus();
+  const [deletingData, setDeletingData] = useState(false);
+  const [pendingCloudDeletion, setPendingCloudDeletion] = useState(false);
   const [activeEndsAt, setActiveEndsAt] = useState(0);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [stageDue, setStageDue] = useState(false);
@@ -319,6 +336,8 @@ export function StartApp() {
   const familyRevisionRef = useRef(0);
   const familyUpdatedAtRef = useRef("");
   const familyDataRef = useRef<AppData>(DEFAULT_DATA);
+  const pendingWritesRef = useRef(new PendingWrites());
+  const deleteInProgressRef = useRef(false);
 
   const go = (next: Screen) => {
     if (LIVE_SCREENS.includes(next as LiveScreen)) { setLiveResumeScreen(next as LiveScreen); setLiveSessionStartedAt(value => value || new Date().toISOString()); setLiveSessionAvailable(true); }
@@ -355,6 +374,12 @@ export function StartApp() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      const pendingDeletionId = localStorage.getItem(PENDING_DELETE_KEY) || "";
+      if (pendingDeletionId) {
+        [STORAGE_KEY, "xian-kaishi-family-v1", PLAN_DRAFT_KEY, LIVE_SESSION_KEY, REMINDER_PREF_KEY, FAMILY_REVISION_KEY, FAMILY_UPDATED_AT_KEY, "xian-kaishi-family-id"].forEach(key => localStorage.removeItem(key));
+        setPendingCloudDeletion(true);
+        void retryPendingCloudDeletion().then(cleared => setPendingCloudDeletion(!cleared));
+      }
       const id = localStorage.getItem("xian-kaishi-family-id") || createId("family");
       localStorage.setItem("xian-kaishi-family-id", id);
       setFamilyId(id);
@@ -422,16 +447,18 @@ export function StartApp() {
           } else if (winner === "local") {
             const localRevision = familyRevisionRef.current <= remoteRevision ? remoteRevision + 1 : familyRevisionRef.current;
             familyRevisionRef.current = localRevision; localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
-            fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+            const initialSync = fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
               .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
               .catch(() => setSyncLabel("仅保存在本机"));
+            void pendingWritesRef.current.track(initialSync);
           } else setSyncLabel("云端已同步");
         } else if (hasLocal) {
           const localRevision = Math.max(1, familyRevisionRef.current); familyRevisionRef.current = localRevision;
           localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
-          fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+          const initialSync = fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
             .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
             .catch(() => setSyncLabel("仅保存在本机"));
+          void pendingWritesRef.current.track(initialSync);
         }
       }).catch(() => setSyncLabel("仅保存在本机")).finally(() => setAppReady(true));
     }, 0);
@@ -472,31 +499,38 @@ export function StartApp() {
       setToast("网络暂时不可用，今晚仍会保存在本机");
     };
     const handleOnline = async () => {
+      if (deleteInProgressRef.current) return;
+      const deletionCleared = await retryPendingCloudDeletion();
+      setPendingCloudDeletion(!deletionCleared);
+      if (deleteInProgressRef.current) return;
       const activeFamilyId = localStorage.getItem("xian-kaishi-family-id") || "";
       const revision = familyRevisionRef.current;
       if (!activeFamilyId || revision < 1) { setSyncLabel("网络已恢复"); return; }
       setSyncLabel("网络已恢复，正在同步…");
-      try {
-        const response = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
-        const result = await response.json();
-        if (revision !== familyRevisionRef.current) return;
-        if (response.status === 409 && result.data) {
-          const merged = mergeFamilyData(familyDataRef.current, normalizeData(result.data));
-          const retryRevision = Math.max(revision, Math.floor(Number(result.revision) || 0)) + 1;
-          const retryUpdatedAt = new Date().toISOString();
-          familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
-          setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt);
-          const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
-          const retryResult = await retry.json();
-          if (retryRevision !== familyRevisionRef.current) return;
-          if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
-          setSyncLabel(retry.ok ? "网络已恢复 · 已合并并同步" : "网络已恢复 · 已保留本机更新"); return;
+      const syncPromise = (async () => {
+        try {
+          const response = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
+          const result = await response.json();
+          if (revision !== familyRevisionRef.current || deleteInProgressRef.current) return;
+          if (response.status === 409 && result.data) {
+            const merged = mergeFamilyData(familyDataRef.current, normalizeData(result.data));
+            const retryRevision = Math.max(revision, Math.floor(Number(result.revision) || 0)) + 1;
+            const retryUpdatedAt = new Date().toISOString();
+            familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
+            setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt);
+            const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
+            const retryResult = await retry.json();
+            if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
+            if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
+            setSyncLabel(retry.ok ? "网络已恢复 · 已合并并同步" : "网络已恢复 · 已保留本机更新"); return;
+          }
+          if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
+          setSyncLabel(response.ok ? "网络已恢复 · 云端已同步" : "网络已恢复 · 已保留本机更新");
+        } catch {
+          setSyncLabel("仅保存在本机");
         }
-        if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
-        setSyncLabel(response.ok ? "网络已恢复 · 云端已同步" : "网络已恢复 · 已保留本机更新");
-      } catch {
-        setSyncLabel("仅保存在本机");
-      }
+      })();
+      await pendingWritesRef.current.track(syncPromise);
     };
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
@@ -516,17 +550,18 @@ export function StartApp() {
   }, [deletedStage]);
 
   const persist = (next: AppData, message?: string) => {
+    if (deleteInProgressRef.current) return;
     const activeFamilyId = familyId || createId("family");
     if (!familyId) { localStorage.setItem("xian-kaishi-family-id", activeFamilyId); setFamilyId(activeFamilyId); }
     const revision = Math.max(familyRevisionRef.current, Math.floor(Number(localStorage.getItem(FAMILY_REVISION_KEY)) || 0)) + 1;
     const updatedAt = new Date().toISOString();
     familyDataRef.current = next; familyRevisionRef.current = revision; familyUpdatedAtRef.current = updatedAt;
-    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("正在保存…");
+    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("本机已保存 · 正在同步…");
     if (message) setToast(message);
-    fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
+    const syncPromise = fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
       .then(async response => {
         const result = await response.json();
-        if (revision !== familyRevisionRef.current) return;
+        if (revision !== familyRevisionRef.current || deleteInProgressRef.current) return;
         if (response.status === 409 && result.data) {
           const merged = mergeFamilyData(next, normalizeData(result.data));
           const retryRevision = Math.max(revision, Math.floor(Number(result.revision) || 0)) + 1;
@@ -535,13 +570,14 @@ export function StartApp() {
           setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt); setSyncLabel("正在合并另一处更新…");
           const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
           const retryResult = await retry.json();
-          if (retryRevision !== familyRevisionRef.current) return;
+          if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
           if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
           setSyncLabel(retry.ok ? "已合并并同步" : "已保留本机更新"); return;
         }
         if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
         setSyncLabel(result.localOnly ? "仅保存在本机" : response.ok ? "云端已同步" : "已保留本机更新");
-      }).catch(() => setSyncLabel("仅保存在本机"));
+      }).catch(() => { if (!deleteInProgressRef.current) setSyncLabel("本机已保存 · 暂未同步"); });
+    void pendingWritesRef.current.track(syncPromise);
   };
 
   const changeBackgroundReminder = async (enabled: boolean) => {
@@ -779,9 +815,17 @@ export function StartApp() {
   };
 
   const deleteData = async () => {
+    if (deleteInProgressRef.current) return;
     if (!window.confirm("确定删除孩子全部数据吗？此操作无法撤销。")) return;
-    if (familyId) await fetch(`/api/state?familyId=${encodeURIComponent(familyId)}`, { method: "DELETE" }).catch(() => null);
+    deleteInProgressRef.current = true; setDeletingData(true);
+    const activeFamilyId = familyId || localStorage.getItem("xian-kaishi-family-id") || "";
+    if (activeFamilyId) localStorage.setItem(PENDING_DELETE_KEY, activeFamilyId);
+    await pendingWritesRef.current.drain();
+    const cloudDeleted = await retryPendingCloudDeletion();
+    setPendingCloudDeletion(!cloudDeleted);
     localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); go("welcome");
+    setToast(cloudDeleted ? "本机与云端家庭数据已经删除" : "本机数据已删除；联网后继续清理云端副本");
+    deleteInProgressRef.current = false; setDeletingData(false);
   };
 
   const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
@@ -1067,7 +1111,7 @@ export function StartApp() {
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭设置 <span>›</span></button></div>
         <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>页面在后台时提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已就绪" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画；也会跟随系统设置</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
-        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div><button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" onClick={deleteData}>删除孩子全部数据 <span>›</span></button></div>
+        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={deleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除孩子全部数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 

@@ -6,7 +6,7 @@ import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
-import { compareSyncSnapshots, mergeUniqueById } from "../app/sync-utils.ts";
+import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import manifest from "../app/manifest.ts";
 
 test("contains the complete 先开始 product shell", async () => {
@@ -125,6 +125,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /cooperationEnergy: Number\(record\.cooperationEnergy/);
   assert.doesNotMatch(app, /childEnergy, guardianEnergy/);
   assert.match(styles, /@keyframes energy-rise/);
+  assert.match(styles, /--motion-fast: 160ms/);
+  assert.match(styles, /--ease-out-soft: cubic-bezier/);
+  assert.match(styles, /@keyframes mascot-ground/);
+  assert.match(styles, /mascot-celebrate 1\.9s var\(--ease-out-soft\) 2/);
+  assert.match(styles, /spark-pop 1\.9s ease-out 2/);
+  assert.match(styles, /energy-rise 2\.4s ease-out 2/);
+  assert.match(styles, /\.bottom-nav button\.active \{ color: var\(--amber-deep\); background:/);
   assert.match(app, /icon: data\.rewardGoal\.icon/);
   assert.doesNotMatch(app, /能量不会清零、倒扣或过期/);
   assert.match(app, /className="stage-summary" aria-expanded=\{expanded\}/);
@@ -146,6 +153,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
   assert.match(app, /网络已恢复 · 已合并并同步/);
   assert.match(app, /离线使用中/);
+  assert.match(app, /xian-kaishi-pending-cloud-delete-v1/);
+  assert.match(app, /pendingWritesRef\.current\.drain\(\)/);
+  assert.match(app, /pendingWritesRef\.current\.track\(syncPromise\)/);
+  assert.doesNotMatch(app, /track\(fetch\(/);
+  assert.match(app, /deleteInProgressRef\.current\) return/);
+  assert.match(app, /联网后继续清理云端副本/);
+  assert.match(app, /只暂存随机家庭 ID；联网后自动重试/);
   assert.match(styles, /\.phone-shell\.is-offline \.screen \{ padding-top:/);
   assert.match(app, /共同商量能量/);
   assert.match(app, /className="task-energy-range branded-range"/);
@@ -204,6 +218,7 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   assert.match(revisionMigration, /ADD `revision` integer DEFAULT 0 NOT NULL/);
   assert.match(route, /excluded\.revision > family_state\.revision/);
   assert.match(route, /status: 409/);
+  assert.match(route, /localOnly: true \}, \{ status: 503 \}/);
 });
 
 test("validates the family plan before dual confirmation", () => {
@@ -302,4 +317,16 @@ test("keeps the newest family snapshot and merges durable history", () => {
     [{ id: "local", value: 1 }, { id: "shared", value: 2 }],
     [{ id: "remote", value: 3 }, { id: "shared", value: 9 }],
   ), [{ id: "local", value: 1 }, { id: "shared", value: 2 }, { id: "remote", value: 3 }]);
+});
+
+test("waits for pending cloud writes before destructive deletion", async () => {
+  const pending = new PendingWrites();
+  let release = () => {};
+  const write = new Promise(resolve => { release = resolve; });
+  pending.track(write);
+  const draining = pending.drain();
+  assert.equal(pending.size, 1);
+  release();
+  await draining;
+  assert.equal(pending.size, 0);
 });

@@ -15,6 +15,11 @@
   --border: rgba(190, 159, 103, .22);
   --shadow: 0 14px 40px rgba(100, 76, 38, .10);
   --shadow-soft: 0 8px 22px rgba(100, 76, 38, .07);
+  --motion-fast: 160ms;
+  --motion-standard: 260ms;
+  --motion-gentle: 360ms;
+  --ease-out-soft: cubic-bezier(.2, .78, .25, 1);
+  --ease-spring-soft: cubic-bezier(.2, .9, .25, 1.12);
 }
 
 * { box-sizing: border-box; }
@@ -37,7 +42,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(35, 50, 74, 
 .offline-ribbon strong { font-size: 12px; }
 .offline-ribbon small { color: var(--muted); font-size: 10px; margin-top: 1px; }
 .phone-shell.is-offline .screen { padding-top: 76px; }
-.screen { min-height: 100%; padding: 26px 24px 36px; position: relative; animation: screen-in .32s ease both; }
+.screen { min-height: 100%; padding: 26px 24px 36px; position: relative; animation: screen-in var(--motion-standard) var(--ease-out-soft) both; }
 .screen.with-nav { padding-bottom: 112px; }
 @keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -63,6 +68,7 @@ p { line-height: 1.65; }
 .app-icon { width: 42px; height: 42px; object-fit: contain; display: block; flex: 0 0 auto; filter: drop-shadow(0 5px 8px rgba(101, 75, 35, .09)); }
 
 .mascot { width: 210px; height: 210px; position: relative; margin: 8px auto; display: grid; place-items: center; }
+.mascot::after { content: ""; position: absolute; z-index: 1; left: 29%; bottom: 8%; width: 42%; height: 9%; border-radius: 50%; background: rgba(94,67,32,.14); filter: blur(5px); transform-origin: center; animation: mascot-ground 3.6s ease-in-out infinite; }
 .mascot-pose { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 2; filter: drop-shadow(0 16px 18px rgba(104, 75, 31, .14)); transform-origin: 50% 82%; }
 .mascot-blink-frame { z-index: 3; opacity: 0; animation: mascot-blink 5.8s linear infinite; }
 .mascot-halo { position: absolute; width: 64%; height: 64%; border-radius: 50%; background: rgba(255, 202, 84, .28); filter: blur(24px); animation: halo-breathe 3s ease-in-out infinite; }
@@ -70,8 +76,9 @@ p { line-height: 1.65; }
 .mascot-confirm .mascot-pose { animation: mascot-nod 2.8s ease-in-out infinite; }
 .mascot-support .mascot-pose { animation: mascot-listen 3.4s ease-in-out infinite; }
 .mascot-breathe .mascot-pose { animation: mascot-breathe 3.6s ease-in-out infinite; }
-.mascot-celebrate .mascot-pose { animation: mascot-celebrate 2.4s ease-in-out infinite; }
-.mascot-spark { position: absolute; z-index: 4; width: 9px; height: 9px; border-radius: 3px; background: var(--amber); transform: rotate(45deg); opacity: 0; animation: spark-pop 2.4s ease-out infinite; }
+.mascot-celebrate .mascot-pose { animation: mascot-celebrate 1.9s var(--ease-out-soft) 2; }
+.mascot-celebrate::after { animation: mascot-ground-celebrate 1.9s var(--ease-out-soft) 2; }
+.mascot-spark { position: absolute; z-index: 4; width: 9px; height: 9px; border-radius: 3px; background: var(--amber); transform: rotate(45deg); opacity: 0; animation: spark-pop 1.9s ease-out 2; }
 .spark-one { left: 12%; top: 28%; }
 .spark-two { right: 8%; top: 16%; animation-delay: .32s; background: var(--coral); }
 .spark-three { right: 18%; bottom: 20%; animation-delay: .62s; background: var(--sage); }
@@ -82,8 +89,10 @@ p { line-height: 1.65; }
 @keyframes mascot-breathe { 50% { transform: translateY(-5px) scale(1.015); } }
 @keyframes mascot-celebrate { 0%, 100% { transform: none; } 35% { transform: translateY(-8px) rotate(-1.5deg); } 65% { transform: translateY(-3px) rotate(1.5deg); } }
 @keyframes spark-pop { 0%, 26%, 100% { opacity: 0; transform: scale(.3) rotate(45deg); } 38% { opacity: .9; transform: scale(1) rotate(45deg); } 58% { opacity: 0; transform: translateY(-8px) scale(.7) rotate(45deg); } }
+@keyframes mascot-ground { 50% { opacity: .72; transform: scaleX(.88); } }
+@keyframes mascot-ground-celebrate { 0%,100% { opacity: 1; transform: none; } 35% { opacity: .48; transform: scaleX(.76); } }
 
-.primary-button, .secondary-button { width: 100%; min-height: 58px; border: 0; border-radius: 21px; font-weight: 900; font-size: 17px; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; }
+.primary-button, .secondary-button { width: 100%; min-height: 58px; border: 0; border-radius: 21px; font-weight: 900; font-size: 17px; cursor: pointer; transition: transform var(--motion-fast) var(--ease-out-soft), box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease; }
 .primary-button { background: linear-gradient(135deg, #ffc74f, var(--amber)); color: var(--navy); box-shadow: 0 12px 25px rgba(229, 156, 30, .25), inset 0 1px 0 rgba(255,255,255,.7); }
 .primary-button.large { min-height: 68px; display: flex; align-items: center; justify-content: space-between; padding-inline: 26px; }
 .secondary-button { background: rgba(255,255,255,.66); border: 1.5px solid rgba(117,184,155,.7); color: #397259; }
@@ -242,10 +251,10 @@ button.insight-card { cursor: pointer; }
 .energy-leaves .filled { background: var(--sage); box-shadow: 0 2px 5px rgba(117,184,155,.28); }
 
 .bottom-nav { position: absolute; z-index: 5; left: 18px; right: 18px; bottom: 14px; min-height: 74px; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 8px; border: 1px solid rgba(255,255,255,.9); border-radius: 25px; background: rgba(255,253,248,.92); backdrop-filter: blur(18px); box-shadow: 0 14px 35px rgba(55,44,28,.15); }
-.bottom-nav button { border: 0; background: transparent; display: grid; justify-items: center; gap: 4px; cursor: pointer; color: #7e817f; }
+.bottom-nav button { min-height: 58px; border: 0; border-radius: 18px; background: transparent; display: grid; justify-items: center; align-content: center; gap: 3px; cursor: pointer; color: #7e817f; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out-soft); }
 .bottom-nav .app-icon { width: 31px; height: 31px; opacity: .58; transition: transform .18s ease, opacity .18s ease; }
 .bottom-nav button small { font-size: 11px; }
-.bottom-nav button.active { color: var(--amber-deep); font-weight: 900; }
+.bottom-nav button.active { color: var(--amber-deep); background: linear-gradient(180deg,rgba(255,242,203,.56),rgba(255,255,255,.18)); font-weight: 900; }
 .bottom-nav button.active .app-icon { opacity: 1; transform: translateY(-2px) scale(1.06); }
 
 .input-composer { border: 1px solid var(--border); background: rgba(255,255,255,.76); border-radius: 20px; padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; box-shadow: var(--shadow-soft); }
@@ -431,6 +440,12 @@ button.insight-card { cursor: pointer; }
 .setting-row strong { color: #4c8269; }
 .setting-action { width: 100%; border-left: 0; border-right: 0; border-top: 0; background: transparent; font-weight: 800; cursor: pointer; }
 .setting-action.danger { color: #c34f45; }
+.setting-action:disabled { opacity: .55; cursor: wait; }
+.pending-delete-note { display: grid; grid-template-columns: 38px 1fr; align-items: center; gap: 10px; margin: 6px 0 4px; padding: 11px 12px; border: 1px solid rgba(245,184,75,.35); border-radius: 16px; background: rgba(255,248,225,.78); text-align: left; }
+.pending-delete-note .app-icon { width: 34px; height: 34px; }
+.pending-delete-note strong, .pending-delete-note small { display: block; }
+.pending-delete-note strong { color: #93600c; font-size: 11px; }
+.pending-delete-note small { margin-top: 2px; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .risk-entry { width: 100%; display: grid; grid-template-columns: 40px 1fr auto; text-align: left; align-items: center; gap: 10px; padding: 16px; cursor: pointer; }
 .risk-entry > .app-icon { width: 40px; height: 40px; }
 .risk-entry strong, .risk-entry small { display: block; }
@@ -754,7 +769,7 @@ button.insight-card { cursor: pointer; }
 .saved-energy small { color: var(--muted); font-size: 10px; }
 .saved-energy strong { color: #a66d0d; font-size: 50px; line-height: 1; margin: 7px 0 5px; }
 .saved-energy > span { font-size: 11px; font-weight: 800; }
-.energy-rise i { position: absolute; width: 11px; height: 17px; border-radius: 90% 10% 90% 10%; background: var(--sage); opacity: 0; animation: energy-rise 2.4s ease-out infinite; }
+.energy-rise i { position: absolute; width: 11px; height: 17px; border-radius: 90% 10% 90% 10%; background: var(--sage); opacity: 0; animation: energy-rise 2.4s ease-out 2; }
 .energy-rise i:nth-child(1) { left: 18%; bottom: -18px; }
 .energy-rise i:nth-child(2) { right: 20%; bottom: -18px; animation-delay: .42s; background: var(--amber); }
 .energy-rise i:nth-child(3) { left: 55%; bottom: -18px; animation-delay: .82s; }
@@ -845,8 +860,8 @@ button.insight-card { cursor: pointer; }
 .achievement-hero .mascot { width: 92px; height: 92px; margin: 0; }
 .achievement-scene { height: 142px; border-radius: 24px; overflow: hidden; position: relative; margin: 7px 0 10px; box-shadow: 0 14px 30px rgba(61,48,27,.13); isolation: isolate; }
 .achievement-scene > img:first-child { width: 100%; height: 100%; object-fit: cover; object-position: center 55%; transform: scale(1.02); }
-.achievement-glow { position: absolute; inset: 0; background: radial-gradient(circle at 28% 54%, rgba(255,229,137,.55), transparent 31%), linear-gradient(90deg, rgba(255,249,224,.15), transparent); animation: achievement-glow 2.8s ease-in-out infinite; }
-.achievement-scene > .app-icon { position: absolute; left: 24px; top: 25px; width: 88px; height: 88px; filter: drop-shadow(0 10px 16px rgba(70,45,20,.25)); animation: reward-float 3s ease-in-out infinite; }
+.achievement-glow { position: absolute; inset: 0; background: radial-gradient(circle at 28% 54%, rgba(255,229,137,.55), transparent 31%), linear-gradient(90deg, rgba(255,249,224,.15), transparent); animation: achievement-glow 2.8s ease-in-out 3; }
+.achievement-scene > .app-icon { position: absolute; left: 24px; top: 25px; width: 88px; height: 88px; filter: drop-shadow(0 10px 16px rgba(70,45,20,.25)); animation: reward-float 3s ease-in-out 3; }
 .achievement-card { display: grid; grid-template-columns: 54px 1fr; align-items: center; text-align: left; gap: 10px; border: 1px solid var(--border); border-radius: 20px; padding: 10px 12px; margin-bottom: 8px; background: rgba(255,255,255,.84); }
 .achievement-card .app-icon { width: 50px; height: 50px; }
 .achievement-card small, .achievement-card strong, .achievement-card p { display: block; }
@@ -1014,6 +1029,14 @@ button.insight-card { cursor: pointer; }
   .primary-button:not(:disabled):hover { filter: saturate(1.04) brightness(1.015); box-shadow: 0 15px 30px rgba(229,156,30,.3), inset 0 1px 0 rgba(255,255,255,.75); transform: translateY(-1px); }
   .secondary-button:hover, .soft-button:hover { background: white; }
   .icon-button:hover, .stage-actions button:hover { border-color: rgba(117,184,155,.55); background: white; }
+}
+
+@media (pointer: coarse) {
+  .primary-button:not(:disabled):active,
+  .secondary-button:not(:disabled):active,
+  .soft-button:not(:disabled):active,
+  .icon-button:not(:disabled):active,
+  .bottom-nav button:active { transform: translateY(1px) scale(.985); }
 }
 
 @media (max-width: 380px) {

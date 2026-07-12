@@ -21,3 +21,26 @@ export function mergeUniqueById<T extends { id: string }>(preferred: T[], other:
     return true;
   }).slice(0, limit);
 }
+
+export class PendingWrites {
+  private writes = new Set<Promise<unknown>>();
+
+  track<T>(write: Promise<T>) {
+    this.writes.add(write);
+    write.then(
+      () => this.writes.delete(write),
+      () => this.writes.delete(write),
+    );
+    return write;
+  }
+
+  async drain() {
+    while (this.writes.size) {
+      await Promise.allSettled([...this.writes]);
+    }
+  }
+
+  get size() {
+    return this.writes.size;
+  }
+}
