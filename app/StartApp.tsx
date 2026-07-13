@@ -66,6 +66,7 @@ type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"
 type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type PlanWindow = { planStart: string; planEnd: string };
+type ShiftedPlanUndo = { times: Array<Pick<Stage, "id" | "start" | "end">>; message: string; planStart?: string; focusStageId?: string };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
@@ -326,7 +327,7 @@ export function StartApp() {
   const [privacyReturn, setPrivacyReturn] = useState<"welcome" | "settings">("welcome");
   const [profileReturn, setProfileReturn] = useState<"welcome" | "settings">("welcome");
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
-  const [shiftedPlanUndo, setShiftedPlanUndo] = useState<{ times: Array<Pick<Stage, "id" | "start" | "end">>; message: string } | null>(null);
+  const [shiftedPlanUndo, setShiftedPlanUndo] = useState<ShiftedPlanUndo | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
@@ -340,6 +341,7 @@ export function StartApp() {
   const dueReminderPlayed = useRef(false);
   const phoneShellRef = useRef<HTMLElement>(null);
   const addNodeButtonRef = useRef<HTMLButtonElement>(null);
+  const planStartInputRef = useRef<HTMLInputElement>(null);
   const clearPlanDeadline = useRef(0);
   const finishNightLock = useRef(false);
   const redeemRewardLock = useRef(false);
@@ -355,6 +357,7 @@ export function StartApp() {
   const historyReadyRef = useRef(false);
   const historyDepthRef = useRef(0);
   const stageTimeEditRef = useRef<{ id: string; field: "start" | "end"; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
+  const planWindowEditRef = useRef<{ field: "start" | "end"; planStart: string; planEnd: string; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
   const dualStatusRef = useRef<HTMLDivElement>(null);
   const rewardExitHandlerRef = useRef<() => void>(() => undefined);
   const sessionPlanWindowRef = useRef<PlanWindow | null>(null);
@@ -774,6 +777,24 @@ export function StartApp() {
     }));
   };
   const planTimeSnapshot = () => stages.map(({ id, start, end }) => ({ id, start, end }));
+  const beginPlanWindowEdit = (field: "start" | "end") => {
+    if (planWindowEditRef.current?.field === field) return;
+    planWindowEditRef.current = { field, planStart: data.planStart, planEnd: data.planEnd, times: planTimeSnapshot() };
+  };
+  const endPlanWindowEdit = (field: "start" | "end", value: string) => {
+    const baseline = planWindowEditRef.current?.field === field ? planWindowEditRef.current : null;
+    if (!value && baseline) {
+      if (field === "start") {
+        setData(current => ({ ...current, planStart: baseline.planStart }));
+        applyPlanTimes(baseline.times);
+      } else {
+        setData(current => ({ ...current, planEnd: baseline.planEnd }));
+      }
+      setShiftedPlanUndo(null);
+      setToast("时间还没选好，已恢复刚才的安排");
+    }
+    if (planWindowEditRef.current?.field === field) planWindowEditRef.current = null;
+  };
   const beginStageTimeEdit = (id: string, field: "start" | "end") => {
     if (stageTimeEditRef.current?.id === id && stageTimeEditRef.current.field === field) return;
     stageTimeEditRef.current = { id, field, times: planTimeSnapshot() };
@@ -792,6 +813,25 @@ export function StartApp() {
       return next ? { ...item, start: next.start, end: next.end } : item;
     }));
   };
+  const updatePlanStart = (start: string) => {
+    const activeEdit = planWindowEditRef.current?.field === "start" ? planWindowEditRef.current : null;
+    const baselineStart = activeEdit?.planStart ?? data.planStart;
+    const baselineTimes = activeEdit?.times ?? planTimeSnapshot();
+    setFollowUpPlanMessage("");
+    if (!start) { setData(current => ({ ...current, planStart: start })); return; }
+    const delta = clockDeltaMinutes(baselineStart, start);
+    if (!delta) { setData(current => ({ ...current, planStart: start })); return; }
+    setDeletedStage(null);
+    setShiftedPlanUndo({
+      times: baselineTimes,
+      planStart: baselineStart,
+      message: stages.length
+        ? `今晚开始时间已${delta > 0 ? "后移" : "提前"} ${Math.abs(delta)} 分钟，所有节点已一起调整`
+        : `今晚开始时间已${delta > 0 ? "后移" : "提前"} ${Math.abs(delta)} 分钟`,
+    });
+    applyPlanTimes(shiftTimedItemsFrom(baselineTimes, 0, delta));
+    setData(current => ({ ...current, planStart: start }));
+  };
   const updateStageStart = (id: string, start: string) => {
     const index = stages.findIndex(item => item.id === id);
     const baseline = timeEditBaseline(id, "start");
@@ -803,6 +843,7 @@ export function StartApp() {
     setDeletedStage(null);
     setShiftedPlanUndo({
       times: baseline,
+      focusStageId: id,
       message: index < stages.length - 1
         ? `本项${delta > 0 ? "后移" : "前移"} ${Math.abs(delta)} 分钟，后续时间已一起调整`
         : `本项已${delta > 0 ? "后移" : "前移"} ${Math.abs(delta)} 分钟`,
@@ -821,6 +862,7 @@ export function StartApp() {
     setDeletedStage(null);
     setShiftedPlanUndo({
       times: baseline,
+      focusStageId: id,
       message: hasFollowing
         ? delta > 0 ? `本项延长 ${delta} 分钟，后续时间已顺延` : `本项缩短 ${Math.abs(delta)} 分钟，后续时间已提前`
         : `本项已${delta > 0 ? "延长" : "缩短"} ${Math.abs(delta)} 分钟`,
@@ -829,12 +871,19 @@ export function StartApp() {
   };
   const undoPlanShift = () => {
     if (!shiftedPlanUndo) return;
+    const undo = shiftedPlanUndo;
+    const previousPlanStart = undo.planStart;
     const previousTimes = new Map(shiftedPlanUndo.times.map(item => [item.id, item]));
     setStages(items => items.map(item => {
       const previous = previousTimes.get(item.id);
       return previous ? { ...item, start: previous.start, end: previous.end } : item;
     }));
+    if (previousPlanStart !== undefined) setData(current => ({ ...current, planStart: previousPlanStart }));
     setShiftedPlanUndo(null); setToast("已恢复调整前的时间");
+    window.requestAnimationFrame(() => {
+      if (previousPlanStart !== undefined) planStartInputRef.current?.focus();
+      else if (undo.focusStageId) focusPlanTarget(undo.focusStageId);
+    });
   };
   const removeStage = (stage: Stage, index: number) => {
     const remaining = stages.filter(item => item.id !== stage.id); setStages(remaining);
@@ -1275,7 +1324,7 @@ export function StartApp() {
 
       {screen === "plan" && <div className="screen plan-screen">
         <Header back={() => back("home")} title="一起安排今晚" step="1/3" />
-        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planStart: e.target.value })); }} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planEnd: e.target.value })); }} /></div>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
+        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input ref={planStartInputRef} aria-label="今晚开始时间" type="time" value={data.planStart} onFocus={() => beginPlanWindowEdit("start")} onBlur={e => endPlanWindowEdit("start", e.currentTarget.value)} onChange={e => updatePlanStart(e.target.value)} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onFocus={() => beginPlanWindowEdit("end")} onBlur={e => endPlanWindowEdit("end", e.currentTarget.value)} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planEnd: e.target.value })); }} /></div><span className="window-shift-note">改开始时间，下面节点会保留间隔一起移动</span>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
         {followUpPlanMessage && <div className="follow-up-plan-note" role="status"><AppIcon name="check" /><span><strong>已从现在续排</strong><small>{followUpPlanMessage}</small></span></div>}
         <div className={`plan-balance ${planHasErrors ? "has-error" : ""}`} role="status"><div><span>{planHasErrors ? "先调整一下时间" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "从空白开始"}</button>}</div>

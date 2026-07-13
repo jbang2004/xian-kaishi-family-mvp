@@ -89,6 +89,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /onFocus=\{\(\) => beginStageTimeEdit\(stage\.id, "start"\)\}/);
   assert.match(app, /const baseline = timeEditBaseline\(id, "end"\)/);
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
+  assert.match(app, /const updatePlanStart = \(start: string\) =>/);
+  assert.match(app, /applyPlanTimes\(shiftTimedItemsFrom\(baselineTimes, 0, delta\)\)/);
+  assert.match(app, /planStart: baselineStart/);
+  assert.match(app, /ref=\{planStartInputRef\}/);
+  assert.match(app, /planStartInputRef\.current\?\.focus\(\)/);
+  assert.match(app, /endPlanWindowEdit\("start", e\.currentTarget\.value\)/);
+  assert.match(app, /时间还没选好，已恢复刚才的安排/);
+  assert.match(app, /改开始时间，下面节点会保留间隔一起移动/);
+  assert.match(styles, /\.window-shift-note \{[^}]*font-size: var\(--type-micro\)/);
   assert.match(app, /className="home-plan-cta"/);
   assert.doesNotMatch(app, /className="draft-summary"/);
   assert.match(app, /const startAnotherPlan = \(\) => \{/);
@@ -130,7 +139,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /之后只继续剩余时长/);
   assert.match(app, /跨到次日 · 结束时间按第二天计算/);
   assert.match(app, /const planCrossesMidnight = spansMidnight/);
-  assert.match(app, /setData\(current => \(\{ \.\.\.current, planStart: e\.target\.value \}\)\)/);
+  assert.match(app, /onChange=\{e => updatePlanStart\(e\.target\.value\)\}/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: e\.target\.value \}\)\)/);
   assert.match(app, /canStartRest && <button className="soft-button" onClick=\{startRestNow\}>先休息 10 分钟<\/button>/);
   assert.match(app, /title: canStartRest \? "延长当前阶段" : "再休息10分钟"/);
@@ -444,6 +453,16 @@ test("calculates stage durations and automatic time shifts", () => {
   ], "20:00");
   assert.deepEqual(shiftedToNow.map(item => [item.start, item.end]), [["20:00", "20:20"], ["20:30", "20:50"]]);
   assert.equal(clockTimeFromDate(new Date(2026, 0, 1, 20, 5)), "20:05");
+});
+
+test("moves the whole schedule with a cross-midnight availability start", () => {
+  const delta = clockDeltaMinutes("23:40", "00:10");
+  const shifted = shiftTimedItemsFrom([
+    { title: "阅读", start: "23:50", end: "00:10" },
+    { title: "整理", start: "00:20", end: "00:35" },
+  ], 0, delta);
+  assert.equal(delta, 30);
+  assert.deepEqual(shifted.map(item => [item.start, item.end]), [["00:20", "00:40"], ["00:50", "01:05"]]);
 });
 
 test("inserts a live rest break from now and resumes only the unfinished time", () => {
