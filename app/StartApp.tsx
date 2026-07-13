@@ -863,7 +863,9 @@ export function StartApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guardianConfirmed, childConfirmed, screen]);
 
-  const activeStage = stages[activeIndex] ?? stages[0];
+  // Planning screens intentionally allow an empty list. Keep live-only derived
+  // copy total during that brief state so clearing a draft cannot crash React.
+  const activeStage = stages[activeIndex] ?? stages[0] ?? DEFAULT_STAGES[0];
   const nextPendingIndex = (from: number) => stages.findIndex((item, index) => index > from && item.status === "pending");
   const hasNextPending = nextPendingIndex(activeIndex) >= 0;
   const nextPendingStage = stages[nextPendingIndex(activeIndex)];

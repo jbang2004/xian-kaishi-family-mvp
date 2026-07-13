@@ -69,6 +69,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /休息也算照顾计划的一部分/);
   assert.match(app, /今晚草稿 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
   assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
+  assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? DEFAULT_STAGES\[0\]/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
