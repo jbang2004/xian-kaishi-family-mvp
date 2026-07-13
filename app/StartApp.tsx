@@ -10,7 +10,7 @@ import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel, removeSessionAndReconcileEnergy } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -97,6 +97,8 @@ const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
 const DUAL_START_DELAY_MS = 2400;
+const MAX_SESSION_RECORDS = 730;
+const MAX_REWARD_HISTORY = 120;
 
 const DEFAULT_DATA: AppData = {
   consent: false,
@@ -267,7 +269,7 @@ function normalizeData(value: unknown): AppData {
   const goalRedeemed = Boolean(goal.redeemed);
   const goalIcon: RewardGoal["icon"] = goal.icon === "book" || goal.icon === "move" || goal.icon === "game" ? goal.icon : String(goal.title).includes("故事") ? "book" : String(goal.title).includes("散步") ? "move" : "game";
   const goalThreshold = Math.max(10, Math.min(100, Math.round(Number(goal.threshold) || DEFAULT_DATA.rewardGoal.threshold)));
-  const sessions = Array.isArray(old.sessions) ? old.sessions.map((item, index) => {
+  const sessions = Array.isArray(old.sessions) ? keepNewestRecords(old.sessions.map((item, index) => {
     const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
     const legacyTasks = Array.isArray(record.tasks) ? record.tasks.length : 0;
     const date = String(record.date ?? new Date().toISOString());
@@ -282,7 +284,7 @@ function normalizeData(value: unknown): AppData {
       stageTitles: Array.isArray(record.stageTitles) ? record.stageTitles.map(item => cleanShortText(String(item), 24)) : Array.isArray(record.tasks) ? record.tasks.map(item => cleanShortText(String(item), 24)) : [],
       promptReflection: normalizePromptReflection(record.promptReflection),
     } satisfies SessionRecord;
-  }) : [];
+  }), item => item.date, MAX_SESSION_RECORDS) : [];
   const focus = old.weeklyFocus && typeof old.weeklyFocus === "object" ? old.weeklyFocus as Partial<WeeklyFocus> : null;
   return {
     consent: Boolean(old.consent ?? DEFAULT_DATA.consent), childAlias, guardianAlias,
@@ -291,13 +293,13 @@ function normalizeData(value: unknown): AppData {
     sound: typeof old.sound === "boolean" ? old.sound : DEFAULT_DATA.sound,
     reducedMotion: typeof old.reducedMotion === "boolean" ? old.reducedMotion : DEFAULT_DATA.reducedMotion,
     rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, threshold: goalThreshold, icon: goalIcon, title: goalRedeemed ? "" : String(goal.title || DEFAULT_DATA.rewardGoal.title).slice(0, 24), date: String(goal.date || DEFAULT_DATA.rewardGoal.date).slice(0, 16), participants: [guardianAlias, childAlias], redeemed: goalRedeemed, acknowledged: Boolean(goal.acknowledged) },
-    rewardHistory: Array.isArray(old.rewardHistory) ? old.rewardHistory.flatMap((item, index) => {
+    rewardHistory: Array.isArray(old.rewardHistory) ? keepNewestRecords(old.rewardHistory.flatMap((item, index) => {
       if (!item || typeof item !== "object") return [];
       const record = item as Partial<RewardHistory>;
       const icon: RewardHistory["icon"] = record.icon === "book" || record.icon === "move" || record.icon === "game" ? record.icon : "game";
       const threshold = Math.max(0, Number(record.threshold) || 0);
       return [{ id: String(record.id || `reward-${index}`), title: String(record.title || "家庭期待").slice(0, 24), icon, threshold, energyBeforeReset: Math.max(threshold, Number(record.energyBeforeReset) || threshold), redeemedAt: String(record.redeemedAt || new Date().toISOString()) }];
-    }) : [], sessions,
+    }), item => item.redeemedAt, MAX_REWARD_HISTORY) : [], sessions,
     weeklyFocus: focus && /^\d{4}-\d{2}-\d{2}$/.test(String(focus.weekKey)) && String(focus.text).trim() ? { weekKey: String(focus.weekKey), text: String(focus.text).slice(0, 80), createdAt: String(focus.createdAt || new Date().toISOString()) } : null,
   };
 }
@@ -306,8 +308,8 @@ function mergeFamilyData(preferred: AppData, other: AppData): AppData {
   return {
     ...other,
     ...preferred,
-    sessions: mergeUniqueById(preferred.sessions, other.sessions),
-    rewardHistory: mergeUniqueById(preferred.rewardHistory, other.rewardHistory),
+    sessions: keepNewestRecords(mergeUniqueById(preferred.sessions, other.sessions), item => item.date, MAX_SESSION_RECORDS),
+    rewardHistory: keepNewestRecords(mergeUniqueById(preferred.rewardHistory, other.rewardHistory), item => item.redeemedAt, MAX_REWARD_HISTORY),
   };
 }
 
@@ -1154,7 +1156,7 @@ export function StartApp() {
     const nextEnergy = data.energy + taskEnergy + cooperationEnergy + adjustmentEnergy;
     const record: SessionRecord = { id: createId("session"), date: recordDate, nightKey, stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: completedStageTitles, promptReflection };
     const baseline = sessionPlanWindowRef.current ?? { planStart: data.planStart, planEnd: data.planEnd };
-    const next = { ...data, planStart: baseline.planStart, planEnd: baseline.planEnd, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
+    const next = { ...data, planStart: baseline.planStart, planEnd: baseline.planEnd, energy: nextEnergy, sessions: keepNewestRecords([record, ...data.sessions], item => item.date, MAX_SESSION_RECORDS) };
     setLastSavedSession(record); setStages(prepareNextRoundSchedule(stages, completedStageTitles, baseline.planStart));
     localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false); setLiveSessionStartedAt("");
     sessionPlanWindowRef.current = null;
@@ -1168,7 +1170,7 @@ export function StartApp() {
     const redeemedAt = new Date().toISOString();
     const history: RewardHistory = { id: createId("reward"), title: data.rewardGoal.title, icon: data.rewardGoal.icon, threshold: data.rewardGoal.threshold, energyBeforeReset: data.energy, redeemedAt };
     const next: AppData = {
-      ...data, energy: 0, rewardHistory: [history, ...data.rewardHistory].slice(0, 60),
+      ...data, energy: 0, rewardHistory: keepNewestRecords([history, ...data.rewardHistory], item => item.redeemedAt, MAX_REWARD_HISTORY),
       rewardGoal: { threshold: 20, title: "", icon: "game", date: "周六", participants: [data.guardianAlias, data.childAlias], redeemed: true, acknowledged: false },
     };
     setLastRedeemedReward(history);
@@ -1400,7 +1402,7 @@ export function StartApp() {
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；凌晨可以接着昨晚，最迟到次日清晨5点自动失效。</p></section></div>
           <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
-          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过随机家庭 ID 关联；设备与云端会比较版本，旧状态不会静默覆盖更新的本机记录。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过随机家庭 ID 关联；旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
         <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
@@ -1466,7 +1468,7 @@ export function StartApp() {
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以一个一个来</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
+        <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={startsAtPlannedTime ? "check" : "alarm"} /><span><small>两个名字都亮起后</small><strong>{startsAtPlannedTime ? `按计划 ${startNowLabel} 开始` : `从现在 ${startNowLabel} 开始`}</strong><p>{startsAtPlannedTime ? "刚好到约定时间，直接进入第一项。" : "每一项保留原时长和间隔，整晚时间会一起顺延。"}</p></span></div>
         <div className="light-bridge" data-ready={bothParticipantsReady} />
         <div className="dual-press"><button aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>

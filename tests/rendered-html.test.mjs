@@ -5,7 +5,7 @@ import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTi
 import { foregroundCueStatus, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -131,6 +131,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
   assert.match(app, /随机家庭 ID 不是正式账号鉴权/);
+  assert.match(app, /最多保留最近730次晚间收尾和120次期待实现/);
+  assert.match(app, /const MAX_SESSION_RECORDS = 730/);
+  assert.match(app, /const MAX_REWARD_HISTORY = 120/);
+  assert.doesNotMatch(app, /\.slice\(0, 60\)/);
   assert.match(app, /family: data, planDraft, activeSession/);
   assert.match(app, /energy: 0,/);
   assert.match(app, /setPlanHydrated\(false\).*setFamilyId\(""\)/);
@@ -348,6 +352,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /pendingAfterActiveCount >= 1 \? \[\{ id: "tomorrow" as const/);
   assert.match(app, /当前阶段 · \{activeTonightOrdinal\}\/\{tonightStageCount\}/);
   assert.match(app, /这不是身份验证/);
+  assert.match(app, /可以同时点，也可以轮流点/);
   assert.match(app, /className="launch-cancel-button"/);
   assert.match(app, /className="launch-status-copy"/);
   assert.match(app, /即将进入/);
@@ -840,6 +845,19 @@ test("deletes one settlement without corrupting nightly bonuses or a later energ
   const invalidLegacy = removeSessionAndReconcileEnergy([{ ...sessions[0], date: "unknown" }], "first", 8, []);
   assert.equal(invalidLegacy.currentCycleAdjusted, false);
   assert.equal(invalidLegacy.energy, 8);
+});
+
+test("keeps the newest bounded history across imports and sync merges", () => {
+  const records = [
+    { id: "old", date: "2025-01-01T00:00:00.000Z" },
+    { id: "invalid", date: "unknown" },
+    { id: "new", date: "2026-07-13T00:00:00.000Z" },
+    { id: "middle", date: "2026-01-01T00:00:00.000Z" },
+  ];
+  assert.deepEqual(keepNewestRecords(records, item => item.date, 3).map(item => item.id), ["new", "middle", "old"]);
+  assert.deepEqual(records.map(item => item.id), ["old", "invalid", "new", "middle"]);
+  assert.deepEqual(keepNewestRecords(records, item => item.date, 10).map(item => item.id), ["new", "middle", "old", "invalid"]);
+  assert.deepEqual(keepNewestRecords(records, item => item.date, 0), []);
 });
 
 test("suggests one transparent, parent-facing weekly change", () => {

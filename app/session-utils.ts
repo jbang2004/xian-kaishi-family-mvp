@@ -97,3 +97,16 @@ export function removeSessionAndReconcileEnergy<T extends RemovableSession>(sess
     currentCycleAdjusted: !hasLaterRewardReset,
   };
 }
+
+export function keepNewestRecords<T>(items: T[], getDate: (item: T) => string, limit: number) {
+  if (!Number.isFinite(limit) || limit <= 0) return [];
+  return items.map((item, index) => ({ item, index, time: Date.parse(getDate(item)) }))
+    .sort((left, right) => {
+      const leftValid = Number.isFinite(left.time); const rightValid = Number.isFinite(right.time);
+      if (leftValid && rightValid && left.time !== right.time) return right.time - left.time;
+      if (leftValid !== rightValid) return leftValid ? -1 : 1;
+      return left.index - right.index;
+    })
+    .slice(0, Math.floor(limit))
+    .map(entry => entry.item);
+}
