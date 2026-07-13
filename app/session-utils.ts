@@ -48,6 +48,7 @@ export function advanceStageStatuses<T extends { status: string }>(items: T[], c
   return items.map((item, index) => {
     if (index === nextIndex) return { ...item, status: "active" };
     if (index === currentIndex && item.status === "active") return { ...item, status: "done" };
+    if (item.status === "active") return { ...item, status: "pending" };
     return item;
   });
 }

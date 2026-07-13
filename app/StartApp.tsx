@@ -1059,7 +1059,7 @@ export function StartApp() {
     if (nextIndex < 0) { go("wrap"); return; }
     const nextStage = stages[nextIndex];
     setStageAdvanceUndo({ statuses: stages.map(({ id, status }) => ({ id, status })), activeIndex, activeEndsAt, stageDue, transitionReason, nextTitle: nextStage.title });
-    setStages(items => advanceStageStatuses(items, activeIndex, nextIndex) as Stage[]);
+    setStages(items => advanceStageStatuses(items, activeIndex, nextIndex));
     setActiveEndsAt(Date.now() + Math.max(1, durationMinutes(nextStage.start, nextStage.end)) * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setActiveIndex(nextIndex); go("running");
   };
@@ -1318,9 +1318,9 @@ export function StartApp() {
       : notificationPermission === "unsupported" ? `当前浏览器不支持系统提醒；${foregroundReminderStatus}`
         : "开启时只向家长请求一次浏览器通知权限";
   const motionPreferenceStatus = data.reducedMotion
-    ? "应用内已固定减少动画、平滑滚动和轻触震动"
+    ? "应用内已固定减少动画、页面滑动和轻触震动"
     : systemReducedMotion
-      ? "已跟随系统减少动画、平滑滚动和轻触震动"
+      ? "已跟随系统减少动画、页面滑动和轻触震动"
       : "关闭呼吸、漂浮、庆祝动画和轻触震动；也会跟随系统设置";
   const shiftMonth = (delta: number) => {
     const next = shiftCalendarSelection(calendarCursor, selectedDay, delta);

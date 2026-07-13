@@ -289,7 +289,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const motionReduced = data\.reducedMotion \|\| systemReducedMotion/);
   assert.match(app, /behavior: motionReduced \? "auto" : "smooth"/);
   assert.match(app, /site-shell \$\{motionReduced \? "reduce-motion"/);
-  assert.match(app, /已跟随系统减少动画、平滑滚动和轻触震动/);
+  assert.match(app, /已跟随系统减少动画、页面滑动和轻触震动/);
   assert.match(app, /aria-describedby="motion-preference-status"/);
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
   assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
@@ -794,7 +794,7 @@ test("advances restored live stages without leaving two active items", () => {
   const advanced = advanceStageStatuses([
     { title: "上一段", status: "active" },
     { title: "下一段", status: "pending" },
-    { title: "稍后", status: "pending" },
+    { title: "稍后", status: "active" },
   ], 0, 1);
   assert.deepEqual(advanced.map(item => item.status), ["done", "active", "pending"]);
   assert.equal(advanced.filter(item => item.status === "active").length, 1);
