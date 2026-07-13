@@ -115,9 +115,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /剩余事项保留原时长和顺序，收尾仍是 \$\{followUp\.planEnd\}/);
   assert.match(styles, /\.follow-up-plan-note \{[^}]*min-height: 58px/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
-  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.running-action-dock:not\(\.due-action-dock\)/);
   assert.match(styles, /\.running-action-dock:not\(\.due-action-dock\) \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.running-action-dock:not\(\.due-action-dock\) \.primary-button,[\s\S]*?min-height: 48px/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.due-action-dock \{ position: static/);
   assert.match(styles, /\.due-action-dock \{ position: static/);
   assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
