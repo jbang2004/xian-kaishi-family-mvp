@@ -996,6 +996,12 @@ button.insight-card { cursor: pointer; }
 .history-row p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .history-energy { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .history-energy span { padding: 4px 7px; border-radius: 99px; background: var(--sage-soft); color: #397259; font-size: var(--type-micro); font-weight: 800; }
+.record-delete-button { min-height: 44px; margin-top: 6px; padding: 7px 0; border: 0; background: transparent; color: #a45e55; font-size: var(--type-caption); font-weight: 800; cursor: pointer; }
+.record-delete-confirm { margin-top: 8px; padding: 10px; border: 1px solid rgba(194,93,79,.25); border-radius: 15px; background: #fff6f3; }
+.record-delete-confirm > p { margin: 0; color: #76534f; font-size: var(--type-caption); line-height: 1.5; }
+.record-delete-confirm > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.record-delete-confirm button { min-height: 44px; border: 1px solid var(--border); border-radius: 12px; background: white; color: #596473; font-size: var(--type-caption); font-weight: 900; cursor: pointer; }
+.record-delete-confirm button.confirm { border-color: rgba(194,93,79,.3); background: #fff0ec; color: #a34f45; }
 .reward-history { background: linear-gradient(90deg, rgba(255,244,205,.5), transparent); border-radius: 14px; padding-inline: 7px; }
 .reward-highlight { margin-top: 9px; padding: 10px; border: 1px solid rgba(245,184,75,.28); background: linear-gradient(135deg, #fff8df, rgba(255,255,255,.82)); }
 .reward-highlight small { color: #8c651d; font-size: var(--type-micro); }

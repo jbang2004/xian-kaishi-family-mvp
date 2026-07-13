@@ -52,3 +52,48 @@ export function advanceStageStatuses<T extends { status: string }>(items: T[], c
     return item;
   });
 }
+
+type RemovableSession = {
+  id: string;
+  date: string;
+  nightKey: string;
+  adjustments: number;
+  cooperationEnergy: number;
+  adjustmentEnergy: number;
+  energyEarned: number;
+};
+
+export function removeSessionAndReconcileEnergy<T extends RemovableSession>(sessions: T[], recordId: string, currentEnergy: number, rewardDates: string[]) {
+  const removed = sessions.find(item => item.id === recordId);
+  if (!removed) return { sessions, energy: currentEnergy, removedEnergy: 0, currentCycleAdjusted: false };
+
+  const next = sessions.filter(item => item.id !== recordId).map(item => ({ ...item }));
+  const sameNight = next.filter(item => item.nightKey === removed.nightKey);
+  let transferredEnergy = 0;
+
+  if (removed.cooperationEnergy > 0 && sameNight.length && !sameNight.some(item => item.cooperationEnergy > 0)) {
+    sameNight[0].cooperationEnergy += removed.cooperationEnergy;
+    sameNight[0].energyEarned += removed.cooperationEnergy;
+    transferredEnergy += removed.cooperationEnergy;
+  }
+
+  const adjustmentTarget = sameNight.find(item => item.adjustments > 0);
+  if (removed.adjustmentEnergy > 0 && adjustmentTarget && !sameNight.some(item => item.adjustmentEnergy > 0)) {
+    adjustmentTarget.adjustmentEnergy += removed.adjustmentEnergy;
+    adjustmentTarget.energyEarned += removed.adjustmentEnergy;
+    transferredEnergy += removed.adjustmentEnergy;
+  }
+
+  const recordTime = Date.parse(removed.date);
+  const hasLaterRewardReset = !Number.isFinite(recordTime) || rewardDates.some(value => {
+    const rewardTime = Date.parse(value);
+    return Number.isFinite(rewardTime) && rewardTime > recordTime;
+  });
+  const removedEnergy = Math.max(0, removed.energyEarned - transferredEnergy);
+  return {
+    sessions: next,
+    energy: hasLaterRewardReset ? currentEnergy : Math.max(0, currentEnergy - removedEnergy),
+    removedEnergy,
+    currentCycleAdjusted: !hasLaterRewardReset,
+  };
+}

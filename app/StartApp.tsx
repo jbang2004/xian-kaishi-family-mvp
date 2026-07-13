@@ -10,7 +10,7 @@ import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel, removeSessionAndReconcileEnergy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -167,6 +167,11 @@ function createId(prefix: string) {
 
 function localDateKey(date: string | Date) {
   return new Date(date).toLocaleDateString("en-CA");
+}
+
+function sessionTimeLabel(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }) : "这次";
 }
 
 function summarizeSessions(items: SessionRecord[]) {
@@ -346,6 +351,7 @@ export function StartApp() {
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [shiftedPlanUndo, setShiftedPlanUndo] = useState<ShiftedPlanUndo | null>(null);
   const [stageAdvanceUndo, setStageAdvanceUndo] = useState<StageAdvanceUndo | null>(null);
+  const [sessionDeleteArmedId, setSessionDeleteArmedId] = useState("");
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
@@ -1324,17 +1330,32 @@ export function StartApp() {
       : "关闭呼吸、漂浮、庆祝动画和轻触震动；也会跟随系统设置";
   const shiftMonth = (delta: number) => {
     const next = shiftCalendarSelection(calendarCursor, selectedDay, delta);
-    setCalendarCursor(next.cursor); setSelectedDay(next.selectedDay); setDayDetailsExpanded(false);
+    setCalendarCursor(next.cursor); setSelectedDay(next.selectedDay); setDayDetailsExpanded(false); setSessionDeleteArmedId("");
   };
   const jumpToToday = () => {
     const next = new Date();
-    setCalendarCursor(new Date(next.getFullYear(), next.getMonth(), 1)); setSelectedDay(localDateKey(next)); setDayDetailsExpanded(false);
+    setCalendarCursor(new Date(next.getFullYear(), next.getMonth(), 1)); setSelectedDay(localDateKey(next)); setDayDetailsExpanded(false); setSessionDeleteArmedId("");
   };
   const openNightRecord = (nightKey: string) => {
     const date = new Date(`${nightKey}T12:00:00`);
-    setSelectedDay(nightKey); setDayDetailsExpanded(false);
+    setSelectedDay(nightKey); setDayDetailsExpanded(false); setSessionDeleteArmedId("");
     if (Number.isFinite(date.getTime())) setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1));
     go("review");
+  };
+  const hasRewardResetAfter = (record: SessionRecord) => {
+    const recordTime = Date.parse(record.date);
+    if (!Number.isFinite(recordTime)) return true;
+    return data.rewardHistory.some(item => {
+      const rewardTime = Date.parse(item.redeemedAt);
+      return Number.isFinite(rewardTime) && rewardTime > recordTime;
+    });
+  };
+  const deleteSessionRecord = (record: SessionRecord) => {
+    const result = removeSessionAndReconcileEnergy(data.sessions, record.id, data.energy, data.rewardHistory.map(item => item.redeemedAt));
+    setSessionDeleteArmedId("");
+    persist({ ...data, sessions: result.sessions, energy: result.energy }, result.currentCycleAdjusted
+      ? result.removedEnergy ? `已删除这次记录，当前能量同步调整${result.removedEnergy}点` : "已删除这次记录，同一晚的合作能量仍保留"
+      : "已删除日历记录，当前这轮能量没有回溯");
   };
   const startAnotherPlan = () => {
     setEditingStageId("");
@@ -1532,14 +1553,14 @@ export function StartApp() {
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
         <div className="calendar-meta"><div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待实现</span></div>{showTodayJump && <button className="today-jump" onClick={jumpToToday}>回到今天</button>}</div>
-          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=localDateKey(date); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); const isToday=key===todayKey; return <button aria-pressed={selectedDay === key} aria-current={isToday ? "date" : undefined} aria-label={`${calendarMonth + 1}月${day}日${isToday ? "，今天" : ""}${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待实现" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${isToday ? "is-today" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=localDateKey(date); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); const isToday=key===todayKey; return <button aria-pressed={selectedDay === key} aria-current={isToday ? "date" : undefined} aria-label={`${calendarMonth + 1}月${day}日${isToday ? "，今天" : ""}${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待实现" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${isToday ? "is-today" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); setSessionDeleteArmedId(""); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
         <div className="day-detail">
           <div className="day-detail-header"><div><small>家庭夜晚</small><strong>{selectedDateLabel}</strong></div>{selectedSessionSummary && <span>{selectedSessionSummary.settlements} 次收尾</span>}</div>
           {!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>
             {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
             {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>共同约定 {item.threshold} 点 · 这一轮积累到 {item.energyBeforeReset} 点</p></div></div>)}
-            {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => setDayDetailsExpanded(value => !value)}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
-            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{new Date(item.date).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}</div>}
+            {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => { setSessionDeleteArmedId(""); setDayDetailsExpanded(value => !value); }}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
+            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button onClick={() => setSessionDeleteArmedId("")}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}
           </>}
         </div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}

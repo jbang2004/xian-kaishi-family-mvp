@@ -5,7 +5,7 @@ import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTi
 import { foregroundCueStatus, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -231,6 +231,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先看整体，不用逐条比较每一次/);
   assert.match(app, /aria-controls="day-session-details"/);
   assert.match(styles, /\.daily-summary-stats/);
+  assert.match(app, /删除这次记录/);
+  assert.match(app, /aria-label=\{`删除\$\{sessionTimeLabel\(item\.date\)\}的收尾记录`\}/);
+  assert.match(app, /只从日历移除，不改动当前这轮能量/);
+  assert.match(app, /removeSessionAndReconcileEnergy\(data\.sessions, record\.id/);
+  assert.match(styles, /\.record-delete-confirm \{[^}]*background: #fff6f3/);
   assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
   assert.match(app, /className="today-jump"/);
   assert.match(styles, /\.calendar-grid > button\.is-today/);
@@ -810,6 +815,31 @@ test("advances restored live stages without leaving two active items", () => {
     { title: "下一段", status: "pending" },
   ], 0, 1);
   assert.deepEqual(alreadyCompleted.map(item => item.status), ["done", "active"]);
+});
+
+test("deletes one settlement without corrupting nightly bonuses or a later energy cycle", () => {
+  const sessions = [
+    { id: "first", date: "2026-07-13T12:00:00.000Z", nightKey: "2026-07-13", adjustments: 1, cooperationEnergy: 2, adjustmentEnergy: 1, energyEarned: 6 },
+    { id: "second", date: "2026-07-13T13:00:00.000Z", nightKey: "2026-07-13", adjustments: 1, cooperationEnergy: 0, adjustmentEnergy: 0, energyEarned: 2 },
+  ];
+  const currentCycle = removeSessionAndReconcileEnergy(sessions, "first", 8, []);
+  assert.equal(currentCycle.currentCycleAdjusted, true);
+  assert.equal(currentCycle.removedEnergy, 3);
+  assert.equal(currentCycle.energy, 5);
+  assert.deepEqual(currentCycle.sessions.map(item => [item.id, item.cooperationEnergy, item.adjustmentEnergy, item.energyEarned]), [["second", 2, 1, 5]]);
+  assert.deepEqual(sessions.map(item => item.energyEarned), [6, 2]);
+
+  const historical = removeSessionAndReconcileEnergy(sessions, "first", 4, ["2026-07-14T08:00:00.000Z"]);
+  assert.equal(historical.currentCycleAdjusted, false);
+  assert.equal(historical.energy, 4);
+
+  const missing = removeSessionAndReconcileEnergy(sessions, "missing", 8, []);
+  assert.equal(missing.sessions, sessions);
+  assert.equal(missing.energy, 8);
+
+  const invalidLegacy = removeSessionAndReconcileEnergy([{ ...sessions[0], date: "unknown" }], "first", 8, []);
+  assert.equal(invalidLegacy.currentCycleAdjusted, false);
+  assert.equal(invalidLegacy.energy, 8);
 });
 
 test("suggests one transparent, parent-facing weekly change", () => {
