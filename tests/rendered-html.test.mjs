@@ -513,6 +513,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setTimeout\(startPlan, DUAL_START_DELAY_MS\)/);
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
   assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
+  assert.match(app, /className=\{`adjust-decision-dock \$\{effectiveAdjustChoice \? "is-ready" : "is-waiting"\}`\}/);
+  assert.match(app, /aria-label="调整预览与确认"/);
+  assert.match(app, /role="status" aria-live="polite" aria-atomic="true"/);
+  assert.match(app, /确认前不会改动 · 调整不扣能量 · 已完成进展会保留/);
+  assert.match(styles, /\.adjust-decision-dock\.is-ready \.change-preview/);
+  assert.match(styles, /\.adjust-screen \{ padding-bottom: calc\(176px \+ env\(safe-area-inset-bottom\)\); animation-fill-mode: none; \}/);
+  assert.match(styles, /\.adjust-decision-dock \{ position: fixed;[^}]*bottom: 0;[^}]*width: min\(560px, calc\(100% - 36px\)\)/);
   assert.match(app, /if \(screenRef\.current === "dual-start" && next !== "dual-start"\)/);
   assert.match(app, /已经停住，可以再商量一下/);
   assert.match(app, /const guardianConfirmRef = useRef<HTMLButtonElement>\(null\)/);

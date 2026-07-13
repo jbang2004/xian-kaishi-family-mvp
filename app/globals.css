@@ -837,10 +837,16 @@ button.insight-card { cursor: pointer; }
 .adjust-grid small { color: var(--muted); margin-top: 5px; font-size: 11px; }
 .adjust-grid .finish-choice { grid-column: 1 / -1; min-height: 104px; grid-template-columns: 70px 1fr; align-items: center; justify-items: start; text-align: left; padding-inline: 24px; }
 .adjust-grid .finish-choice .app-icon { width: 62px; height: 62px; }
+.adjust-decision-dock { margin-top: 12px; }
 .change-preview { border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.78); padding: 16px; display: grid; gap: 6px; }
 .change-preview small { color: var(--muted); }
 .change-preview.is-waiting { border-style: dashed; background: rgba(255,255,255,.48); }
 .change-preview.is-waiting strong { color: #68736e; font-weight: 700; }
+.adjust-decision-dock.is-ready .change-preview { border-color: rgba(117,184,155,.46); background: linear-gradient(135deg,rgba(237,246,239,.94),rgba(255,253,248,.9)); animation: adjust-preview-ready var(--motion-standard) var(--ease-out-soft) both; }
+.adjust-safety-note { margin: 8px 2px; color: var(--muted); font-size: var(--type-micro); line-height: 1.45; text-align: center; }
+.adjust-dock-actions { display: grid; grid-template-columns: minmax(0,1fr) 92px; gap: 8px; }
+.adjust-cancel-button { min-height: 54px; border: 1px solid rgba(117,184,155,.34); border-radius: 19px; background: rgba(255,255,255,.74); color: #397259; font-size: 12px; font-weight: 900; cursor: pointer; }
+@keyframes adjust-preview-ready { from { opacity: .72; transform: translateY(4px); } }
 
 .wrap-screen { text-align: center; background: radial-gradient(circle at 84% 13%, rgba(245,184,75,.24), transparent 25%); display: flex; flex-direction: column; }
 .wrap-screen .app-header { margin-bottom: 8px; }
@@ -1263,6 +1269,15 @@ button.insight-card { cursor: pointer; }
   .confirm-action-dock .primary-button { min-height: 50px; margin: 0; border-radius: 17px; padding: 7px 10px; font-size: 13px; line-height: 1.3; }
   .confirm-action-dock .confirm-secondary-action { min-width: 0; min-height: 50px; margin: 0; border-radius: 17px; padding: 6px 9px; font-size: 11px; line-height: 1.3; }
   .confirm-action-dock > small { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .adjust-screen { padding-bottom: calc(176px + env(safe-area-inset-bottom)); animation-fill-mode: none; }
+  .adjust-decision-dock { position: fixed; z-index: 12; left: 50%; bottom: 0; width: min(560px, calc(100% - 36px)); margin: 0; padding: 9px 9px calc(10px + env(safe-area-inset-bottom)); transform: translateX(-50%); border: 1px solid rgba(255,255,255,.88); border-bottom: 0; border-radius: 22px 22px 0 0; background: rgba(255,248,236,.96); box-shadow: 0 -14px 34px rgba(55,44,28,.14); backdrop-filter: blur(18px); }
+  .adjust-decision-dock .change-preview { min-height: 56px; padding: 9px 11px; border-radius: 16px; gap: 3px; }
+  .adjust-decision-dock .change-preview small { font-size: var(--type-micro); }
+  .adjust-decision-dock .change-preview strong { font-size: var(--type-caption); line-height: 1.38; }
+  .adjust-safety-note { margin: 5px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .adjust-dock-actions { grid-template-columns: minmax(0,1fr) 82px; }
+  .adjust-dock-actions .primary-button, .adjust-cancel-button { min-height: 48px; border-radius: 16px; }
+  .adjust-dock-actions .primary-button { font-size: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
