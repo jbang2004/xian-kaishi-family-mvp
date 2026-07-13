@@ -121,6 +121,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.due-action-dock \{ position: static/);
   assert.match(styles, /\.due-action-dock \{ position: static/);
   assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /\.home-plan-copy em \{[^}]*white-space: normal[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /\.live-resume-card > span:not\(\.live-pulse\) \{ min-width: 0/);
+  assert.match(styles, /\.live-resume-card strong \{[^}]*overflow-wrap: anywhere[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /\.stage-summary-copy strong \{[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /\.stage-summary-copy small \{[^}]*line-height: 1\.35/);
+  assert.match(styles, /\.press-zone > strong \{[^}]*white-space: normal[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
