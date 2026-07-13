@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "./plan-utils";
-import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
+import { foregroundCueStatus, ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { rewardThresholdBounds } from "./reward-utils";
@@ -609,6 +609,19 @@ export function StartApp() {
     const timer = window.setTimeout(() => setStageAdvanceUndo(null), 12000);
     return () => window.clearTimeout(timer);
   }, [stageAdvanceUndo]);
+
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    const refreshNotificationPermission = () => {
+      if (document.visibilityState === "visible") setNotificationPermission(Notification.permission);
+    };
+    window.addEventListener("focus", refreshNotificationPermission);
+    document.addEventListener("visibilitychange", refreshNotificationPermission);
+    return () => {
+      window.removeEventListener("focus", refreshNotificationPermission);
+      document.removeEventListener("visibilitychange", refreshNotificationPermission);
+    };
+  }, []);
 
   useEffect(() => {
     if (!deleteArmed) return;
@@ -1298,10 +1311,11 @@ export function StartApp() {
     if (liveResumeScreen === "transition" || stageDue) return { state: "due", icon: "alarm", kicker: "阶段预计到时 · 只提醒一次", title: stageTitle, detail: "完成、继续或调整，都可以", cta: "继续选择 ›" };
     return { state: "running", icon: "alarm", kicker: `${activeNightLabel}正在进行 · 进度已保存在本机`, title: stageTitle, detail: `${completedStageCount}/${tonightStageCount} 个阶段已完成`, cta: "继续 ›" };
   })();
+  const foregroundReminderStatus = foregroundCueStatus(data.sound, motionReduced);
   const backgroundReminderStatus = notificationPermission === "granted"
     ? backgroundReminder ? "页面留在后台时，会显示一条系统提醒" : "已获得系统权限，需要时可以在这里开启"
-    : notificationPermission === "denied" ? "系统权限未允许，可在浏览器设置中重新开启"
-      : notificationPermission === "unsupported" ? "当前浏览器不支持；前台提示音和震动仍然有效"
+    : notificationPermission === "denied" ? `${foregroundReminderStatus}；如需后台提醒，请在浏览器设置中重新允许`
+      : notificationPermission === "unsupported" ? `当前浏览器不支持系统提醒；${foregroundReminderStatus}`
         : "开启时只向家长请求一次浏览器通知权限";
   const motionPreferenceStatus = data.reducedMotion
     ? "应用内已固定减少动画、平滑滚动和轻触震动"

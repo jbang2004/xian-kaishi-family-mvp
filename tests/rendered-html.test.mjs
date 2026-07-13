@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
-import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
+import { foregroundCueStatus, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
@@ -353,6 +353,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setInterval\(\(\) => setClockNow\(Date\.now\(\)\), 1000\)/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
+  assert.match(app, /window\.addEventListener\("focus", refreshNotificationPermission\)/);
+  assert.match(app, /document\.addEventListener\("visibilitychange", refreshNotificationPermission\)/);
+  assert.match(app, /setNotificationPermission\(Notification\.permission\)/);
+  assert.match(app, /如需后台提醒，请在浏览器设置中重新允许/);
+  assert.doesNotMatch(app, /前台提示音和震动仍然有效/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
   assert.doesNotMatch(`${page}${layout}${app}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
@@ -763,6 +768,10 @@ test("only uses a system reminder after guardian permission while hidden", () =>
   assert.equal(shouldUseHapticCue(false, false), true);
   assert.equal(shouldUseHapticCue(true, false), false);
   assert.equal(shouldUseHapticCue(false, true), false);
+  assert.equal(foregroundCueStatus(true, false), "页面内仍会显示提醒；提示音和轻触反馈按设备支持");
+  assert.equal(foregroundCueStatus(true, true), "页面内仍会显示提醒；提示音开启，触感已关闭");
+  assert.equal(foregroundCueStatus(false, false), "页面内仍会显示提醒；提示音关闭，轻触反馈按设备支持");
+  assert.equal(foregroundCueStatus(false, true), "页面内仍会显示提醒；提示音与触感均已关闭");
 });
 
 test("keeps a late-night session through the early morning but not into the next day", () => {
