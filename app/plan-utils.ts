@@ -116,7 +116,8 @@ export function findPlanInsertionSlot<T extends TimedPlanItem>(planStart: string
     return { index, startOffset, endOffset: startOffset + itemDuration, itemDuration };
   }).sort((a, b) => a.startOffset - b.startOffset);
 
-  if (occupied.some(item => item.itemDuration <= 0 || item.startOffset < 0 || item.startOffset >= availableMinutes || item.endOffset > availableMinutes)) {
+  const orderChanged = occupied.some((item, chronologicalIndex) => item.index !== chronologicalIndex);
+  if (orderChanged || occupied.some(item => item.itemDuration <= 0 || item.startOffset < 0 || item.startOffset >= availableMinutes || item.endOffset > availableMinutes)) {
     return { status: "invalid" as const };
   }
 
@@ -144,6 +145,38 @@ export function findPlanInsertionSlot<T extends TimedPlanItem>(planStart: string
     insertIndex: nextOccupied?.index ?? items.length,
     usedShortGap: minutes < preferredMinutes,
   };
+}
+
+export function moveTimedItemPreservingGaps<T extends TimedPlanItem>(items: T[], fromIndex: number, toIndex: number, planStart: string) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex || timeToMinutes(planStart) < 0) {
+    return { items, moved: false };
+  }
+
+  const planStartMinutes = timeToMinutes(planStart);
+  const timing = items.map(item => {
+    const minutes = durationMinutes(item.start, item.end);
+    const startMinutes = timeToMinutes(item.start);
+    const startOffset = startMinutes < 0 ? -1 : (startMinutes - planStartMinutes + 1440) % 1440;
+    return { minutes, startOffset, endOffset: startOffset + minutes };
+  });
+  const invalid = timing.some((item, index) => item.minutes <= 0 || item.startOffset < 0 || (index > 0 && item.startOffset < timing[index - 1].endOffset));
+  if (invalid) return { items, moved: false };
+
+  const leadingGap = timing[0]?.startOffset ?? 0;
+  const positionGaps = timing.slice(0, -1).map((item, index) => Math.max(0, timing[index + 1].startOffset - item.endOffset));
+  const reordered = [...items];
+  const [movedItem] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, movedItem);
+
+  let cursor = addMinutes(planStart, leadingGap);
+  const nextItems = reordered.map((item, index) => {
+    const minutes = durationMinutes(item.start, item.end);
+    const start = cursor;
+    const end = addMinutes(start, minutes);
+    cursor = addMinutes(end, positionGaps[index] ?? 0);
+    return { ...item, start, end };
+  });
+  return { items: nextItems, moved: true };
 }
 
 export function rebaseFollowUpPlan<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], nowTime: string) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -102,6 +102,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.window-shift-note \{[^}]*font-size: var\(--type-micro\)/);
   assert.match(app, /className="home-plan-cta"/);
   assert.match(app, /findPlanInsertionSlot\(data\.planStart, data\.planEnd, stages\)/);
+  assert.match(app, /moveTimedItemPreservingGaps\(stages, index, target, data\.planStart\)/);
+  assert.match(app, /已调换顺序，原来的时间空档保持不变/);
   assert.match(app, /今晚已经排满，先留出至少5分钟再增加/);
   assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
   assert.doesNotMatch(app, /className="draft-summary"/);
@@ -501,6 +503,41 @@ test("finds a cross-midnight gap and refuses full or invalid plans", () => {
     { title: "阅读", start: "18:00", end: "18:40" },
     { title: "整理", start: "18:30", end: "18:50" },
   ]), { status: "invalid" });
+
+  assert.deepEqual(findPlanInsertionSlot("18:00", "20:00", [
+    { title: "阅读", start: "18:50", end: "19:10" },
+    { title: "晚餐", start: "18:00", end: "18:20" },
+  ]), { status: "invalid" });
+});
+
+test("moves unequal tasks while preserving leading and between-stage gaps", () => {
+  const result = moveTimedItemPreservingGaps([
+    { title: "短任务", start: "18:10", end: "18:30" },
+    { title: "长任务", start: "18:45", end: "19:15" },
+    { title: "收尾", start: "19:25", end: "19:35" },
+  ], 2, 0, "18:00");
+  assert.equal(result.moved, true);
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end]), [
+    ["收尾", "18:10", "18:20"],
+    ["短任务", "18:35", "18:55"],
+    ["长任务", "19:05", "19:35"],
+  ]);
+});
+
+test("preserves a cross-midnight gap when swapping tasks", () => {
+  const result = moveTimedItemPreservingGaps([
+    { title: "阅读", start: "23:30", end: "23:50" },
+    { title: "整理", start: "00:00", end: "00:20" },
+  ], 0, 1, "23:20");
+  assert.equal(result.moved, true);
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end]), [
+    ["整理", "23:30", "23:50"],
+    ["阅读", "00:00", "00:20"],
+  ]);
+  assert.equal(moveTimedItemPreservingGaps([
+    { title: "阅读", start: "18:30", end: "19:00" },
+    { title: "整理", start: "18:50", end: "19:10" },
+  ], 0, 1, "18:00").moved, false);
 });
 
 test("inserts a live rest break from now and resumes only the unfinished time", () => {

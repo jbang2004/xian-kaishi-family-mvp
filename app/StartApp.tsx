@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -342,7 +342,8 @@ export function StartApp() {
   const phoneShellRef = useRef<HTMLElement>(null);
   const addNodeButtonRef = useRef<HTMLButtonElement>(null);
   const planStartInputRef = useRef<HTMLInputElement>(null);
-  const clearPlanDeadline = useRef(0);
+  const clearPlanArmedRef = useRef(false);
+  const clearPlanArmSequence = useRef(0);
   const finishNightLock = useRef(false);
   const redeemRewardLock = useRef(false);
   const familyRevisionRef = useRef(0);
@@ -918,17 +919,25 @@ export function StartApp() {
     focusPlanTarget(stage.id);
   };
   const clearPlan = () => {
-    if (Date.now() > clearPlanDeadline.current) {
-      const deadline = Date.now() + 3200; clearPlanDeadline.current = deadline;
+    if (!clearPlanArmedRef.current) {
+      clearPlanArmedRef.current = true;
+      const sequence = ++clearPlanArmSequence.current;
       setClearPlanArmed(true); setToast("再点一次确认清空");
-      window.setTimeout(() => { if (clearPlanDeadline.current === deadline) { clearPlanDeadline.current = 0; setClearPlanArmed(false); } }, 3200); return;
+      window.setTimeout(() => {
+        if (clearPlanArmedRef.current && clearPlanArmSequence.current === sequence) {
+          clearPlanArmedRef.current = false; setClearPlanArmed(false);
+        }
+      }, 3200); return;
     }
-    clearPlanDeadline.current = 0; setStages([]); setEditingStageId(""); setClearPlanArmed(false); setToast("今晚已从空白开始"); focusPlanTarget();
+    clearPlanArmedRef.current = false; clearPlanArmSequence.current += 1; setStages([]); setEditingStageId(""); setClearPlanArmed(false); setToast("今晚已从空白开始"); focusPlanTarget();
   };
   const moveStage = (index: number, delta: -1 | 1) => {
     const target = index + delta; if (target < 0 || target >= stages.length) return;
-    const next = [...stages]; [next[index], next[target]] = [next[target], next[index]];
-    setStages(reflowTimedItemsFrom(next, 0, data.planStart));
+    const movedStageId = stages[index].id;
+    const result = moveTimedItemPreservingGaps(stages, index, target, data.planStart);
+    if (!result.moved) { setToast("先调整标出的时间，再调换顺序"); return; }
+    setDeletedStage(null); setShiftedPlanUndo(null); setStages(result.items); setToast("已调换顺序，原来的时间空档保持不变");
+    focusPlanTarget(movedStageId);
   };
 
   const startPlan = () => {
