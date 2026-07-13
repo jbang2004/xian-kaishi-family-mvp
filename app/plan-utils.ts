@@ -54,6 +54,11 @@ export function clockTimeFromDate(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+export function millisecondsUntilNextMinute(timestamp: number) {
+  const safeTimestamp = Number.isFinite(timestamp) ? Math.max(0, Math.floor(timestamp)) : 0;
+  return 60_000 - safeTimestamp % 60_000;
+}
+
 export function suggestInitialEveningWindow(now: Date) {
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   if (!Number.isFinite(now.getTime()) || (minutesNow >= 5 * 60 && minutesNow < 16 * 60)) {

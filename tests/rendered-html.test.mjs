@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -31,6 +31,14 @@ test("keeps supporting text readable across the warm card palette", async () => 
   for (const background of ["#fffdf8", "#fff8ec", "#edf6ef", "#edf4fb", "#fff2cb"]) {
     assert.ok(contrastRatio(muted, background) >= 4.5, `${muted} should remain readable on ${background}`);
   }
+});
+
+test("aligns calm decision-screen updates to minute boundaries", () => {
+  assert.equal(millisecondsUntilNextMinute(0), 60_000);
+  assert.equal(millisecondsUntilNextMinute(1), 59_999);
+  assert.equal(millisecondsUntilNextMinute(59_999), 1);
+  assert.equal(millisecondsUntilNextMinute(60_000), 60_000);
+  assert.equal(millisecondsUntilNextMinute(Number.NaN), 60_000);
 });
 
 test("contains the complete 先开始 product shell", async () => {
@@ -103,6 +111,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
   assert.match(styles, /\.undo-toast span \{[^}]*white-space: normal;[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
+  assert.match(app, /screen !== "confirm" && screen !== "dual-start" && screen !== "adjust"/);
+  assert.match(app, /minuteTimer = window\.setInterval\(tick, 60_000\)/);
+  assert.equal((app.match(/window\.setInterval\([^;\n]*1000\)/g) ?? []).length, 1);
+  assert.match(app, /document\.addEventListener\("visibilitychange", tick\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
   assert.match(styles, /\.offline-ribbon,[\s\S]*?\.undo-toast \{ left: 50%; right: auto; width: min\(560px, calc\(100% - 36px\)\); transform: translateX\(-50%\); \}/);
   assert.equal(ASSET_VERSION, "2026-07-13-2");
@@ -315,7 +327,6 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /下一项前休息10分钟/);
   assert.match(app, /收尾保存后 \+\$\{activeStage\.energy\} 家庭能量/);
   assert.match(app, /disabled=\{!effectiveAdjustChoice\}/);
-  assert.match(app, /if \(screen !== "adjust"\) return/);
   assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
   assert.match(app, /!planHydrated \|\| LIVE_SCREENS\.includes\(screen as LiveScreen\)/);
   assert.match(app, /sessionPlanWindowRef\.current = \{ planStart: data\.planStart, planEnd: data\.planEnd \}/);
@@ -635,7 +646,6 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /planStart: data\.planStart, planEnd: data\.planEnd, stages/);
   assert.match(app, /planStart: livePlanStart \|\|/);
   assert.match(app, /screen !== "dual-start"/);
-  assert.match(app, /setInterval\(\(\) => setClockNow\(Date\.now\(\)\), 1000\)/);
   assert.match(app, /Notification\.requestPermission/);
   assert.match(app, /new Notification\("这一段预计到时间了"/);
   assert.match(app, /window\.addEventListener\("focus", refreshNotificationPermission\)/);

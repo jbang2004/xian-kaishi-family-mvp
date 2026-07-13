@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "./plan-utils";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "./plan-utils";
 import { foregroundCueStatus, ReminderPermission, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -786,9 +786,21 @@ export function StartApp() {
   }, []);
 
   useEffect(() => {
-    if (screen !== "dual-start") return;
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    if (screen !== "confirm" && screen !== "dual-start" && screen !== "adjust") return;
+    let minuteTimer = 0;
+    const tick = () => setClockNow(Date.now());
+    tick();
+    const alignmentTimer = window.setTimeout(() => {
+      tick();
+      minuteTimer = window.setInterval(tick, 60_000);
+    }, millisecondsUntilNextMinute(Date.now()));
+    const syncVisibleClock = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", syncVisibleClock);
+    return () => {
+      window.clearTimeout(alignmentTimer);
+      window.clearInterval(minuteTimer);
+      document.removeEventListener("visibilitychange", syncVisibleClock);
+    };
   }, [screen]);
 
   useEffect(() => {
@@ -1165,13 +1177,6 @@ export function StartApp() {
   const returnFromAdjust = () => go(adjustReturnScreen);
 
   useEffect(() => {
-    if (screen !== "adjust") return;
-    const tick = () => setClockNow(Date.now());
-    tick(); const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [screen]);
-
-  useEffect(() => {
     if (screen !== "running" || !activeEndsAt) return;
     const tick = () => {
       const now = Date.now(); setClockNow(now);
@@ -1190,7 +1195,8 @@ export function StartApp() {
       }
     };
     tick(); const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
     // playTone uses the latest experience preference; the interval is recreated for each stage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEndsAt, activeStage.title, backgroundReminder, notificationPermission, screen]);
