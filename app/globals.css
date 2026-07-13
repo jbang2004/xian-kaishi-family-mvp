@@ -1045,12 +1045,13 @@ button.insight-card { cursor: pointer; }
 .calendar-grid > button > span { height: 10px; display: flex; align-items: center; gap: 2px; }
 .calendar-grid > button i { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); display: block; }
 .calendar-grid > button b { color: var(--amber-deep); font-size: var(--type-micro); }
-.day-detail { min-height: 136px; border: 1px solid var(--border); border-radius: 24px; padding: 14px; margin: 10px 0 14px; background: rgba(255,255,255,.76); box-shadow: var(--shadow-soft); }
+.day-detail { min-height: 136px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 24px; padding: 14px; margin: 10px 0 14px; background: rgba(255,255,255,.76); box-shadow: var(--shadow-soft); animation: day-detail-arrive var(--motion-standard) var(--ease-out-soft) both; }
 .day-detail-header { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .day-detail-header small, .day-detail-header strong { display: block; }
 .day-detail-header small { color: var(--muted); font-size: var(--type-micro); }
 .day-detail-header strong { margin-top: 2px; font-size: 14px; }
 .day-detail-header > span { padding: 6px 9px; border-radius: 99px; background: var(--blue-soft); color: #4b6f91; font-size: var(--type-micro); font-weight: 900; }
+@keyframes day-detail-arrive { from { opacity: .66; transform: translateY(5px); } }
 .empty-day { min-height: 80px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; }
 .empty-day .mascot { width: 74px; height: 74px; margin: 0; }
 .daily-summary { overflow: hidden; border: 1px solid rgba(117,184,155,.3); border-radius: 20px; background: linear-gradient(145deg, #f2f8f3, rgba(255,255,255,.88)); }

@@ -513,6 +513,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setTimeout\(startPlan, DUAL_START_DELAY_MS\)/);
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
   assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
+  assert.match(app, /const calendarDetailRef = useRef<HTMLDivElement>\(null\)/);
+  assert.match(app, /const selectCalendarDay = \(key: string\) =>/);
+  assert.match(app, /calendarDetailRef\.current\?\.scrollIntoView\(\{ block: "start", behavior: motionReduced \? "auto" : "smooth" \}\)/);
+  assert.match(app, /onClick=\{\(\) => selectCalendarDay\(key\)\}/);
+  assert.match(app, /ref=\{calendarDetailRef\} key=\{selectedDay\} className="day-detail"/);
+  assert.match(app, /className="day-detail-header" role="status" aria-live="polite" aria-atomic="true"/);
+  assert.match(styles, /\.day-detail \{[^}]*scroll-margin-top: 12px;[^}]*animation: day-detail-arrive/);
   assert.match(app, /className=\{`adjust-decision-dock \$\{effectiveAdjustChoice \? "is-ready" : "is-waiting"\}`\}/);
   assert.match(app, /aria-label="调整预览与确认"/);
   assert.match(app, /role="status" aria-live="polite" aria-atomic="true"/);
