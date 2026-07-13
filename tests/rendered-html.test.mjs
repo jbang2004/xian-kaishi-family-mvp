@@ -469,6 +469,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /今晚的合作已经留下来了/);
   assert.match(app, /再次安排不会重复获得“共同收尾”能量/);
   assert.match(app, /item\.nightKey===key/);
+  assert.match(app, /selectedIncludesAfterMidnightSession/);
+  assert.match(app, /晚间记录 · 凌晨收尾仍归这一晚/);
   assert.doesNotMatch(app, /const cooperationEnergy = 2/);
   assert.match(styles, /\.settled-home-card/);
   assert.match(app, /规则建议 · 不评价孩子/);
