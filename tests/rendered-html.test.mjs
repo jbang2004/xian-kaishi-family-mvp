@@ -88,7 +88,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(app, /删除孩子全部数据/);
   assert.match(app, /旧家庭的云端副本等待清理/);
   assert.match(app, /只保留随机家庭 ID 作为删除凭证/);
-  assert.match(app, /寻找正规医疗机构/);
+  assert.match(app, /先暂停流程，陪孩子稳定下来/);
+  assert.match(app, /只记发生时间、场景、持续多久和已经尝试过什么/);
+  assert.match(app, /儿童保健科、发育行为儿科、儿科或精神心理相关门诊/);
+  assert.match(app, /全国统一心理援助热线 12356/);
+  assert.match(app, /它不替代急救服务/);
+  assert.match(app, /className="next-action-list"/);
+  assert.doesNotMatch(app, /今晚流程已暂停/);
   assert.match(app, /xian-kaishi-plan-draft-v1/);
   assert.match(app, /xian-kaishi-live-session-v1/);
   assert.match(app, /休息也算照顾计划的一部分/);
@@ -443,6 +449,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.stage-actions \{ grid-column: 1 \/ -1; grid-row: 2; grid-template-columns: repeat\(3,1fr\); \}/);
   assert.match(styles, /\.reward-idea-grid small \{ display: none; \}/);
   assert.match(styles, /\.step-pill \{[^}]*white-space: nowrap/);
+  assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 76px/);
+  assert.match(styles, /\.next-action-list li/);
+  assert.match(styles, /\.support-line \{/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
   assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
