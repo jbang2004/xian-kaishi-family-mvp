@@ -937,6 +937,11 @@ button.insight-card { cursor: pointer; }
 .reset-story small { margin-top: 5px; color: var(--muted); font-size: var(--type-micro); }
 .reset-story i { color: #9b9589; font-size: 22px; font-style: normal; }
 .reset-story .fresh-zero b { color: #397259; }
+.reward-undo-panel { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; margin: -2px 0 10px; padding: 10px 10px 10px 12px; border: 1px solid rgba(104,149,185,.3); border-radius: 17px; background: rgba(239,247,252,.82); text-align: left; }
+.reward-undo-panel strong, .reward-undo-panel span { display: block; }
+.reward-undo-panel strong { color: #3f6382; font-size: var(--type-caption); }
+.reward-undo-panel span { margin-top: 2px; color: var(--muted); font-size: var(--type-micro); line-height: 1.4; }
+.reward-undo-panel button { min-width: 92px; min-height: 44px; padding: 8px 11px; border: 1px solid rgba(104,149,185,.38); border-radius: 13px; background: #fff; color: #3f6382; font-size: var(--type-micro); font-weight: 900; cursor: pointer; }
 .reward-saved-note { margin-bottom: 10px; }
 .reward-saved-screen .saved-actions { margin-top: auto; }
 

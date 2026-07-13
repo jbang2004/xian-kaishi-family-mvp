@@ -8,7 +8,7 @@ import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTi
 import { foregroundCueStatus, ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
-import { rewardThresholdBounds } from "./reward-utils";
+import { restoreRewardRedemption, rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
 import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
@@ -63,6 +63,7 @@ type SessionRecord = {
 };
 
 type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"; threshold: number; energyBeforeReset: number; redeemedAt: string };
+type RewardRedeemUndo = { rewardId: string; title: string; energy: number; rewardGoal: RewardGoal; rewardHistory: RewardHistory[] };
 type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type PlanWindow = { planStart: string; planEnd: string };
@@ -362,6 +363,7 @@ export function StartApp() {
   const [rewardEnergyConfirmed, setRewardEnergyConfirmed] = useState(false);
   const [lastSavedSession, setLastSavedSession] = useState<SessionRecord | null>(null);
   const [lastRedeemedReward, setLastRedeemedReward] = useState<RewardHistory | null>(null);
+  const [rewardRedeemUndo, setRewardRedeemUndo] = useState<RewardRedeemUndo | null>(null);
   const [dayDetailsExpanded, setDayDetailsExpanded] = useState(false);
   const [redeemArmed, setRedeemArmed] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<ReminderPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
@@ -627,6 +629,12 @@ export function StartApp() {
     const focusFrame = window.requestAnimationFrame(() => sessionDeleteUndoRef.current?.focus());
     return () => { window.clearTimeout(timer); window.cancelAnimationFrame(focusFrame); };
   }, [sessionDeleteUndo]);
+
+  useEffect(() => {
+    if (!rewardRedeemUndo) return;
+    const timer = window.setTimeout(() => setRewardRedeemUndo(null), 30000);
+    return () => window.clearTimeout(timer);
+  }, [rewardRedeemUndo]);
 
   useEffect(() => {
     if (!("Notification" in window)) return;
@@ -1183,8 +1191,28 @@ export function StartApp() {
       ...data, energy: 0, rewardHistory: keepNewestRecords([history, ...data.rewardHistory], item => item.redeemedAt, MAX_REWARD_HISTORY),
       rewardGoal: { threshold: 20, title: "", icon: "game", date: "周六", participants: [data.guardianAlias, data.childAlias], redeemed: true, acknowledged: false },
     };
+    setRewardRedeemUndo({
+      rewardId: history.id,
+      title: history.title,
+      energy: data.energy,
+      rewardGoal: { ...data.rewardGoal, participants: [...data.rewardGoal.participants] },
+      rewardHistory: data.rewardHistory.map(item => ({ ...item })),
+    });
     setLastRedeemedReward(history);
     setRedeemArmed(false); persist(next, "已经留在家庭日历"); playTone("complete"); go("reward-saved");
+  };
+
+  const undoRedeemReward = () => {
+    if (!rewardRedeemUndo) return;
+    const undo = rewardRedeemUndo;
+    const restored = restoreRewardRedemption(data, {
+      ...undo,
+      rewardGoal: { ...undo.rewardGoal, participants: [...undo.rewardGoal.participants] },
+      rewardHistory: undo.rewardHistory.map(item => ({ ...item })),
+    });
+    if (!restored) { setRewardRedeemUndo(null); setToast("这份记录已经发生变化，当前状态没有被覆盖"); return; }
+    redeemRewardLock.current = false; setRewardRedeemUndo(null); setLastRedeemedReward(null);
+    persist(restored, `已恢复“${undo.title}”和这一轮的${undo.energy}点能量`); go("energy");
   };
 
   const keepRewardForLater = () => {
@@ -1196,6 +1224,7 @@ export function StartApp() {
     if (!title || !date) { setToast("先一起写下期待和计划实现时间"); return; }
     if (!rewardEnergyConfirmed) { setToast("再一起确认一次能量节奏"); return; }
     const nextGoal: RewardGoal = { ...rewardDraft, title, date, participants: [data.guardianAlias, data.childAlias], redeemed: false, acknowledged: false };
+    setRewardRedeemUndo(null);
     persist({ ...data, rewardGoal: nextGoal }, "家庭期待已保存"); go("energy");
   };
 
@@ -1577,6 +1606,7 @@ export function StartApp() {
         <div className="reward-saved-hero"><div><span className="eyebrow">已安全保存在家庭日历</span><h1>这份共同期待，<br />已经实现了</h1><p>下一轮从0开始，过去的家庭时光仍然留在这里。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="reward-saved-card"><AppIcon name={lastRedeemedReward.icon} /><div><small>{new Date(lastRedeemedReward.redeemedAt).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 已实现</small><strong>{lastRedeemedReward.title}</strong><p>共同约定 {lastRedeemedReward.threshold} 点 · 这一轮积累到 {lastRedeemedReward.energyBeforeReset} 点</p></div></div>
         <div className="reset-story" aria-label="能量重新开始"><span><b>{lastRedeemedReward.energyBeforeReset}</b><small>实现前</small></span><i>→</i><span className="fresh-zero"><b>0</b><small>新的开始</small></span></div>
+        {rewardRedeemUndo && rewardRedeemUndo.rewardId === lastRedeemedReward.id && <div className="reward-undo-panel" role="status"><div><strong>刚才点错了也没关系</strong><span>30秒内可以恢复原来的家庭期待和 {rewardRedeemUndo.energy} 点能量。</span></div><button onClick={undoRedeemReward}>恢复这一轮</button></div>}
         <div className="reward-saved-note"><AppIcon name="moon" /><p><strong>记录留在日历里</strong><span>以后可以一起回看，不需要连续打卡。</span></p></div>
         <div className="saved-actions"><button className="primary-button" onClick={openRewardSetup}>设置新的家庭期待</button><button className="secondary-button" onClick={() => { const day = localDateKey(lastRedeemedReward.redeemedAt); setSelectedDay(day); setDayDetailsExpanded(false); const date = new Date(lastRedeemedReward.redeemedAt); setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1)); go("review"); }}>查看今天的记录</button></div>
       </div>}

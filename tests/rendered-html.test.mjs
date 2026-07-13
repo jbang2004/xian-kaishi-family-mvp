@@ -3,7 +3,7 @@ import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
-import { rewardThresholdBounds } from "../app/reward-utils.ts";
+import { restoreRewardRedemption, rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
@@ -223,6 +223,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /积累到约定点数，不等于已经实现/);
   assert.match(app, /当前 \{data\.energy\} 点会完成这一轮积累/);
   assert.match(app, /energyBeforeReset: data\.energy/);
+  assert.match(app, /type RewardRedeemUndo = \{ rewardId:/);
+  assert.match(app, /setRewardRedeemUndo\(\{/);
+  assert.match(app, /setRewardRedeemUndo\(null\), 30000/);
+  assert.match(app, /const undoRedeemReward = \(\) =>/);
+  assert.match(app, /restoreRewardRedemption\(data/);
+  assert.match(app, /rewardHistory: undo\.rewardHistory\.map/);
+  assert.match(app, /已恢复“\$\{undo\.title\}”和这一轮的\$\{undo\.energy\}点能量/);
+  assert.match(app, /30秒内可以恢复原来的家庭期待和/);
+  assert.match(app, /恢复这一轮/);
+  assert.match(styles, /\.reward-undo-panel \{/);
   assert.match(app, /!next\.rewardGoal\.acknowledged/);
   assert.match(app, /先保留能量，等实际实现/);
   assert.match(app, /screenRef\.current === "reward-achieved" && next !== "reward-achieved"/);
@@ -882,6 +892,16 @@ test("keeps reward targets valid after unusually high family energy", () => {
   assert.deepEqual(rewardThresholdBounds(100), { minimum: 105, maximum: 155 });
   assert.deepEqual(rewardThresholdBounds(215), { minimum: 220, maximum: 270 });
   assert.deepEqual(rewardThresholdBounds(Number.NaN), { minimum: 10, maximum: 100 });
+});
+
+test("restores only the matching latest reward cycle without overwriting changed history", () => {
+  const current = { energy: 0, rewardGoal: { title: "", redeemed: true }, rewardHistory: [{ id: "new", title: "桌游" }], untouched: "family" };
+  const undo = { rewardId: "new", energy: 36, rewardGoal: { title: "周末桌游", redeemed: false }, rewardHistory: [{ id: "old", title: "公园" }] };
+  assert.deepEqual(restoreRewardRedemption(current, undo), { energy: 36, rewardGoal: undo.rewardGoal, rewardHistory: undo.rewardHistory, untouched: "family" });
+  assert.equal(restoreRewardRedemption({ ...current, rewardHistory: [] }, undo), null);
+  assert.equal(restoreRewardRedemption({ ...current, energy: 2 }, undo), null);
+  assert.equal(restoreRewardRedemption({ ...current, rewardGoal: { ...current.rewardGoal, redeemed: false } }, undo), null);
+  assert.equal(restoreRewardRedemption({ ...current, rewardHistory: [{ id: "newer", title: "公园" }, ...current.rewardHistory] }, undo), null);
 });
 
 test("cleans short family-entered text only at save boundaries", () => {
