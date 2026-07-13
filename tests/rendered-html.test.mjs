@@ -586,8 +586,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const motionReduced = data\.reducedMotion \|\| systemReducedMotion/);
   assert.match(app, /behavior: motionReduced \? "auto" : "smooth"/);
   assert.match(app, /site-shell \$\{motionReduced \? "reduce-motion"/);
+  assert.match(styles, /\.site-shell\.reduce-motion \*,[\s\S]*?animation-duration: \.001ms !important;[\s\S]*?transition-duration: \.001ms !important/);
+  assert.match(styles, /\.site-shell\.reduce-motion \.launch-progress \{ display: none; \}/);
   assert.match(app, /已跟随系统减少动画、页面自动滑动和轻触震动/);
   assert.match(app, /aria-describedby="motion-preference-status"/);
+  assert.match(app, /id="background-reminder-status"[\s\S]*?role="status" aria-live="polite"/);
+  assert.match(app, /className="sync-label" role="status" aria-live="polite"/);
+  assert.doesNotMatch(app, /本机更新已补同步/);
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
   assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
   assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
@@ -686,6 +691,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /ref=\{calendarDetailRef\} key=\{selectedDay\} className="day-detail"/);
   assert.match(app, /className="day-detail-header" role="status" aria-live="polite" aria-atomic="true"/);
   assert.match(styles, /\.day-detail \{[^}]*scroll-margin-top: 12px;[^}]*animation: day-detail-arrive/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.review-insight p \{ display: none; \}/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.month-nav h1 \{ font-size: 26px; \}/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.calendar-card \{ padding: 6px 7px; \}/);
   assert.match(app, /className=\{`adjust-decision-dock \$\{effectiveAdjustChoice \? "is-ready" : "is-waiting"\}`\}/);
   assert.match(app, /aria-label="调整预览与确认"/);
   assert.match(app, /role="status" aria-live="polite" aria-atomic="true"/);
