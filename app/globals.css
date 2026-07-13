@@ -71,6 +71,7 @@ p { line-height: 1.65; }
 .brand-mark .app-icon { width: 48px; height: 48px; }
 
 .app-icon { width: 42px; height: 42px; object-fit: contain; display: block; flex: 0 0 auto; filter: drop-shadow(0 5px 8px rgba(101, 75, 35, .09)); }
+.optimized-picture { display: contents; }
 
 .mascot { width: 210px; height: 210px; position: relative; margin: 8px auto; display: grid; place-items: center; }
 .mascot::after { content: ""; position: absolute; z-index: 1; left: 29%; bottom: 8%; width: 42%; height: 9%; border-radius: 50%; background: rgba(94,67,32,.14); filter: blur(5px); transform-origin: center; animation: mascot-ground 3.6s ease-in-out var(--ambient-cycles); }

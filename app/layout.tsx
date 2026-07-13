@@ -31,9 +31,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       type: "website",
       url: origin,
-      images: [{ url: `${origin}/og.png`, width: 1672, height: 941, alt: "先开始家庭晚间习惯助手" }],
+      images: [{ url: `${origin}/og.jpg`, width: 1672, height: 941, alt: "先开始家庭晚间习惯助手" }],
     },
-    twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.png`] },
+    twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.jpg`] },
   };
 }
 

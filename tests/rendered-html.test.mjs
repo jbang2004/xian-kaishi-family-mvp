@@ -121,6 +121,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(app, /loading\?: "eager" \| "lazy"/);
+  assert.match(app, /\/assets\/optimized\/icons\/\$\{name\}\.webp/);
+  assert.match(app, /\/assets\/optimized\/mascot\/\$\{mood\}\.webp/);
+  assert.match(styles, /\.optimized-picture \{ display: contents; \}/);
+  assert.match(layout, /images: \[\{ url: `\$\{origin\}\/og\.jpg`/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
   assert.match(app, /const COMMON_ICON_NAMES = new Set<string>/);
   assert.match(app, /showAllIcons \? ICON_LIBRARY/);
@@ -684,6 +688,9 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   const roomAsset = new URL("../public/assets/energy-room-v3.jpg", import.meta.url);
   const iconDirectory = new URL("../public/assets/icons/", import.meta.url);
   const mascotDirectory = new URL("../public/assets/mascot/", import.meta.url);
+  const optimizedIconDirectory = new URL("../public/assets/optimized/icons/", import.meta.url);
+  const optimizedMascotDirectory = new URL("../public/assets/optimized/mascot/", import.meta.url);
+  const socialPreview = new URL("../public/og.jpg", import.meta.url);
   await access(roomAsset);
   assert.ok((await stat(roomAsset)).size < 200_000, "energy room should stay below 200KB");
   const visualAssets = await Promise.all([
@@ -693,6 +700,18 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   assert.ok(visualAssets.reduce((total, file) => total + file.size, 0) < 1_600_000, "icons and mascot poses should stay below 1.6MB combined");
   assert.ok((await stat(new URL("ready.png", mascotDirectory))).size < 50_000, "the primary mascot pose should stay below 50KB");
   assert.ok((await stat(new URL("home-heart.png", iconDirectory))).size < 35_000, "the primary app icon should stay below 35KB");
+  const sourceIconNames = (await readdir(iconDirectory)).filter(name => name.endsWith(".png")).map(name => name.replace(/\.png$/, "")).sort();
+  const sourceMascotNames = (await readdir(mascotDirectory)).filter(name => name.endsWith(".png")).map(name => name.replace(/\.png$/, "")).sort();
+  const optimizedIconNames = (await readdir(optimizedIconDirectory)).filter(name => name.endsWith(".webp")).map(name => name.replace(/\.webp$/, "")).sort();
+  const optimizedMascotNames = (await readdir(optimizedMascotDirectory)).filter(name => name.endsWith(".webp")).map(name => name.replace(/\.webp$/, "")).sort();
+  assert.deepEqual(optimizedIconNames, sourceIconNames, "every activity icon should have a modern delivery asset");
+  assert.deepEqual(optimizedMascotNames, sourceMascotNames, "every mascot pose should have a modern delivery asset");
+  const optimizedAssets = await Promise.all([
+    ...optimizedIconNames.map(name => stat(new URL(`${name}.webp`, optimizedIconDirectory))),
+    ...optimizedMascotNames.map(name => stat(new URL(`${name}.webp`, optimizedMascotDirectory))),
+  ]);
+  assert.ok(optimizedAssets.reduce((total, file) => total + file.size, 0) < 600_000, "modern icon and mascot delivery should stay below 600KB combined");
+  assert.ok((await stat(socialPreview)).size < 200_000, "the social preview should stay below 200KB");
   await assert.rejects(access(new URL("../public/assets/energy-room-v2.png", import.meta.url)));
   await assert.rejects(access(new URL("../public/assets/warm-lamp.png", import.meta.url)));
   const [initialMigration, revisionMigration, route] = await Promise.all([

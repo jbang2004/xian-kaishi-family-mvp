@@ -234,14 +234,23 @@ async function retryPendingCloudDeletion() {
 }
 
 function AppIcon({ name, className = "", loading = "eager" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
-  return <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="256" height="256" loading={loading} decoding="async" alt="" aria-hidden="true" />;
+  return <picture className="optimized-picture">
+    <source srcSet={`/assets/optimized/icons/${name}.webp?v=${ASSET_VERSION}`} type="image/webp" />
+    <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" alt="" aria-hidden="true" />
+  </picture>;
 }
 
 function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "confirm" | "breathe" | "support" | "celebrate"; compact?: boolean }) {
   return <div className={`mascot mascot-${mood} ${compact ? "mascot-compact" : ""}`} aria-hidden="true">
     <div className="mascot-halo" />
-    <img className="mascot-pose" src={`/assets/mascot/${mood}.png?v=${ASSET_VERSION}`} width="640" height="640" decoding="async" alt="" />
-    {mood === "ready" && <img className="mascot-pose mascot-blink-frame" src={`/assets/mascot/blink.png?v=${ASSET_VERSION}`} width="640" height="640" loading="lazy" decoding="async" fetchPriority="low" alt="" />}
+    <picture className="optimized-picture">
+      <source srcSet={`/assets/optimized/mascot/${mood}.webp?v=${ASSET_VERSION}`} type="image/webp" />
+      <img className="mascot-pose" src={`/assets/mascot/${mood}.png?v=${ASSET_VERSION}`} width="640" height="640" decoding="async" alt="" />
+    </picture>
+    {mood === "ready" && <picture className="optimized-picture">
+      <source srcSet={`/assets/optimized/mascot/blink.webp?v=${ASSET_VERSION}`} type="image/webp" />
+      <img className="mascot-pose mascot-blink-frame" src={`/assets/mascot/blink.png?v=${ASSET_VERSION}`} width="640" height="640" loading="lazy" decoding="async" fetchPriority="low" alt="" />
+    </picture>}
     {mood === "celebrate" && <><i className="mascot-spark spark-one" /><i className="mascot-spark spark-two" /><i className="mascot-spark spark-three" /></>}
   </div>;
 }
