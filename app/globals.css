@@ -932,7 +932,9 @@ button.insight-card { cursor: pointer; }
 .reward-saved-note { margin-bottom: 10px; }
 .reward-saved-screen .saved-actions { margin-top: auto; }
 
-.calendar-legend { display: flex; gap: 14px; color: var(--muted); font-size: 10px; margin: -3px 0 7px; }
+.calendar-meta { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -3px 0 7px; }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; color: var(--muted); font-size: var(--type-micro); }
+.today-jump { min-height: 32px; flex: 0 0 auto; padding: 5px 10px; border: 1px solid rgba(117,184,155,.38); border-radius: 99px; background: var(--sage-soft); color: #397259; font-size: var(--type-micro); font-weight: 900; cursor: pointer; }
 .month-nav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; margin: 5px 0 5px; }
 .month-nav h1 { text-align: center; margin: 0; }
 .month-nav button { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 50%; background: rgba(255,255,255,.8); font-size: 25px; cursor: pointer; }
@@ -945,6 +947,8 @@ button.insight-card { cursor: pointer; }
 .calendar-grid > button, .blank-day { min-height: 44px; }
 .calendar-grid > button { border: 1px solid transparent; border-radius: 13px; background: transparent; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }
 .calendar-grid > button.selected { border-color: var(--amber); background: #fff7df; box-shadow: 0 0 0 2px rgba(245,184,75,.1); }
+.calendar-grid > button.is-today { color: #397259; box-shadow: inset 0 0 0 1px rgba(117,184,155,.55); }
+.calendar-grid > button.selected.is-today { box-shadow: 0 0 0 2px rgba(245,184,75,.1), inset 0 0 0 1px rgba(117,184,155,.55); }
 .calendar-grid > button strong { font-size: 13px; }
 .calendar-grid > button > span { height: 10px; display: flex; align-items: center; gap: 2px; }
 .calendar-grid > button i { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); display: block; }

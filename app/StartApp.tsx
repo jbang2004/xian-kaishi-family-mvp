@@ -5,8 +5,9 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
-import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
+import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
+import { shiftCalendarSelection } from "./calendar-utils";
 import { rewardThresholdBounds } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "./session-utils";
@@ -303,7 +304,7 @@ export function StartApp() {
   const [guardianConfirmed, setGuardianConfirmed] = useState(false);
   const [childConfirmed, setChildConfirmed] = useState(false);
   const [dualStartPaused, setDualStartPaused] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [calendarCursor, setCalendarCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
@@ -716,11 +717,13 @@ export function StartApp() {
     if (!data.sound || typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx(); const gain = ctx.createGain(); const osc = ctx.createOscillator();
-    osc.type = "sine"; osc.frequency.value = kind === "complete" ? 720 : kind === "transition" ? 540 : 620;
-    gain.gain.setValueAtTime(.0001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.055, ctx.currentTime + .02); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .55);
-    osc.addEventListener("ended", () => { void ctx.close(); });
-    osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .58);
+    try {
+      const ctx = new AudioCtx(); const gain = ctx.createGain(); const osc = ctx.createOscillator();
+      osc.type = "sine"; osc.frequency.value = kind === "complete" ? 720 : kind === "transition" ? 540 : 620;
+      gain.gain.setValueAtTime(.0001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.055, ctx.currentTime + .02); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .55);
+      osc.addEventListener("ended", () => { void ctx.close(); });
+      osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .58);
+    } catch { /* visual feedback remains available when browser audio is blocked */ }
   };
 
   const finishProfile = () => {
@@ -873,15 +876,16 @@ export function StartApp() {
       const now = Date.now(); setClockNow(now);
       if (now >= activeEndsAt && !dueReminderPlayed.current) {
         dueReminderPlayed.current = true; setStageDue(true);
+        const visibility = document.visibilityState;
         let systemReminderShown = false;
-        if (shouldUseBackgroundReminder(backgroundReminder, document.visibilityState, notificationPermission)) {
+        if (shouldUseBackgroundReminder(backgroundReminder, visibility, notificationPermission)) {
           try {
             const reminder = new Notification("这一段预计到时间了", { body: `${activeStage.title}：完成、继续或调整，都可以。`, icon: `/assets/icons/alarm.png?v=${ASSET_VERSION}`, tag: "xian-kaishi-stage-due" });
             reminder.onclick = () => { window.focus(); reminder.close(); };
             systemReminderShown = true;
           } catch { /* fall back to the in-page reminder below */ }
         }
-        if (!systemReminderShown) { playTone("transition"); navigator.vibrate?.([25, 35, 25]); }
+        if (!systemReminderShown && shouldUseForegroundCue(visibility)) { playTone("transition"); navigator.vibrate?.([25, 35, 25]); }
       }
     };
     tick(); const timer = window.setInterval(tick, 1000);
@@ -1064,6 +1068,8 @@ export function StartApp() {
   const monthKeyPrefix = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}`;
   const monthSessions = data.sessions.filter(item => item.nightKey.startsWith(monthKeyPrefix));
   const monthRewards = data.rewardHistory.filter(item => { const date = new Date(item.redeemedAt); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth; });
+  const today = new Date(); const todayKey = localDateKey(today);
+  const showTodayJump = selectedDay !== todayKey || calendarYear !== today.getFullYear() || calendarMonth !== today.getMonth();
   const metrics = !monthSessions.length && !monthRewards.length ? null : { nights: new Set(monthSessions.map(item => item.nightKey)).size, adjustments: monthSessions.reduce((sum, item) => sum + item.adjustments, 0), lessPromptNights: monthSessions.filter(item => item.promptReflection === "less").length };
   const selectedSessions = data.sessions.filter(item => item.nightKey === selectedDay);
   const selectedRewards = data.rewardHistory.filter(item => localDateKey(item.redeemedAt) === selectedDay);
@@ -1149,8 +1155,12 @@ export function StartApp() {
       : notificationPermission === "unsupported" ? "当前浏览器不支持；前台提示音和震动仍然有效"
         : "开启时只向家长请求一次浏览器通知权限";
   const shiftMonth = (delta: number) => {
-    const next = new Date(calendarYear, calendarMonth + delta, 1);
-    setCalendarCursor(next); setSelectedDay(next.toLocaleDateString("en-CA")); setDayDetailsExpanded(false);
+    const next = shiftCalendarSelection(calendarCursor, selectedDay, delta);
+    setCalendarCursor(next.cursor); setSelectedDay(next.selectedDay); setDayDetailsExpanded(false);
+  };
+  const jumpToToday = () => {
+    const next = new Date();
+    setCalendarCursor(new Date(next.getFullYear(), next.getMonth(), 1)); setSelectedDay(localDateKey(next)); setDayDetailsExpanded(false);
   };
   const openNightRecord = (nightKey: string) => {
     const date = new Date(`${nightKey}T12:00:00`);
@@ -1340,8 +1350,8 @@ export function StartApp() {
 
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
-        <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待实现</span></div>
-          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待实现" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+        <div className="calendar-meta"><div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待实现</span></div>{showTodayJump && <button className="today-jump" onClick={jumpToToday}>回到今天</button>}</div>
+          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=localDateKey(date); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); const isToday=key===todayKey; return <button aria-pressed={selectedDay === key} aria-current={isToday ? "date" : undefined} aria-label={`${calendarMonth + 1}月${day}日${isToday ? "，今天" : ""}${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待实现" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${isToday ? "is-today" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
         <div className="day-detail">
           <div className="day-detail-header"><div><small>家庭夜晚</small><strong>{selectedDateLabel}</strong></div>{selectedSessionSummary && <span>{selectedSessionSummary.settlements} 次收尾</span>}</div>
           {!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>

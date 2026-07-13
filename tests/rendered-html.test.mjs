@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
-import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
+import { shouldUseBackgroundReminder, shouldUseForegroundCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
@@ -10,6 +10,7 @@ import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/syn
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
 import { resolveHistoryTarget } from "../app/navigation-utils.ts";
+import { shiftCalendarSelection } from "../app/calendar-utils.ts";
 
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
@@ -174,6 +175,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先看整体，不用逐条比较每一次/);
   assert.match(app, /aria-controls="day-session-details"/);
   assert.match(styles, /\.daily-summary-stats/);
+  assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
+  assert.match(app, /className="today-jump"/);
+  assert.match(styles, /\.calendar-grid > button\.is-today/);
   assert.match(app, /最迟到次日清晨5点自动失效/);
   assert.match(app, /nightKey: \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
   assert.match(app, /今晚的合作已经留下来了/);
@@ -459,6 +463,19 @@ test("shows a calm approximate timer instead of a second-by-second deadline", ()
   assert.equal(gentleRemainingLabel(0), "可以看看下一步");
 });
 
+test("keeps calendar context across months and clamps long month endings", () => {
+  const august = shiftCalendarSelection(new Date(2026, 6, 1), "2026-07-13", 1);
+  assert.equal(august.cursor.getFullYear(), 2026);
+  assert.equal(august.cursor.getMonth(), 7);
+  assert.equal(august.selectedDay, "2026-08-13");
+
+  const february = shiftCalendarSelection(new Date(2026, 0, 1), "2026-01-31", 1);
+  assert.equal(february.selectedDay, "2026-02-28");
+
+  const fallback = shiftCalendarSelection(new Date(2026, 6, 1), "not-a-date", 1);
+  assert.equal(fallback.selectedDay, "2026-08-01");
+});
+
 test("never nests an adaptive rest inside an active rest stage", () => {
   assert.equal(canInsertRestBreak("task"), true);
   assert.equal(canInsertRestBreak("rest"), false);
@@ -535,6 +552,9 @@ test("only uses a system reminder after guardian permission while hidden", () =>
   assert.equal(shouldUseBackgroundReminder(true, "visible", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(false, "hidden", "granted"), false);
   assert.equal(shouldUseBackgroundReminder(true, "hidden", "denied"), false);
+  assert.equal(shouldUseForegroundCue("visible"), true);
+  assert.equal(shouldUseForegroundCue("hidden"), false);
+  assert.equal(shouldUseForegroundCue("prerender"), false);
 });
 
 test("keeps a late-night session through the early morning but not into the next day", () => {

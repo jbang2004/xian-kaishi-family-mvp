@@ -7,3 +7,7 @@ export function shouldUseBackgroundReminder(
 ) {
   return enabled && visibility === "hidden" && permission === "granted";
 }
+
+export function shouldUseForegroundCue(visibility: DocumentVisibilityState) {
+  return visibility === "visible";
+}
