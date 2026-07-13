@@ -52,6 +52,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /inert=\{deleteArmed \|\| undefined\}/);
   assert.match(app, /event\.key !== "Tab"/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
+  assert.match(app, /const focusStageDetails = \(stageId: string\)/);
+  assert.match(app, /e\.currentTarget\.blur\(\); focusStageDetails\(stage\.id\)/);
   assert.match(app, /aria-invalid=\{titleInvalid\}/);
   assert.match(app, /className="stage-inline-issue" aria-live="polite"/);
   assert.match(app, /className="input-label-row"/);
@@ -125,7 +127,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /当前 \$\{stages\.length\}\/\$\{MAX_PLAN_STAGES\} 个节点/);
   assert.match(styles, /\.add-node-button:disabled/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
-  assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
+  assert.doesNotMatch(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
   assert.match(app, /本项\$\{delta > 0 \? "后移" : "前移"\}/);
   assert.match(app, /onChange=\{e => updateStageStart\(stage\.id, e\.target\.value\)\}/);
