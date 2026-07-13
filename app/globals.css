@@ -1024,6 +1024,7 @@ button.insight-card { cursor: pointer; }
 .desktop-points span { padding: 10px 14px; border-radius: 99px; background: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.9); font-weight: 800; }
 
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
+.reduce-motion .launch-progress { display: none; }
 
 /* Family screens are read at arm's length and often shared by two people.
    Prefer legibility and forgiving touch targets over fitting everything above the fold. */
@@ -1108,4 +1109,5 @@ button.insight-card { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
+  .launch-progress { display: none; }
 }

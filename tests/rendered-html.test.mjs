@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
-import { shouldUseBackgroundReminder, shouldUseForegroundCue } from "../app/reminder-utils.ts";
+import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
@@ -240,6 +240,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /transition-duration: \.001ms !important/);
   assert.match(app, /也会跟随系统设置/);
+  assert.match(app, /减少动态与触感/);
+  assert.match(styles, /\.reduce-motion \.launch-progress \{ display: none; \}/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.launch-progress \{ display: none; \}/);
   assert.match(app, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
   assert.match(app, /useSyncExternalStore\(subscribeToNetworkStatus/);
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
@@ -583,6 +586,9 @@ test("only uses a system reminder after guardian permission while hidden", () =>
   assert.equal(shouldUseForegroundCue("visible"), true);
   assert.equal(shouldUseForegroundCue("hidden"), false);
   assert.equal(shouldUseForegroundCue("prerender"), false);
+  assert.equal(shouldUseHapticCue(false, false), true);
+  assert.equal(shouldUseHapticCue(true, false), false);
+  assert.equal(shouldUseHapticCue(false, true), false);
 });
 
 test("keeps a late-night session through the early morning but not into the next day", () => {

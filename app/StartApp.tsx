@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
-import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue } from "./reminder-utils";
+import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { rewardThresholdBounds } from "./reward-utils";
@@ -441,7 +441,7 @@ export function StartApp() {
   };
   const toggleParticipant = (role: "guardian" | "child") => {
     setDualStartPaused(false);
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18);
+    gentleVibrate(18);
     if (role === "guardian") setGuardianConfirmed(value => !value);
     else setChildConfirmed(value => !value);
   };
@@ -736,6 +736,12 @@ export function StartApp() {
     } catch { /* visual feedback remains available when browser audio is blocked */ }
   };
 
+  const gentleVibrate = (pattern: number | number[]) => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
+    const systemReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (shouldUseHapticCue(data.reducedMotion, systemReducedMotion)) navigator.vibrate?.(pattern);
+  };
+
   const finishProfile = () => {
     const childAlias = cleanShortText(data.childAlias, 12);
     const guardianAlias = cleanShortText(data.guardianAlias, 12);
@@ -911,7 +917,7 @@ export function StartApp() {
             systemReminderShown = true;
           } catch { /* fall back to the in-page reminder below */ }
         }
-        if (!systemReminderShown && shouldUseForegroundCue(visibility)) { playTone("transition"); navigator.vibrate?.([25, 35, 25]); }
+        if (!systemReminderShown && shouldUseForegroundCue(visibility)) { playTone("transition"); gentleVibrate([25, 35, 25]); }
       }
     };
     tick(); const timer = window.setInterval(tick, 1000);
@@ -923,7 +929,7 @@ export function StartApp() {
   const stageFinished = () => {
     setTransitionReason("completed");
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
-    playTone("confirm"); navigator.vibrate?.([20]); go("transition");
+    playTone("confirm"); gentleVibrate(20); go("transition");
   };
 
   const undoStageFinished = () => {
@@ -1396,7 +1402,7 @@ export function StartApp() {
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭设置 <span>›</span></button></div>
-        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>页面在后台时提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已就绪" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态效果</strong><small>关闭呼吸、漂浮和庆祝动画；也会跟随系统设置</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
+        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>页面在后台时提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已就绪" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small>关闭呼吸、漂浮、庆祝动画和轻触震动；也会跟随系统设置</small></span><input type="checkbox" checked={data.reducedMotion} onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除孩子全部数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}

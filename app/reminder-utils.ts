@@ -11,3 +11,7 @@ export function shouldUseBackgroundReminder(
 export function shouldUseForegroundCue(visibility: DocumentVisibilityState) {
   return visibility === "visible";
 }
+
+export function shouldUseHapticCue(appReducedMotion: boolean, systemReducedMotion: boolean) {
+  return !appReducedMotion && !systemReducedMotion;
+}
