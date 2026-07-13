@@ -131,6 +131,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /plannedStartOffset === 0 \? "最晚" : "原计划最晚"/);
   assert.match(styles, /\.confirm-timing-note\.is-late/);
   assert.match(app, /时间表会留在首页/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.confirm-action-dock \{ position: sticky; bottom: 0;[^}]*grid-template-columns: minmax\(0,1fr\) 106px/);
+  assert.match(styles, /\.confirm-action-dock \.confirm-secondary-action \{[^}]*min-height: 50px[^}]*font-size: 11px/);
+  assert.doesNotMatch(styles, /\.confirm-action-dock, \.reward-save-dock \{ position: static/);
   assert.match(styles, /\.plan-balance\.needs-input/);
   assert.match(styles, /\.stage-editor\.needs-title/);
   assert.match(styles, /\.confirm-secondary-action/);
@@ -499,7 +502,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
-  assert.match(styles, /\.confirm-action-dock, \.reward-save-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起\$\{startShiftVerb\}/);
