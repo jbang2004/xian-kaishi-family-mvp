@@ -26,6 +26,10 @@ export function formatPlanClock(time: string, planStart: string, planEnd: string
   return spansMidnight(planStart, planEnd) && timeToMinutes(time) < timeToMinutes(planStart) ? `次日 ${time}` : time;
 }
 
+export function scheduledEndTime<T extends TimedPlanItem & { status?: string }>(items: T[], fallback: string) {
+  return [...items].reverse().find(item => item.status !== "tomorrow")?.end || fallback;
+}
+
 export function addMinutes(time: string, amount: number) {
   const [hours, minutes] = time.split(":").map(Number);
   const total = (hours * 60 + minutes + amount + 1440) % 1440;

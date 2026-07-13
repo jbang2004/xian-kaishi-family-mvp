@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -181,13 +181,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /draftReady \? openConfirmPlan\(\) : startAnotherPlan\(\)/);
   assert.match(app, /保存时间表，稍后开始/);
   assert.match(app, /const plannedStartPassed = plannedStartOffset < 0/);
-  assert.match(app, /const startShiftVerb = plannedStartPassed \? "顺延" : "前移"/);
-  assert.match(app, /const shiftedPlanEndLabel = addMinutes\(startNowLabel, Math\.max\(1, durationMinutes\(data\.planStart, data\.planEnd\)\)\)/);
+  assert.match(app, /const shiftedScheduleEndLabel = addMinutes\(startNowLabel, Math\.max\(1, durationMinutes\(plannedStartLabel, draftEnd\)\)\)/);
   assert.match(app, /原定 \$\{plannedStartLabel\} 已过，整晚将顺延/);
   assert.match(app, /现在开始，整晚将比原定 \$\{plannedStartLabel\} 前移/);
   assert.match(app, /从现在一起开始，时间整体顺延/);
   assert.match(app, /现在一起开始，时间整体前移/);
-  assert.match(app, /plannedStartOffset === 0 \? "最晚" : "原计划最晚"/);
+  assert.match(app, /事项预计 \{formatPlanClock\(draftEnd, data\.planStart, data\.planEnd\)\} 结束 · 可用时间到/);
   assert.match(styles, /\.confirm-timing-note\.is-late/);
   assert.match(app, /时间表会留在首页/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.confirm-action-dock \{ position: sticky; bottom: 0;[^}]*grid-template-columns: minmax\(0,1fr\) 106px/);
@@ -331,10 +330,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /已进入“\{stageAdvanceUndo\.nextTitle\}”/);
   assert.match(styles, /\.live-undo-toast \{ bottom: calc\(210px/);
   assert.match(styles, /max-height: 700px[\s\S]*?\.live-undo-toast \{ bottom: calc\(76px/);
-  assert.match(app, /现在休息10分钟，最晚\$\{result\.planEnd\}收尾/);
+  assert.match(app, /现在休息10分钟，事项预计\$\{scheduledEndTime\(result\.items, result\.planEnd\)\}结束/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
-  assert.match(app, /最晚\$\{nextPlanEnd\}收尾/);
-  assert.match(app, /今晚进度 · 最晚 \{formatPlanClock\(data\.planEnd, data\.planStart, data\.planEnd\)\} 收尾/);
+  assert.match(app, /事项预计\$\{nextScheduledEnd\}结束/);
+  assert.match(app, /今晚进度 · 事项预计 \{formatPlanClock\(liveScheduledEnd, data\.planStart, data\.planEnd\)\} 结束/);
   assert.match(app, /之后只继续剩余时长/);
   assert.match(app, /跨到次日 · 结束时间按第二天计算/);
   assert.match(app, /const planCrossesMidnight = spansMidnight/);
@@ -620,7 +619,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /\{startNowLabel\}—\{dualFirstEndLabel\}/);
-  assert.match(app, /整晚一起\$\{startShiftVerb\}/);
+  assert.match(app, /原时长和间隔都会保留，事项预计/);
   assert.doesNotMatch(app, /整晚时间会一起顺延/);
   assert.match(app, /const cleanStages = stages\.map/);
   assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
@@ -981,6 +980,14 @@ test("inserts a live rest break from now and resumes only the unfinished time", 
     ["阅读", "19:40", "20:10", "pending"],
     ["整理", "20:10", "20:20", "pending"],
   ]);
+});
+
+test("separates the last scheduled item from the wider family availability window", () => {
+  assert.equal(scheduledEndTime([
+    { title: "阅读", start: "18:00", end: "18:20", status: "done" },
+    { title: "明天再做", start: "18:30", end: "19:00", status: "tomorrow" },
+  ], "20:30"), "18:20");
+  assert.equal(scheduledEndTime([], "20:30"), "20:30");
 });
 
 test("gives a due stage a small follow-up window after resting", () => {
