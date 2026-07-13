@@ -71,6 +71,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
+  assert.match(app, /本项\$\{delta > 0 \? "后移" : "前移"\}/);
+  assert.match(app, /onChange=\{e => updateStageStart\(stage\.id, e\.target\.value\)\}/);
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /className="home-plan-cta"/);
   assert.doesNotMatch(app, /className="draft-summary"/);
