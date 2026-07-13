@@ -16,7 +16,6 @@ import { cleanShortText } from "./text-utils";
 
 type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
-type PlanningMode = "adult" | "together" | "child";
 type PromptReflection = "less" | "same" | "more";
 type TransitionReason = "completed" | "due";
 type AdjustmentChoice = "extend" | "rest" | "swap" | "tomorrow" | "finish";
@@ -76,8 +75,6 @@ type AppData = {
   consent: boolean;
   childAlias: string;
   guardianAlias: string;
-  planningMode: PlanningMode;
-  arrival: string;
   planStart: string;
   planEnd: string;
   energy: number;
@@ -107,8 +104,6 @@ const DEFAULT_DATA: AppData = {
   consent: false,
   childAlias: "小橙",
   guardianAlias: "妈妈",
-  planningMode: "together",
-  arrival: "17:30",
   planStart: "18:10",
   planEnd: "20:30",
   energy: 0,
@@ -293,8 +288,7 @@ function normalizeData(value: unknown): AppData {
   const focus = old.weeklyFocus && typeof old.weeklyFocus === "object" ? old.weeklyFocus as Partial<WeeklyFocus> : null;
   return {
     consent: Boolean(old.consent ?? DEFAULT_DATA.consent), childAlias, guardianAlias,
-    planningMode: old.planningMode === "adult" || old.planningMode === "child" || old.planningMode === "together" ? old.planningMode : DEFAULT_DATA.planningMode,
-    arrival: String(old.arrival ?? DEFAULT_DATA.arrival), planStart: String(old.planStart ?? DEFAULT_DATA.planStart), planEnd: String(old.planEnd ?? DEFAULT_DATA.planEnd), energy: Math.max(0, Number(old.energy ?? DEFAULT_DATA.energy) || 0),
+    planStart: String(old.planStart ?? DEFAULT_DATA.planStart), planEnd: String(old.planEnd ?? DEFAULT_DATA.planEnd), energy: Math.max(0, Number(old.energy ?? DEFAULT_DATA.energy) || 0),
     sound: typeof old.sound === "boolean" ? old.sound : DEFAULT_DATA.sound,
     reducedMotion: typeof old.reducedMotion === "boolean" ? old.reducedMotion : DEFAULT_DATA.reducedMotion,
     rewardGoal: { ...DEFAULT_DATA.rewardGoal, ...goal, threshold: goalThreshold, icon: goalIcon, title: goalRedeemed ? "" : String(goal.title || DEFAULT_DATA.rewardGoal.title).slice(0, 24), date: String(goal.date || DEFAULT_DATA.rewardGoal.date).slice(0, 16), participants: [guardianAlias, childAlias], redeemed: goalRedeemed, acknowledged: Boolean(goal.acknowledged) },
@@ -1307,7 +1301,6 @@ export function StartApp() {
     deleteInProgressRef.current = false; setDeletingData(false);
   };
 
-  const modeLabel = { adult: "大人先安排", together: "一起安排", child: "孩子先安排" }[data.planningMode];
   const effortCopy = { 1: "一小步", 2: "需要专注", 3: "今天比较费力" } as const;
   const promptReflectionCopy: Record<PromptReflection, string> = { less: "催促感少一些", same: "和往常差不多", more: "催促感多一些" };
   const progress = Math.max(0, data.rewardGoal.threshold - data.energy);
@@ -1399,6 +1392,18 @@ export function StartApp() {
   const visibleConfirmStages = confirmPlanExpanded ? confirmStages : confirmStages.slice(0, 4);
   const activeTonightOrdinal = Math.max(1, stages.slice(0, activeIndex + 1).filter(item => item.status !== "tomorrow").length);
   const activeNightLabel = liveNightLabel(liveSessionStartedAt);
+  const homeContextLabel = liveSessionAvailable
+    ? `${activeNightLabel}进行中 · 手机在大人手里`
+    : currentNightSummary
+      ? "今天的记录已保存 · 可以放松了"
+      : "家庭晚间 · 一起商量";
+  const homeHeroCopy = liveSessionAvailable
+    ? activeNightLabel === "昨晚"
+      ? { title: "昨晚还没收尾，先温和接住", detail: "进度还在；继续或结束，都不需要重新来过。" }
+      : { title: "今晚正在进行，按自己的节奏来", detail: "进度已经保存；继续、调整或先收尾都可以。" }
+    : currentNightSummary
+      ? { title: "今晚已经温和收尾", detail: "记录已经留下，接下来可以放松一点。" }
+      : { title: "今晚，一起找到舒服的节奏", detail: "先排时间，再一起点亮开始。" };
   const liveResumeView = (() => {
     const stageTitle = activeStage?.title || "继续今晚";
     if (liveResumeScreen === "wrap") return { state: "wrap", icon: "home-heart", kicker: `${activeNightLabel}等待温和收尾 · 进度已保存在本机`, title: `${activeNightLabel}，温和收尾`, detail: "只差最后30秒，一起看见已经做到的部分", cta: "继续收尾 ›" };
@@ -1518,15 +1523,14 @@ export function StartApp() {
 
       {appReady && screen === "profile" && <div className="screen profile-screen">
         <Header back={() => back(profileReturn)} title="家庭设置" />
-        <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，谁一起安排？</h1></div><Mascot compact /></div>
+        <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，怎么称呼彼此？</h1></div><Mascot compact /></div>
         <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input name="child-alias" aria-label="孩子化名" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input name="guardian-alias" aria-label="大人称呼" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label></div>
-        <details className="profile-preferences" open={profileReturn === "settings"}><summary><span><strong>今晚偏好</strong><small>{modeLabel} · 通常 {data.arrival} 到家</small></span><b>{profileReturn === "settings" ? "正在编辑" : "可稍后修改"}</b></summary><div className="profile-preferences-body"><fieldset><legend>今晚主要由谁安排</legend><div className="mode-grid">{(["adult", "together", "child"] as PlanningMode[]).map(mode => <button type="button" key={mode} aria-pressed={data.planningMode === mode} className={data.planningMode === mode ? "selected" : ""} onClick={() => setData({ ...data, planningMode: mode })}>{({ adult: "大人先安排", together: "一起安排", child: "孩子先安排" })[mode]}</button>)}</div></fieldset><label>通常到家<input type="time" value={data.arrival} onChange={e => setData({ ...data, arrival: e.target.value })} /></label></div></details>
         <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className="primary-button" disabled={!data.childAlias.trim() || !data.guardianAlias.trim()} onClick={finishProfile}>{profileReturn === "settings" ? "保存修改" : "保存并安排今晚"}</button>{profileReturn !== "settings" && <small>下一步直接商量今晚的任务与休息</small>}</div>
       </div>}
 
       {screen === "home" && <div className="screen with-nav home-screen">
-        <div className="home-hero"><div><span className="eyebrow">{data.arrival} · {modeLabel}</span><h1>{liveSessionAvailable && activeNightLabel === "昨晚" ? "昨晚还没收尾，先温和接住" : !liveSessionAvailable && currentNightSummary ? "今晚已经温和收尾" : "今晚，一起找到舒服的节奏"}</h1><p>{liveSessionAvailable && activeNightLabel === "昨晚" ? "进度还在；继续或结束，都不需要重新来过。" : !liveSessionAvailable && currentNightSummary ? "记录已经留下，接下来可以放松一点。" : "先排时间，再一起点亮开始。"}</p></div><Mascot mood={!liveSessionAvailable && currentNightSummary ? "celebrate" : "confirm"} compact /></div>
-        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>这一晚已经温和收尾</small><strong>今晚的合作已经留下来了</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "完成多少都不需要重新比较。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>完成阶段</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>还有新的安排</button><small className="settled-energy-rule">再次安排不会重复获得“共同收尾”能量</small></div> : <button className="home-plan-cta" onClick={startAnotherPlan}><span className="home-plan-icon"><AppIcon name="moon" /></span><span className="home-plan-copy"><small>{stages.length ? `今晚草稿 · ${draftUpdatedAt ? "已自动保存" : "仅保存在这台设备"}` : "今晚计划"}</small><strong>{stages.length ? "继续安排今晚" : "开始安排今晚"}</strong><em>{stages.length ? `${stages.length}个节点 · ${formatPlanClock(draftStart, data.planStart, data.planEnd)}—${formatPlanClock(draftEnd, data.planStart, data.planEnd)} · ${draftEnergy}点能量` : "先加一件最容易开始的小事"}</em></span><b aria-hidden="true">›</b></button>}
+        <div className="home-hero"><div><span className="eyebrow">{homeContextLabel}</span><h1>{homeHeroCopy.title}</h1><p>{homeHeroCopy.detail}</p></div><Mascot mood={!liveSessionAvailable && currentNightSummary ? "celebrate" : "confirm"} compact /></div>
+        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>家庭日历已记录</small><strong>今晚的合作已经留下来了</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "完成多少都不需要重新比较。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>完成阶段</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>还有新的安排</button><small className="settled-energy-rule">再次安排不会重复获得“共同收尾”能量</small></div> : <button className="home-plan-cta" onClick={startAnotherPlan}><span className="home-plan-icon"><AppIcon name="moon" /></span><span className="home-plan-copy"><small>{stages.length ? `今晚草稿 · ${draftUpdatedAt ? "已自动保存" : "仅保存在这台设备"}` : "今晚计划"}</small><strong>{stages.length ? "继续安排今晚" : "开始安排今晚"}</strong><em>{stages.length ? `${stages.length}个节点 · ${formatPlanClock(draftStart, data.planStart, data.planEnd)}—${formatPlanClock(draftEnd, data.planStart, data.planEnd)} · ${draftEnergy}点能量` : "先加一件最容易开始的小事"}</em></span><b aria-hidden="true">›</b></button>}
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="quiet" /></span><div><small>今晚的默认提醒</small><strong>每个阶段只提醒一次，也可以继续或调整</strong></div></div>
         {currentWeekFocus && <button className="insight-card weekly-focus-home" onClick={() => go("review")}><span className="big-icon"><AppIcon name="home-heart" /></span><div><small>这周只试这一件 · 给大人的提醒</small><strong>{currentWeekFocus.text}</strong></div><span>›</span></button>}
         <button className={`insight-card support-entry goal-entry-${goalState}`} onClick={goalState === "empty" ? openRewardSetup : goalState === "ready" ? openRewardAchieved : () => go("energy")}><span className="big-icon"><AppIcon name={goalState === "empty" ? "home-heart" : goalState === "ready" ? data.rewardGoal.icon : "plant"} /></span><div><small>{goalState === "empty" ? "下一份家庭期待" : goalState === "ready" ? "家庭期待已点亮" : "家庭期待"}</small><strong>{goalState === "empty" ? "一起定下想共度的家庭时光" : data.rewardGoal.title}</strong><small>{goalState === "empty" ? "从0开始，不用急着定" : goalState === "ready" ? "等你们真的一起实现后再记录" : `还差${progress}点，一起积累`}</small></div><span>›</span></button>
@@ -1677,7 +1681,7 @@ export function StartApp() {
       </div>}
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
-        <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><div className="setting-row"><span>安排方式</span><strong>{modeLabel}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭设置 <span>›</span></button></div>
+        <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭称呼 <span>›</span></button></div>
         <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他页面时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除全部家庭数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>

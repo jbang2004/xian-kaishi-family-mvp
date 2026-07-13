@@ -174,17 +174,6 @@ p { line-height: 1.65; }
 .profile-screen .app-header { margin-bottom: 10px; }
 .profile-essential { padding-bottom: 1px; }
 .profile-essential label > span { float: right; color: var(--muted); font-size: var(--type-micro); font-weight: 600; margin-top: 3px; }
-.profile-preferences { margin: 12px 0 4px; border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.58); overflow: hidden; }
-.profile-preferences summary { list-style: none; min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; cursor: pointer; }
-.profile-preferences summary::-webkit-details-marker { display: none; }
-.profile-preferences summary strong, .profile-preferences summary small { display: block; }
-.profile-preferences summary strong { font-size: 13px; }
-.profile-preferences summary small { color: var(--muted); font-size: 10px; margin-top: 4px; }
-.profile-preferences summary b { color: #4a8069; background: var(--sage-soft); border-radius: 99px; padding: 6px 8px; font-size: var(--type-micro); white-space: nowrap; }
-.profile-preferences-body { padding: 16px; border-top: 1px solid var(--border); }
-.profile-preferences-body fieldset, .profile-preferences-body label { border: 0; padding: 0; margin: 0 0 18px; font-weight: 800; }
-.profile-preferences-body label { display: block; }
-.profile-preferences-body input { display: block; width: 100%; border: 1px solid var(--border); background: var(--paper); border-radius: 16px; padding: 14px; margin-top: 8px; color: var(--navy); }
 .profile-action-dock { margin-top: auto; }
 .profile-action-dock .microcopy { margin: 0 0 10px; }
 .form-card input { display: block; width: 100%; border: 1px solid var(--border); background: var(--paper); border-radius: 16px; padding: 14px; margin-top: 8px; color: var(--navy); }
