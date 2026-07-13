@@ -228,6 +228,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /endStageTimeEdit\(stage\.id, "start", e\.currentTarget\.value\)/);
   assert.match(app, /这项的时间还没选好，已恢复刚才的安排/);
   assert.match(app, /const baseline = timeEditBaseline\(id, "end"\)/);
+  assert.match(app, /调整\$\{stageName\}时长：当前\$\{durationMinutes\(stage\.start, stage\.end\)\}分钟/);
+  assert.match(app, /\[1,5,10,15,20,30\]\.map/);
+  assert.match(app, /1分钟\\n启动/);
+  assert.match(app, /选择后会保留后续节点的间隔一起移动/);
+  assert.match(styles, /\.stage-meta \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.task-duration-scale \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /const \[clearedPlanUndo, setClearedPlanUndo\] = useState<ClearedPlanUndo \| null>\(null\)/);
   assert.match(app, /setClearedPlanUndo\(\{ stages: snapshot, editingStageId, planStart: data\.planStart, planEnd: data\.planEnd \}\)/);
@@ -606,8 +612,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);
   assert.match(styles, /\.availability-card \.mascot \{ display: none; \}/);
   assert.match(styles, /\.stage-actions \{ grid-column: 1 \/ -1; grid-row: 2; grid-template-columns: repeat\(3,1fr\); \}/);
-  assert.match(styles, /\.stage-meta \{ grid-template-columns: minmax\(0,1fr\) minmax\(0,1fr\); \}/);
+  assert.match(styles, /\.stage-meta \{ grid-template-columns: repeat\(3,minmax\(0,1fr\)\); \}/);
   assert.match(app, /`任务 · \$\{effortCopy\[stage\.effort\]\}`/);
+  assert.match(app, /className="effort-compact"/);
   assert.match(styles, /\.reward-idea-grid small \{ display: none; \}/);
   assert.match(styles, /\.step-pill \{[^}]*white-space: nowrap/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 76px/);
