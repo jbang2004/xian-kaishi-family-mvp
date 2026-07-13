@@ -65,7 +65,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /fetchPriority="high" alt="温暖的家庭学习角"/);
   assert.match(app, /每阶段只提醒一次/);
   assert.match(app, /监护人授权与儿童隐私说明/);
-  assert.match(app, /删除孩子全部数据/);
+  assert.match(app, /删除全部家庭数据/);
+  assert.doesNotMatch(app, /删除孩子全部数据/);
+  assert.match(app, /旧家庭的云端副本等待清理/);
+  assert.match(app, /只保留随机家庭 ID 作为删除凭证/);
   assert.match(app, /寻找正规医疗机构/);
   assert.match(app, /xian-kaishi-plan-draft-v1/);
   assert.match(app, /xian-kaishi-live-session-v1/);
