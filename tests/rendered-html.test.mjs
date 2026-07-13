@@ -80,6 +80,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /focusPlanTarget\(nextStageId\)/);
   assert.match(app, /setToast\("今晚已从空白开始"\); focusPlanTarget\(\)/);
   assert.match(app, /ref=\{addNodeButtonRef\} className="add-node-button"/);
+  assert.match(app, /const MAX_PLAN_STAGES = 20/);
+  assert.match(app, /stages\.length >= MAX_PLAN_STAGES/);
+  assert.match(app, /今晚最多保留\$\{MAX_PLAN_STAGES\}个节点/);
+  assert.match(app, /id="plan-node-guidance"/);
+  assert.match(app, /当前 \$\{stages\.length\}\/\$\{MAX_PLAN_STAGES\} 个节点/);
+  assert.match(styles, /\.add-node-button:disabled/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
@@ -247,6 +253,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.reward-saved-screen/);
   assert.match(app, /这一晚分\$\{selectedSessionSummary\.settlements\}次留下记录/);
   assert.match(app, /先看整体，不用逐条比较每一次/);
+  assert.match(app, /hiddenStageTitleCount/);
+  assert.match(app, /另有 \$\{selectedSessionSummary\.hiddenStageTitleCount\} 项/);
   assert.match(app, /aria-controls="day-session-details"/);
   assert.match(styles, /\.daily-summary-stats/);
   assert.match(app, /删除这次记录/);

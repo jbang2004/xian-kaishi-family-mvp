@@ -99,6 +99,7 @@ const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
 const DUAL_START_DELAY_MS = 2400;
+const MAX_PLAN_STAGES = 20;
 const MAX_SESSION_RECORDS = 730;
 const MAX_REWARD_HISTORY = 120;
 
@@ -147,7 +148,7 @@ function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
   if (!Array.isArray(value)) return preserveStatus ? [] : DEFAULT_STAGES;
   const allowedIcons = new Set<string>(ICON_LIBRARY.map(([icon]) => icon));
   const legacyRestIcons = new Set(["snack", "dinner", "move", "walk", "eye-rest", "quiet", "free-play", "shower", "teeth", "bedtime"]);
-  return value.slice(0, 20).flatMap((entry, index) => {
+  return value.slice(0, MAX_PLAN_STAGES).flatMap((entry, index) => {
     if (!entry || typeof entry !== "object") return [];
     const item = entry as Partial<Stage>;
     const effort: Effort = item.effort === 2 || item.effort === 3 ? item.effort : 1;
@@ -180,13 +181,15 @@ function sessionTimeLabel(value: string) {
 
 function summarizeSessions(items: SessionRecord[]) {
   if (!items.length) return null;
+  const uniqueStageTitles = Array.from(new Set(items.flatMap(item => item.stageTitles)));
   return {
     settlements: items.length,
     completed: items.reduce((sum, item) => sum + item.completedCount, 0),
     adjustments: items.reduce((sum, item) => sum + item.adjustments, 0),
     energy: items.reduce((sum, item) => sum + item.energyEarned, 0),
     reflection: items.find(item => item.promptReflection)?.promptReflection ?? null,
-    stageTitles: Array.from(new Set(items.flatMap(item => item.stageTitles))).slice(0, 6),
+    stageTitles: uniqueStageTitles.slice(0, 6),
+    hiddenStageTitleCount: Math.max(0, uniqueStageTitles.length - 6),
   };
 }
 
@@ -853,6 +856,7 @@ export function StartApp() {
   };
 
   const addStage = () => {
+    if (stages.length >= MAX_PLAN_STAGES) { setToast(`今晚最多保留${MAX_PLAN_STAGES}个节点，已有内容不会自动删除`); return; }
     const slot = findPlanInsertionSlot(data.planStart, data.planEnd, stages);
     if (slot.status !== "available") {
       setToast(slot.status === "invalid" ? "先调整标出的时间，再增加节点" : "今晚已经排满，先留出至少5分钟再增加");
@@ -1535,8 +1539,8 @@ export function StartApp() {
           <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stage.title || "未命名事项"}`} onClick={() => setEditingStageId(expanded ? "" : stage.id)}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stage.title.trim() || "未命名事项"}</strong><small>{hasIssue ? "需要调整这一项" : `${formatPlanClock(stage.start, data.planStart, data.planEnd)}—${formatPlanClock(stage.end, data.planStart, data.planEnd)} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className="stage-summary-energy"><b>{stage.energy}</b><small>能量</small></span><i aria-hidden="true">⌄</i></button>
           {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body"><button className="stage-icon-button" onClick={() => { setEditingStageId(stage.id); go("icon-picker"); }} aria-label={`更换${stage.title}图标`}><AppIcon name={stage.icon} /><small>换图标</small></button><div className="stage-main"><input data-stage-title className="stage-title-input" aria-label={`第${index + 1}项名称`} aria-invalid={titleInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="done" value={stage.title} onChange={e => updateStage(stage.id, { title: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur(); setEditingStageId(""); } }} /><div className="time-range"><input aria-label={`${stage.title || `第${index + 1}项`}开始时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.start} onFocus={() => beginStageTimeEdit(stage.id, "start")} onBlur={e => endStageTimeEdit(stage.id, "start", e.currentTarget.value)} onChange={e => updateStageStart(stage.id, e.target.value)} /><span>—</span><input aria-label={`${stage.title || `第${index + 1}项`}结束时间`} aria-invalid={timeInvalid} aria-describedby={hasIssue ? `stage-issue-${stage.id}` : undefined} type="time" value={stage.end} onFocus={() => beginStageTimeEdit(stage.id, "end")} onBlur={e => endStageTimeEdit(stage.id, "end", e.currentTarget.value)} onChange={e => updateStageEnd(stage.id, e.target.value)} /></div><div className="stage-meta"><button className={`effort-pill effort-${stage.kind === "rest" ? "rest" : stage.effort}`} onClick={() => { setEditingStageId(stage.id); go("effort"); }}>{stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]} · 调整</button><label className="task-energy"><span><b>共同商量能量</b><strong>{stage.energy} 点</strong></span><input className="task-energy-range branded-range" type="range" min="1" max="5" step="1" value={stage.energy} aria-label={`${stage.title}完成后的家庭能量`} aria-valuetext={`${stage.energy}点家庭能量`} style={{ "--range-progress": `${(stage.energy - 1) * 25}%` } as CSSProperties} onChange={e => updateStage(stage.id, { energy: Number(e.target.value) })} /><span className="task-energy-scale" aria-hidden="true">{[1,2,3,4,5].map(value => <i key={value}>{value}</i>)}</span></label></div>{issueText && <p id={`stage-issue-${stage.id}`} className="stage-inline-issue" aria-live="polite">{issueText}</p>}</div><div className="stage-actions"><button onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label="向上移动">↑</button><button onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label="向下移动">↓</button><button onClick={() => removeStage(stage, index)} aria-label={`删除${stage.title}，可撤销`}>×</button></div></div>}
         </div>; })}</div>
-        <button ref={addNodeButtonRef} className="add-node-button" onClick={addStage} aria-label="增加一个时间节点"><span>＋</span><strong>增加一个节点</strong></button>
-        <div className="gentle-note">今晚安排可以随时调整。留一点空白，比把时间装满更容易开始。</div><button className="primary-button" disabled={!stages.length || planHasErrors} onClick={() => go("confirm")}>{planHasErrors ? "先调整标出的时间" : "下一步：一起确认"}</button>
+        <button ref={addNodeButtonRef} className="add-node-button" onClick={addStage} disabled={stages.length >= MAX_PLAN_STAGES} aria-describedby="plan-node-guidance" aria-label={stages.length >= MAX_PLAN_STAGES ? `今晚已到${MAX_PLAN_STAGES}个时间节点上限` : "增加一个时间节点"}><span>{stages.length >= MAX_PLAN_STAGES ? "✓" : "＋"}</span><strong>{stages.length >= MAX_PLAN_STAGES ? `已到 ${MAX_PLAN_STAGES} 个节点` : "增加一个节点"}</strong></button>
+        <div id="plan-node-guidance" className="gentle-note">{stages.length >= MAX_PLAN_STAGES ? "可以合并相近事项，或删除不需要的一项；已有内容不会自动删掉。" : `今晚安排可以随时调整。当前 ${stages.length}/${MAX_PLAN_STAGES} 个节点，留一点空白更容易开始。`}</div><button className="primary-button" disabled={!stages.length || planHasErrors} onClick={() => go("confirm")}>{planHasErrors ? "先调整标出的时间" : "下一步：一起确认"}</button>
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
@@ -1657,7 +1661,7 @@ export function StartApp() {
         <div className="day-detail">
           <div className="day-detail-header"><div><small>家庭夜晚</small><strong>{selectedDateLabel}</strong></div>{selectedSessionSummary && <span>{selectedSessionSummary.settlements} 次收尾</span>}</div>
           {!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>
-            {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
+            {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}${selectedSessionSummary.hiddenStageTitleCount ? `，另有 ${selectedSessionSummary.hiddenStageTitleCount} 项` : ""}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
             {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>共同约定 {item.threshold} 点 · 这一轮积累到 {item.energyBeforeReset} 点</p></div></div>)}
             {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => { setSessionDeleteArmedId(""); setDayDetailsExpanded(value => !value); }}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
             {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button ref={sessionDeleteCancelRef} onClick={() => cancelSessionDelete(item.id)}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" data-session-delete-id={item.id} aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}

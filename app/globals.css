@@ -569,6 +569,8 @@ button.insight-card { cursor: pointer; }
 .add-node-button { width: 100%; min-height: 78px; border: 2px dashed #c9b899; border-radius: 20px; background: rgba(255,255,255,.45); display: flex; align-items: center; justify-content: center; gap: 10px; color: #657061; cursor: pointer; }
 .add-node-button span { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--sage); color: white; font-size: 28px; line-height: 1; box-shadow: 0 7px 15px rgba(117,184,155,.24); }
 .add-node-button:active span { transform: scale(.94); }
+.add-node-button:disabled { border-style: solid; border-color: rgba(117,184,155,.32); background: rgba(237,246,239,.58); color: #65766d; cursor: default; }
+.add-node-button:disabled span { background: #8faf9e; box-shadow: none; font-size: 19px; }
 .empty-plan { min-height: 178px; border: 2px dashed rgba(190,159,103,.38); border-radius: 22px; background: rgba(255,255,255,.42); display: grid; place-items: center; align-content: center; gap: 5px; text-align: center; color: #596b62; }
 .empty-plan .mascot { width: 82px; height: 82px; margin: -8px auto -4px; }
 .empty-plan strong { font-size: 15px; }
