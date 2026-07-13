@@ -1156,7 +1156,7 @@ button.insight-card { cursor: pointer; }
 .toast, .undo-toast { position: fixed; left: max(24px, calc((100vw - 884px) / 2 + 24px)); width: min(382px, calc(100vw - 48px)); margin: 0; }
 .toast { z-index: 50; bottom: calc(104px + env(safe-area-inset-bottom)); padding: 14px 16px; border-radius: 16px; background: rgba(35,50,74,.94); color: white; text-align: center; font-weight: 800; box-shadow: 0 14px 30px rgba(35,50,74,.25); animation: toast-in .25s ease both; pointer-events: none; }
 .undo-toast { z-index: 51; bottom: calc(24px + env(safe-area-inset-bottom)); min-height: 56px; padding: 10px 10px 10px 16px; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(35,50,74,.96); color: white; box-shadow: 0 14px 30px rgba(35,50,74,.25); animation: toast-in .25s ease both; }
-.undo-toast span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 800; }
+.undo-toast span { min-width: 0; display: -webkit-box; overflow: hidden; font-size: 13px; font-weight: 800; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .undo-toast button { min-width: 64px; min-height: 44px; border: 0; border-radius: 12px; background: #fff2cb; color: #80550f; font-weight: 900; cursor: pointer; }
 .live-undo-toast { bottom: calc(210px + env(safe-area-inset-bottom)); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }

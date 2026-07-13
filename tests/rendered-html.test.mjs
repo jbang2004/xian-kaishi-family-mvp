@@ -80,6 +80,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.screen \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-left\)/);
   assert.match(styles, /\.bottom-nav \{ position: fixed; left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\)/);
   assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
+  assert.match(styles, /\.undo-toast span \{[^}]*white-space: normal;[^}]*-webkit-line-clamp: 2/);
+  assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
   assert.match(styles, /\.offline-ribbon,[\s\S]*?\.undo-toast \{ left: 50%; right: auto; width: min\(560px, calc\(100% - 36px\)\); transform: translateX\(-50%\); \}/);
   assert.equal(ASSET_VERSION, "2026-07-13-2");

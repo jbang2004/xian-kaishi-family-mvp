@@ -650,7 +650,8 @@ export function StartApp() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 2400);
+    const readableDuration = Math.min(5200, Math.max(3000, 2000 + toast.length * 90));
+    const timer = window.setTimeout(() => setToast(""), readableDuration);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
