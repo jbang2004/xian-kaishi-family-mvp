@@ -3,7 +3,7 @@ import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
-import { restoreRewardRedemption, rewardThresholdBounds } from "../app/reward-utils.ts";
+import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
 import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
@@ -178,7 +178,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /再继续 10 分钟/);
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
-  assert.match(app, /className="transition-result"/);
+  assert.match(app, /className=\{`transition-result/);
   assert.match(app, /type StageAdvanceUndo = \{ statuses:/);
   assert.match(app, /setStageAdvanceUndo\(\{ statuses: stages\.map/);
   assert.match(app, /const undoContinueToNext = \(\) =>/);
@@ -374,7 +374,14 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.phone-shell\.is-offline \.screen \{ padding-top:/);
   assert.match(app, /共同商量能量/);
   assert.match(app, /className="task-energy-range branded-range"/);
-  assert.match(app, /aria-valuetext=\{`\$\{stage\.energy\}点家庭能量`\}/);
+  assert.match(app, /type="range" min="0" max="5"/);
+  assert.match(app, /aria-valuetext=\{stageEnergyLabel\(stage\.energy\)\}/);
+  assert.match(app, /\[0,1,2,3,4,5\]/);
+  assert.match(app, /休息或不想用积分交换的事项，可以选“不计”/);
+  assert.match(app, /这一项不计能量/);
+  assert.match(app, /energy: 0[^\n]+kind: "rest"/);
+  assert.match(styles, /\.task-energy-scale \{[^}]*repeat\(6,1fr\)/);
+  assert.match(styles, /\.active-energy\.is-zero/);
   assert.match(app, /rewardThresholdBounds\(data\.energy\)/);
   assert.match(app, /max=\{rewardMaximumThreshold\}/);
   assert.match(styles, /\.branded-range::-webkit-slider-runnable-track/);
@@ -940,6 +947,19 @@ test("keeps reward targets valid after unusually high family energy", () => {
   assert.deepEqual(rewardThresholdBounds(100), { minimum: 105, maximum: 155 });
   assert.deepEqual(rewardThresholdBounds(215), { minimum: 220, maximum: 270 });
   assert.deepEqual(rewardThresholdBounds(Number.NaN), { minimum: 10, maximum: 100 });
+});
+
+test("keeps stage energy optional without corrupting legacy values", () => {
+  assert.equal(normalizeStageEnergy(0), 0);
+  assert.equal(normalizeStageEnergy("0"), 0);
+  assert.equal(normalizeStageEnergy(-3), 0);
+  assert.equal(normalizeStageEnergy(2.6), 3);
+  assert.equal(normalizeStageEnergy(8), 5);
+  assert.equal(normalizeStageEnergy(undefined, 0), 0);
+  assert.equal(normalizeStageEnergy(undefined, 1), 1);
+  assert.equal(normalizeStageEnergy("not-a-number", 1), 1);
+  assert.equal(stageEnergyLabel(0), "不计家庭能量");
+  assert.equal(stageEnergyLabel(3), "3点家庭能量");
 });
 
 test("restores only the matching latest reward cycle without overwriting changed history", () => {

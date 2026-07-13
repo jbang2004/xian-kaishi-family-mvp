@@ -1,3 +1,16 @@
+export function normalizeStageEnergy(value: unknown, fallback = 1) {
+  const safeFallback = Math.max(0, Math.min(5, Math.round(Number.isFinite(fallback) ? fallback : 1)));
+  if (value === null || value === undefined || value === "") return safeFallback;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return safeFallback;
+  return Math.max(0, Math.min(5, Math.round(numeric)));
+}
+
+export function stageEnergyLabel(value: unknown) {
+  const energy = normalizeStageEnergy(value, 0);
+  return energy > 0 ? `${energy}点家庭能量` : "不计家庭能量";
+}
+
 export function rewardThresholdBounds(energy: number) {
   const safeEnergy = Math.max(0, Number.isFinite(energy) ? energy : 0);
   const minimum = Math.max(10, Math.ceil((safeEnergy + 1) / 5) * 5);
