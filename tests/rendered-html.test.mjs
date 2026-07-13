@@ -29,8 +29,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(page, /把每晚合作和共同期待留在家庭日历里/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
-  assert.match(app, /name="child-alias" aria-label="孩子化名"/);
+  assert.match(app, /childAlias: ""/);
+  assert.match(app, /guardianAlias: ""/);
+  assert.match(app, /rewardGoal: \{ threshold: 20, title: "", icon: "game", date: "周六", participants: \[\], redeemed: true/);
+  assert.match(app, /const \[stages, setStages\] = useState<Stage\[]>\(\[\]\)/);
+  assert.match(app, /if \(!Array\.isArray\(value\)\) return \[\]/);
+  assert.match(app, /name="child-alias" aria-label="孩子化名" placeholder="例如：小橙"/);
+  assert.match(app, /name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈"/);
   assert.match(app, /window\.addEventListener\("popstate", handlePopState\)/);
+  assert.match(app, /familyDataRef\.current\.consent && \(target === "welcome" \|\| target === "profile"\)/);
+  assert.match(app, /window\.history\.replaceState\(\{ xianKaishi: true, screen: "home", depth \}/);
   assert.match(app, /current !== "home" && LIVE_SCREENS\.includes\(next as LiveScreen\)/);
   assert.match(app, /今晚还在进行，可以调整计划或温和收尾/);
   assert.doesNotMatch(app, /window\.confirm/);
@@ -85,7 +93,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /休息也算照顾计划的一部分/);
   assert.match(app, /今晚草稿 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
   assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
-  assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? DEFAULT_STAGES\[0\]/);
+  assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? FALLBACK_STAGE/);
   assert.match(app, /const addNodeButtonRef = useRef<HTMLButtonElement>\(null\)/);
   assert.match(app, /focusPlanTarget\(nextStageId\)/);
   assert.match(app, /setToast\("今晚已从空白开始"\); focusPlanTarget\(\)/);

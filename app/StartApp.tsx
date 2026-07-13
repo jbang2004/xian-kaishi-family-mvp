@@ -102,26 +102,20 @@ const MAX_REWARD_HISTORY = 120;
 
 const DEFAULT_DATA: AppData = {
   consent: false,
-  childAlias: "小橙",
-  guardianAlias: "妈妈",
+  childAlias: "",
+  guardianAlias: "",
   planStart: "18:10",
   planEnd: "20:30",
   energy: 0,
   sound: true,
   reducedMotion: false,
-  rewardGoal: { threshold: 30, title: "周末一起玩桌游", icon: "game", date: "周六", participants: ["妈妈", "小橙"], redeemed: false, acknowledged: false },
+  rewardGoal: { threshold: 20, title: "", icon: "game", date: "周六", participants: [], redeemed: true, acknowledged: false },
   rewardHistory: [],
   sessions: [],
   weeklyFocus: null,
 };
 
-const DEFAULT_STAGES: Stage[] = [
-  { id: "snack", title: "吃点东西", icon: "snack", start: "18:10", end: "18:30", effort: 1, energy: 0, status: "pending", kind: "rest" },
-  { id: "math", title: "数学练习", icon: "chart", start: "18:30", end: "19:00", effort: 2, energy: 3, status: "pending", kind: "task" },
-  { id: "move", title: "活动一下", icon: "move", start: "19:00", end: "19:10", effort: 1, energy: 0, status: "pending", kind: "rest" },
-  { id: "reading", title: "阅读", icon: "book", start: "19:10", end: "19:35", effort: 1, energy: 2, status: "pending", kind: "task" },
-  { id: "bag", title: "整理书包", icon: "backpack", start: "19:35", end: "19:45", effort: 1, energy: 1, status: "pending", kind: "task" },
-];
+const FALLBACK_STAGE: Stage = { id: "fallback", title: "当前阶段", icon: "custom", start: "18:10", end: "18:20", effort: 1, energy: 0, status: "pending", kind: "task" };
 
 const ICON_LIBRARY = [
   ["custom","自定义"],["book","阅读"],["chinese","语文"],["english","英语"],["abacus","口算"],["science","科学"],["handwriting","书写"],["recite","朗读"],
@@ -140,7 +134,7 @@ const REWARD_IDEAS: Array<{ icon: RewardGoal["icon"]; label: string; title: stri
 const REWARD_DATE_IDEAS = ["周六", "周日", "下周末"];
 
 function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
-  if (!Array.isArray(value)) return preserveStatus ? [] : DEFAULT_STAGES;
+  if (!Array.isArray(value)) return [];
   const allowedIcons = new Set<string>(ICON_LIBRARY.map(([icon]) => icon));
   const legacyRestIcons = new Set(["snack", "dinner", "move", "walk", "eye-rest", "quiet", "free-play", "shower", "teeth", "bedtime"]);
   return value.slice(0, MAX_PLAN_STAGES).flatMap((entry, index) => {
@@ -263,8 +257,8 @@ function BottomNav({ screen, go }: { screen: Screen; go: (screen: Screen) => voi
 function normalizeData(value: unknown): AppData {
   if (!value || typeof value !== "object") return DEFAULT_DATA;
   const old = value as Record<string, unknown>;
-  const childAlias = String(old.childAlias ?? old.alias ?? DEFAULT_DATA.childAlias).slice(0, 12);
-  const guardianAlias = String(old.guardianAlias ?? DEFAULT_DATA.guardianAlias).slice(0, 12);
+  const childAlias = String(old.childAlias ?? old.alias ?? "孩子").slice(0, 12);
+  const guardianAlias = String(old.guardianAlias ?? "大人").slice(0, 12);
   const goal = old.rewardGoal && typeof old.rewardGoal === "object" ? old.rewardGoal as Partial<RewardGoal> : DEFAULT_DATA.rewardGoal;
   const goalRedeemed = Boolean(goal.redeemed);
   const goalIcon: RewardGoal["icon"] = goal.icon === "book" || goal.icon === "move" || goal.icon === "game" ? goal.icon : String(goal.title).includes("故事") ? "book" : String(goal.title).includes("散步") ? "move" : "game";
@@ -318,7 +312,7 @@ export function StartApp() {
   const [familyId, setFamilyId] = useState("");
   const [screen, setScreen] = useState<Screen>("welcome");
   const [consent, setConsent] = useState(false);
-  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
+  const [stages, setStages] = useState<Stage[]>([]);
   const [editingStageId, setEditingStageId] = useState("");
   const [showAllIcons, setShowAllIcons] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -459,6 +453,13 @@ export function StartApp() {
       if (!state?.xianKaishi || !SCREEN_NAMES.includes(state.screen as Screen)) return;
       const current = screenRef.current;
       const target = state.screen as Screen;
+      if (familyDataRef.current.consent && (target === "welcome" || target === "profile")) {
+        const depth = Math.max(0, Number(state.depth) || 0);
+        historyDepthRef.current = depth;
+        window.history.replaceState({ xianKaishi: true, screen: "home", depth } satisfies AppHistoryState, "");
+        showScreen("home");
+        return;
+      }
       const resolved = resolveHistoryTarget(current, target);
       if (resolved.blocked) {
         window.history.pushState({ xianKaishi: true, screen: current, depth: historyDepthRef.current } satisfies AppHistoryState, "");
@@ -1058,7 +1059,7 @@ export function StartApp() {
 
   // Planning screens intentionally allow an empty list. Keep live-only derived
   // copy total during that brief state so clearing a draft cannot crash React.
-  const activeStage = stages[activeIndex] ?? stages[0] ?? DEFAULT_STAGES[0];
+  const activeStage = stages[activeIndex] ?? stages[0] ?? FALLBACK_STAGE;
   const nextPendingIndex = (from: number) => stages.findIndex((item, index) => index > from && item.status === "pending");
   const hasNextPending = nextPendingIndex(activeIndex) >= 0;
   const nextPendingStage = stages[nextPendingIndex(activeIndex)];
@@ -1296,7 +1297,7 @@ export function StartApp() {
     await pendingWritesRef.current.drain();
     const cloudDeleted = await retryPendingCloudDeletion();
     setPendingCloudDeletion(!cloudDeleted);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; sessionPlanWindowRef.current = null; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; sessionPlanWindowRef.current = null; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages([]); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
     setToast(cloudDeleted ? "本机与云端家庭数据已经删除" : "本机数据已删除；联网后继续清理云端副本");
     deleteInProgressRef.current = false; setDeletingData(false);
   };
@@ -1524,7 +1525,7 @@ export function StartApp() {
       {appReady && screen === "profile" && <div className="screen profile-screen">
         <Header back={() => back(profileReturn)} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，怎么称呼彼此？</h1></div><Mascot compact /></div>
-        <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input name="child-alias" aria-label="孩子化名" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input name="guardian-alias" aria-label="大人称呼" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label></div>
+        <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input name="child-alias" aria-label="孩子化名" placeholder="例如：小橙" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label></div>
         <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className="primary-button" disabled={!data.childAlias.trim() || !data.guardianAlias.trim()} onClick={finishProfile}>{profileReturn === "settings" ? "保存修改" : "保存并安排今晚"}</button>{profileReturn !== "settings" && <small>下一步直接商量今晚的任务与休息</small>}</div>
       </div>}
 
