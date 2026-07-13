@@ -127,6 +127,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /className="app-icon-image"/);
   assert.match(styles, /\.app-icon-image \{ display: block; width: 100%; height: 100%; object-fit: contain; \}/);
   assert.match(styles, /\.optimized-picture \{ display: contents; \}/);
+  assert.match(app, /现在开始，整晚将比原定 \$\{plannedStartLabel\} 前移/);
+  assert.match(app, /计划可以随时改；休息、换顺序或明天继续，都不算失败/);
+  assert.match(styles, /\.confirm-hero \{ grid-template-columns: minmax\(0,1fr\) 74px/);
+  assert.match(styles, /\.confirm-timing-note \{ min-height: 0; grid-template-columns: 32px minmax\(0,1fr\)/);
+  assert.match(styles, /\.family-agreement > div \{ min-height: 54px; grid-template-columns: 32px minmax\(0,1fr\)/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.confirm-action-dock \{[\s\S]*?grid-template-columns: minmax\(0,1fr\) 106px/);
   assert.match(layout, /images: \[\{ url: `\$\{origin\}\/og\.jpg`/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
   assert.match(app, /const COMMON_ICON_NAMES = new Set<string>/);
@@ -174,8 +180,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const plannedStartPassed = plannedStartOffset < 0/);
   assert.match(app, /const startShiftVerb = plannedStartPassed \? "顺延" : "前移"/);
   assert.match(app, /const shiftedPlanEndLabel = addMinutes\(startNowLabel, Math\.max\(1, durationMinutes\(data\.planStart, data\.planEnd\)\)\)/);
-  assert.match(app, /原定 \$\{plannedStartLabel\} 已过；现在开始会整体顺延/);
-  assert.match(app, /如果现在开始，时间会比原定 \$\{plannedStartLabel\} 整体前移/);
+  assert.match(app, /原定 \$\{plannedStartLabel\} 已过，整晚将顺延/);
+  assert.match(app, /现在开始，整晚将比原定 \$\{plannedStartLabel\} 前移/);
   assert.match(app, /从现在一起开始，时间整体顺延/);
   assert.match(app, /现在一起开始，时间整体前移/);
   assert.match(app, /plannedStartOffset === 0 \? "最晚" : "原计划最晚"/);
