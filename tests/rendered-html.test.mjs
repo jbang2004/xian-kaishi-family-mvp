@@ -49,8 +49,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
   assert.match(styles, /\.window-inputs input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.match(styles, /\.reward-compact-input input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
-  assert.match(styles, /--type-micro: 10px/);
-  assert.match(styles, /--type-caption: 11px/);
+  assert.match(styles, /--type-micro: 11px/);
+  assert.match(styles, /--type-caption: 12px/);
+  assert.doesNotMatch(styles, /font-size:\s*10px/);
   assert.doesNotMatch(styles, /font-size:\s*[789]px/);
   assert.equal(ASSET_VERSION, "2026-07-13-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
@@ -295,6 +296,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.record-delete-confirm \{[^}]*background: #fff6f3/);
   assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
   assert.match(app, /className="today-jump"/);
+  assert.match(styles, /\.today-jump \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.plan-tools button \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.confirm-plan-heading button \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.due-action-dock \.text-button \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.transition-actions \.text-button \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.redeem-confirm \.text-button \{[^}]*min-height: 44px/);
+  assert.doesNotMatch(styles, /\.order-actions/);
   assert.match(styles, /\.calendar-grid > button\.is-today/);
   assert.match(app, /最迟到次日清晨5点自动失效/);
   assert.match(app, /nightKey: \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
