@@ -373,6 +373,8 @@ export function StartApp() {
   const phoneShellRef = useRef<HTMLElement>(null);
   const addNodeButtonRef = useRef<HTMLButtonElement>(null);
   const planStartInputRef = useRef<HTMLInputElement>(null);
+  const childAliasInputRef = useRef<HTMLInputElement>(null);
+  const guardianAliasInputRef = useRef<HTMLInputElement>(null);
   const clearPlanArmedRef = useRef(false);
   const clearPlanArmSequence = useRef(0);
   const finishNightLock = useRef(false);
@@ -887,6 +889,10 @@ export function StartApp() {
   const finishProfile = () => {
     const childAlias = cleanShortText(data.childAlias, 12);
     const guardianAlias = cleanShortText(data.guardianAlias, 12);
+    if (!childAlias || !guardianAlias) {
+      (childAlias ? guardianAliasInputRef : childAliasInputRef).current?.focus();
+      return;
+    }
     const initialWindow = familyDataRef.current.consent ? {} : suggestInitialEveningWindow(new Date());
     const next = { ...data, ...initialWindow, childAlias, guardianAlias, consent: true, rewardGoal: { ...data.rewardGoal, participants: [guardianAlias, childAlias] } };
     setPlanHydrated(true); persist(next, profileReturn === "settings" ? "家庭设置已更新" : "家庭称呼已保存，可以安排今晚了"); playTone("confirm");
@@ -1628,7 +1634,7 @@ export function StartApp() {
           <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过随机家庭 ID 关联；旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
-        <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
+        <div className="privacy-transparency"><strong>受邀测试说明</strong><p>当前版本仅供受邀家庭试用，请不要转发测试入口。正式开放前，我们会增加监护人登录与家庭访问保护；如果无法做到，就停止云端同步。</p></div>
         <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={requestDeleteData}>删除全部家庭数据</button></div>}</div>
         <button className="primary-button" onClick={() => back(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
@@ -1636,7 +1642,7 @@ export function StartApp() {
       {appReady && screen === "profile" && <div className="screen profile-screen">
         <Header back={() => back(profileReturn)} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，怎么称呼彼此？</h1></div><Mascot compact /></div>
-        <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input name="child-alias" aria-label="孩子化名" placeholder="例如：小橙" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} /></label></div>
+        <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input ref={childAliasInputRef} name="child-alias" aria-label="孩子化名" placeholder="例如：小橙" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); guardianAliasInputRef.current?.focus(); } }} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input ref={guardianAliasInputRef} name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); finishProfile(); } }} /></label></div>
         <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className="primary-button" disabled={!data.childAlias.trim() || !data.guardianAlias.trim()} onClick={finishProfile}>{profileReturn === "settings" ? "保存修改" : "保存并安排今晚"}</button>{profileReturn !== "settings" && <small>下一步直接商量今晚的任务与休息</small>}</div>
       </div>}
 

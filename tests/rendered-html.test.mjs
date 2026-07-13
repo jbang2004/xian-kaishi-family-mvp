@@ -36,6 +36,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /if \(!Array\.isArray\(value\)\) return \[\]/);
   assert.match(app, /name="child-alias" aria-label="孩子化名" placeholder="例如：小橙"/);
   assert.match(app, /name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈"/);
+  assert.match(app, /ref=\{childAliasInputRef\} name="child-alias"/);
+  assert.match(app, /guardianAliasInputRef\.current\?\.focus\(\)/);
+  assert.match(app, /ref=\{guardianAliasInputRef\} name="guardian-alias"/);
+  assert.match(app, /e\.preventDefault\(\); finishProfile\(\)/);
   assert.match(app, /familyDataRef\.current\.consent \? \{\} : suggestInitialEveningWindow\(new Date\(\)\)/);
   assert.match(app, /window\.addEventListener\("popstate", handlePopState\)/);
   assert.match(app, /familyDataRef\.current\.consent && \(target === "welcome" \|\| target === "profile"\)/);
@@ -219,7 +223,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
-  assert.match(app, /随机家庭 ID 不是正式账号鉴权/);
+  assert.match(app, /当前版本仅供受邀家庭试用，请不要转发测试入口/);
+  assert.match(app, /增加监护人登录与家庭访问保护；如果无法做到，就停止云端同步/);
   assert.match(app, /最多保留最近730次晚间收尾和120次期待实现/);
   assert.match(app, /const MAX_SESSION_RECORDS = 730/);
   assert.match(app, /const MAX_REWARD_HISTORY = 120/);
