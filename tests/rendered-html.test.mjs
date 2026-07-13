@@ -479,6 +479,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /只暂存随机家庭 ID；联网后自动重试/);
   assert.match(styles, /\.phone-shell\.is-offline \.screen \{ padding-top:/);
   assert.match(app, /共同商量能量/);
+  assert.match(app, /先写名称/);
+  assert.match(app, /时间与 1 点能量已先放好，随后都能调整/);
+  assert.match(app, /className={`energy-detail-toggle/);
+  assert.match(app, /aria-expanded={editingEnergyStageId === stage.id}/);
+  assert.match(app, /editingEnergyStageId === stage.id &&/);
   assert.match(app, /className="task-energy-range branded-range"/);
   assert.match(app, /type="range" min="0" max="5"/);
   assert.match(app, /aria-valuetext=\{stageEnergyLabel\(stage\.energy\)\}/);
@@ -486,6 +491,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /这一项不计能量/);
   assert.match(app, /energy: 0[^\n]+kind: "rest"/);
   assert.match(styles, /\.task-energy-scale \{[^}]*repeat\(6,1fr\)/);
+  assert.match(styles, /\.task-energy \{ grid-column: 1 \/ -1/);
+  assert.match(styles, /\.energy-detail-toggle\[aria-expanded="true"\]/);
   assert.match(styles, /\.active-energy\.is-zero/);
   assert.match(app, /rewardThresholdBounds\(data\.energy\)/);
   assert.match(app, /max=\{rewardMaximumThreshold\}/);
