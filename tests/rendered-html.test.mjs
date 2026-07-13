@@ -502,6 +502,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
+  assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);
+  assert.match(styles, /\.welcome-boundary > button \{ min-height: 36px;[^}]*padding-top: 5px; \}/);
+  assert.match(styles, /\.welcome-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
   assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);

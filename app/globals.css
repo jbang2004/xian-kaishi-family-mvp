@@ -1244,6 +1244,27 @@ button.insight-card { cursor: pointer; }
 }
 
 @media (max-width: 380px) and (max-height: 640px) {
+  .welcome-screen { padding: 14px 18px 22px; }
+  .welcome-brand { margin-bottom: 7px; }
+  .welcome-brand .brand-mark { font-size: 18px; }
+  .welcome-brand .brand-mark .app-icon { width: 32px; height: 32px; }
+  .welcome-hero { grid-template-columns: minmax(0,1fr) 72px; gap: 4px; }
+  .welcome-hero h1 { font-size: 27px; line-height: 1.12; margin-bottom: 5px; }
+  .welcome-hero .lead { font-size: 11px; line-height: 1.42; }
+  .welcome-hero .mascot { width: 72px; height: 72px; }
+  .welcome-flow { gap: 5px; margin: 8px 0; }
+  .welcome-flow > div { padding: 7px 6px; border-radius: 14px; }
+  .welcome-flow b { width: 18px; height: 18px; margin-bottom: 3px; font-size: var(--type-micro); }
+  .welcome-flow small { font-size: var(--type-micro); line-height: 1.24; }
+  .welcome-boundary { margin-bottom: 7px; padding: 8px 10px; border-radius: 17px; }
+  .welcome-boundary > div { grid-template-columns: 32px 1fr; gap: 8px; }
+  .welcome-boundary .big-icon, .welcome-boundary .big-icon .app-icon { width: 32px; height: 32px; }
+  .welcome-boundary small { line-height: 1.35; }
+  .welcome-boundary > button { min-height: 36px; margin-top: 4px; padding-top: 5px; }
+  .welcome-action-dock { padding: 2px 0 0; }
+  .welcome-action-dock .consent-row { margin-bottom: 6px; }
+  .welcome-action-dock .primary-button { min-height: 50px; border-radius: 17px; font-size: 15px; }
+  .welcome-action-dock > small { margin-top: 4px; }
   .dual-start-screen .app-header { margin-bottom: 2px; }
   .dual-start-hero { grid-template-columns: minmax(0,1fr) 78px; gap: 4px; }
   .dual-start-hero h1 { font-size: 25px; line-height: 1.14; }
