@@ -441,6 +441,8 @@ button.insight-card { cursor: pointer; }
 .permission-denied { border-color: rgba(242,140,126,.3); background: rgba(255,241,237,.72); }
 .permission-denied strong { color: #a45c52; }
 .permission-unsupported { border-color: var(--border); background: rgba(246,241,232,.7); }
+.permission-pending { border-color: rgba(245,184,75,.35); background: rgba(255,248,225,.78); }
+.permission-pending strong { color: #93600c; }
 .setting-row { font-size: 14px; }
 .setting-row strong { color: #4c8269; }
 .setting-action { width: 100%; border-left: 0; border-right: 0; border-top: 0; background: transparent; font-weight: 800; cursor: pointer; }

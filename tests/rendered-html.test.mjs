@@ -699,6 +699,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /window\.addEventListener\("focus", refreshNotificationPermission\)/);
   assert.match(app, /document\.addEventListener\("visibilitychange", refreshNotificationPermission\)/);
   assert.match(app, /setNotificationPermission\(Notification\.permission\)/);
+  assert.match(app, /正在等待浏览器授权/);
+  assert.match(app, /没有确认前不会开启/);
+  assert.match(app, /aria-busy=\{requestingNotificationPermission \|\| undefined\}/);
+  assert.match(styles, /\.permission-pending \{[^}]*background: rgba\(255,248,225,\.78\)/);
   assert.match(app, /如需后台提醒，请在浏览器设置中重新允许/);
   assert.match(app, /切到其他应用或锁屏时尝试提醒/);
   assert.match(serviceWorker, /notificationclick/);
