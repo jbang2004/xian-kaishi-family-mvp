@@ -453,6 +453,8 @@ button.insight-card { cursor: pointer; }
 .pending-delete-note strong { color: #93600c; font-size: 11px; }
 .pending-delete-note small { margin-top: 2px; color: var(--muted); font-size: var(--type-micro); line-height: 1.45; }
 .welcome-pending-delete { margin: 8px 0 12px; }
+.deletion-complete-note { margin: 8px 0 12px; border-color: rgba(117,184,155,.35); background: rgba(237,246,239,.82); }
+.deletion-complete-note strong { color: #397259; }
 .destructive-dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: end center; padding: 24px max(18px, env(safe-area-inset-right)) max(24px, calc(18px + env(safe-area-inset-bottom))) max(18px, env(safe-area-inset-left)); background: rgba(35,50,74,.34); backdrop-filter: blur(7px); animation: dialog-backdrop-in var(--motion-fast) ease both; }
 .destructive-dialog { width: min(392px, 100%); padding: 22px 20px 18px; border: 1px solid rgba(242,140,126,.48); border-radius: 28px; background: #fffaf2; box-shadow: 0 24px 70px rgba(35,50,74,.28); text-align: center; animation: dialog-sheet-in var(--motion-standard) var(--ease-out-soft) both; }
 .destructive-dialog-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 8px; border-radius: 19px; background: #fff0ec; }

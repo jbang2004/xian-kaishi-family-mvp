@@ -87,6 +87,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /role="alertdialog" aria-modal="true"/);
   assert.match(app, /取消，保留数据/);
   assert.match(app, /确认永久删除/);
+  assert.match(app, /家庭数据已全部删除/);
+  assert.match(app, /重新开始时不会带入旧家庭的信息/);
+  assert.match(styles, /\.deletion-complete-note \{[^}]*border-color: rgba\(117,184,155,\.35\)/);
   assert.match(app, /deleteCancelRef\.current\?\.focus\(\)/);
   assert.match(app, /deleteConfirmRef\.current/);
   assert.match(app, /aria-hidden=\{deleteArmed \|\| undefined\}/);

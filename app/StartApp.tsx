@@ -350,6 +350,7 @@ export function StartApp() {
   const [deletingData, setDeletingData] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [pendingCloudDeletion, setPendingCloudDeletion] = useState(false);
+  const [deletionNotice, setDeletionNotice] = useState<"complete" | "pending" | null>(null);
   const [activeEndsAt, setActiveEndsAt] = useState(0);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [stageDue, setStageDue] = useState(false);
@@ -504,7 +505,7 @@ export function StartApp() {
   }, [appReady]);
 
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
-  const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
+  const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); if (from === "welcome") setDeletionNotice(null); go("profile"); };
   const openAdjust = () => { setStageAdvanceUndo(null); setAdjustChoice(null); go("adjust"); };
   const openConfirmPlan = () => { setConfirmPlanExpanded(false); setClockNow(interactionTimestamp()); go("confirm"); };
   const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); setClockNow(interactionTimestamp()); go("dual-start"); };
@@ -546,8 +547,8 @@ export function StartApp() {
       const pendingDeletionId = localStorage.getItem(PENDING_DELETE_KEY) || "";
       if (pendingDeletionId) {
         [STORAGE_KEY, "xian-kaishi-family-v1", PLAN_DRAFT_KEY, LIVE_SESSION_KEY, REMINDER_PREF_KEY, FAMILY_REVISION_KEY, FAMILY_UPDATED_AT_KEY, "xian-kaishi-family-id"].forEach(key => localStorage.removeItem(key));
-        setPendingCloudDeletion(true);
-        void retryPendingCloudDeletion().then(cleared => setPendingCloudDeletion(!cleared));
+        setPendingCloudDeletion(true); setDeletionNotice("pending");
+        void retryPendingCloudDeletion().then(cleared => { setPendingCloudDeletion(!cleared); if (cleared) setDeletionNotice("complete"); });
       }
       const id = localStorage.getItem("xian-kaishi-family-id") || createId("family");
       localStorage.setItem("xian-kaishi-family-id", id);
@@ -760,8 +761,10 @@ export function StartApp() {
     };
     const handleOnline = async () => {
       if (deleteInProgressRef.current) return;
+      const hadPendingDeletion = Boolean(localStorage.getItem(PENDING_DELETE_KEY));
       const deletionCleared = await retryPendingCloudDeletion();
       setPendingCloudDeletion(!deletionCleared);
+      if (hadPendingDeletion) setDeletionNotice(deletionCleared ? "complete" : "pending");
       if (deleteInProgressRef.current) return;
       const activeFamilyId = localStorage.getItem("xian-kaishi-family-id") || "";
       const revision = familyRevisionRef.current;
@@ -1435,7 +1438,7 @@ export function StartApp() {
     if (activeFamilyId) localStorage.setItem(PENDING_DELETE_KEY, activeFamilyId);
     await pendingWritesRef.current.drain();
     const cloudDeleted = await retryPendingCloudDeletion();
-    setPendingCloudDeletion(!cloudDeleted);
+    setPendingCloudDeletion(!cloudDeleted); setDeletionNotice(cloudDeleted ? "complete" : "pending");
     localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; sessionPlanWindowRef.current = null; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages([]); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
     setToast(cloudDeleted ? "本机与云端家庭数据已经删除" : "本机数据已删除；联网后继续清理云端副本");
     deleteInProgressRef.current = false; setDeletingData(false);
@@ -1670,7 +1673,8 @@ export function StartApp() {
       {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在找回这个家庭的今晚</strong><span>先确认本机记录，再看看是否有更新</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="welcome-brand"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><span>家庭晚间习惯助手</span></div>
-        {pendingCloudDeletion && <div className="pending-delete-note welcome-pending-delete" role="status"><AppIcon name="alarm" /><span><strong>旧家庭的云端副本等待清理</strong><small>本机数据已经删除；恢复联网后会自动重试，只保留随机家庭 ID 作为删除凭证。</small></span></div>}
+        {deletionNotice === "complete" && <div className="pending-delete-note deletion-complete-note" role="status"><AppIcon name="check" /><span><strong>家庭数据已全部删除</strong><small>本机和云端记录都已清理；重新开始时不会带入旧家庭的信息。</small></span></div>}
+        {(pendingCloudDeletion || deletionNotice === "pending") && <div className="pending-delete-note welcome-pending-delete" role="status"><AppIcon name="alarm" /><span><strong>旧家庭的云端副本等待清理</strong><small>本机数据已经删除；恢复联网后会自动重试，只保留随机家庭 ID 作为删除凭证。</small></span></div>}
         <div className="welcome-hero"><div><span className="eyebrow">孩子只短暂看屏幕 · 大人掌控手机</span><h1>今晚少催一次，<br />先一起商量</h1><p className="lead">不讲题、不监控、不比较。只帮你们把“开始—完成—收尾”变得更容易。</p></div><Mascot mood="ready" compact /></div>
         <div className="welcome-flow" aria-label="三步使用方式"><div><b>1</b><span><strong>排今晚</strong><small>商量任务与休息</small></span></div><div><b>2</b><span><strong>一起点亮</strong><small>两人确认再开始</small></span></div><div><b>3</b><span><strong>柔和提醒</strong><small>每阶段只提醒一次</small></span></div></div>
         <div className="privacy-card welcome-boundary"><div><span className="big-icon"><AppIcon name="privacy" /></span><span><strong>孩子不会被监控或公开比较</strong><small>仅使用家庭化名；不收集学校、年级、位置、录音或社交平台数据。</small></span></div><button type="button" onClick={() => openPrivacy("welcome")}>查看数据保存与删除说明 <span>›</span></button></div>
