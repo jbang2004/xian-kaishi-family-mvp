@@ -663,6 +663,7 @@ button.insight-card { cursor: pointer; }
 .finger-tip small { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); min-width: 42px; max-width: 106px; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,.9); border: 1px solid var(--border); border-radius: 99px; padding: 4px 7px; white-space: nowrap; font-size: 10px; font-weight: 900; }
 .launch-status { min-height: 67px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 18px; background: rgba(255,255,255,.68); overflow: hidden; position: relative; }
 .launch-status strong, .launch-status small { display: block; }
+.launch-status-copy:focus { outline: none; }
 .launch-status strong { font-size: 12px; }
 .launch-status small { color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 4px; }
 .launch-status.is-launching { border-color: rgba(245,184,75,.48); background: #fff9e8; box-shadow: 0 10px 24px rgba(229,156,30,.12); }

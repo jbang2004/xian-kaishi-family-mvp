@@ -253,6 +253,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const DUAL_START_DELAY_MS = 2400/);
   assert.match(app, /setTimeout\(startPlan, DUAL_START_DELAY_MS\)/);
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
+  assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
+  assert.match(app, /if \(screenRef\.current === "dual-start" && next !== "dual-start"\)/);
+  assert.match(app, /已经停住，可以再商量一下/);
+  assert.match(app, /dualStatusRef\.current\?\.focus\(\)/);
+  assert.match(app, /约 2 秒后开始/);
   assert.match(app, /这不是身份验证/);
   assert.match(app, /className="launch-cancel-button"/);
   assert.match(app, /className="launch-status-copy"/);
