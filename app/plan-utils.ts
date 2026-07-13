@@ -32,6 +32,16 @@ export function addMinutes(time: string, amount: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+export function clockDeltaMinutes(from: string, to: string) {
+  const fromMinutes = timeToMinutes(from);
+  const toMinutes = timeToMinutes(to);
+  if (fromMinutes < 0 || toMinutes < 0) return 0;
+  let delta = toMinutes - fromMinutes;
+  if (delta > 720) delta -= 1440;
+  if (delta < -720) delta += 1440;
+  return delta;
+}
+
 export function clockTimeFromDate(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
@@ -63,6 +73,17 @@ export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIn
     ...item,
     start: addMinutes(item.start, amount),
     end: addMinutes(item.end, amount),
+  });
+}
+
+export function shiftFollowingForEndChange<T extends TimedPlanItem>(items: T[], index: number, newEnd: string): T[] {
+  const current = items[index];
+  if (!current) return items;
+  const delta = clockDeltaMinutes(current.end, newEnd);
+  return items.map((item, itemIndex) => {
+    if (itemIndex < index) return item;
+    if (itemIndex === index) return { ...item, end: newEnd };
+    return { ...item, start: addMinutes(item.start, delta), end: addMinutes(item.end, delta) };
   });
 }
 

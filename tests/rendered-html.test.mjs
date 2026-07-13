@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -70,6 +70,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
+  assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
+  assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /className="home-plan-cta"/);
   assert.doesNotMatch(app, /className="draft-summary"/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
@@ -357,6 +359,24 @@ test("calculates stage durations and automatic time shifts", () => {
     { title: "阅读", start: "18:40", end: "19:05" },
   ], 1, 10);
   assert.deepEqual(shifted.map(item => [item.start, item.end]), [["18:10", "18:40"], ["18:50", "19:15"]]);
+
+  const resized = shiftFollowingForEndChange([
+    { title: "数学", start: "18:10", end: "18:40" },
+    { title: "阅读", start: "18:50", end: "19:15" },
+    { title: "整理", start: "19:15", end: "19:25" },
+  ], 0, "18:50");
+  assert.deepEqual(resized.map(item => [item.start, item.end]), [["18:10", "18:50"], ["19:00", "19:25"], ["19:25", "19:35"]]);
+
+  const shortened = shiftFollowingForEndChange(resized, 0, "18:35");
+  assert.deepEqual(shortened.map(item => [item.start, item.end]), [["18:10", "18:35"], ["18:45", "19:10"], ["19:10", "19:20"]]);
+
+  const overnightResize = shiftFollowingForEndChange([
+    { title: "阅读", start: "23:30", end: "23:50" },
+    { title: "整理", start: "00:00", end: "00:20" },
+  ], 0, "00:10");
+  assert.deepEqual(overnightResize.map(item => [item.start, item.end]), [["23:30", "00:10"], ["00:20", "00:40"]]);
+  assert.equal(clockDeltaMinutes("23:50", "00:10"), 20);
+  assert.equal(clockDeltaMinutes("00:10", "23:50"), -20);
 
   const reordered = reflowTimedItemsFrom([
     { title: "阅读", start: "18:40", end: "19:05" },
