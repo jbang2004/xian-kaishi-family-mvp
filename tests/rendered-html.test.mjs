@@ -271,6 +271,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
   assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
