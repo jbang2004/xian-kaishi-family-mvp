@@ -16,6 +16,12 @@ export function shouldUseHapticCue(appReducedMotion: boolean, systemReducedMotio
   return !appReducedMotion && !systemReducedMotion;
 }
 
+export function shouldShowSoftLanding(remainingSeconds: number, stageDue: boolean, thresholdSeconds = 60) {
+  if (stageDue || thresholdSeconds <= 0) return false;
+  const safeRemaining = Math.max(0, Math.ceil(remainingSeconds));
+  return safeRemaining > 0 && safeRemaining <= thresholdSeconds;
+}
+
 export function foregroundCueStatus(soundEnabled: boolean, motionReduced: boolean) {
   if (soundEnabled && motionReduced) return "页面内仍会显示提醒；提示音开启，触感已关闭";
   if (soundEnabled) return "页面内仍会显示提醒；提示音和轻触反馈按设备支持";
