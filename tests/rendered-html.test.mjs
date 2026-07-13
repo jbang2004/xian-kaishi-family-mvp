@@ -93,6 +93,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(app, /className="draft-summary"/);
   assert.match(app, /const startAnotherPlan = \(\) => \{\s+setEditingStageId\(""\);\s+go\("plan"\);\s+\}/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
+  assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
@@ -275,6 +276,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.confirm-action-dock, \.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
