@@ -482,7 +482,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
   assert.match(app, /if \(screenRef\.current === "dual-start" && next !== "dual-start"\)/);
   assert.match(app, /已经停住，可以再商量一下/);
-  assert.match(app, /dualStatusRef\.current\?\.focus\(\)/);
+  assert.match(app, /const guardianConfirmRef = useRef<HTMLButtonElement>\(null\)/);
+  assert.match(app, /const launchCancelRef = useRef<HTMLButtonElement>\(null\)/);
+  assert.match(app, /target\?\.scrollIntoView\(\{ block: "end", behavior: motionReduced \? "auto" : "smooth" \}\)/);
+  assert.match(app, /target\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(app, /ref=\{launchCancelRef\} type="button" className="launch-cancel-button"/);
+  assert.match(app, /ref=\{guardianConfirmRef\} aria-describedby="dual-start-status"/);
   assert.match(app, /约 2 秒后开始/);
   assert.match(app, /const adjustReturnScreen: LiveScreen = activeStage\.status === "done" \? "transition" : "running"/);
   assert.match(app, /pendingAfterActiveCount >= 2 \? \[\{ id: "swap" as const/);
@@ -496,6 +501,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-live="polite" aria-atomic="true"/);
   assert.match(styles, /@keyframes launch-fill/);
   assert.match(styles, /animation: launch-fill 2\.4s linear both/);
+  assert.match(styles, /@media \(max-width: 380px\) and \(max-height: 640px\)[\s\S]*?\.press-zone \{ min-height: 132px/);
   assert.match(app, /activeStage\.kind === "rest" \? "休息放松"/);
   assert.match(app, /点错了，回到这一段/);
   assert.match(app, /这一段已经做完/);

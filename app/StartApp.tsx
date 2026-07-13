@@ -393,7 +393,8 @@ export function StartApp() {
   const historyDepthRef = useRef(0);
   const stageTimeEditRef = useRef<{ id: string; field: "start" | "end"; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
   const planWindowEditRef = useRef<{ field: "start" | "end"; planStart: string; planEnd: string; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
-  const dualStatusRef = useRef<HTMLDivElement>(null);
+  const guardianConfirmRef = useRef<HTMLButtonElement>(null);
+  const launchCancelRef = useRef<HTMLButtonElement>(null);
   const rewardExitHandlerRef = useRef<() => void>(() => undefined);
   const sessionPlanWindowRef = useRef<PlanWindow | null>(null);
 
@@ -492,7 +493,11 @@ export function StartApp() {
   const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); back("confirm"); };
   const cancelDualLaunch = () => {
     setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(true);
-    window.requestAnimationFrame(() => dualStatusRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      const target = guardianConfirmRef.current;
+      target?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      target?.focus({ preventScroll: true });
+    });
   };
   const toggleParticipant = (role: "guardian" | "child") => {
     setDualStartPaused(false);
@@ -1109,6 +1114,16 @@ export function StartApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guardianConfirmed, childConfirmed, screen]);
 
+  useEffect(() => {
+    if (screen !== "dual-start" || !guardianConfirmed || !childConfirmed) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = launchCancelRef.current;
+      target?.scrollIntoView({ block: "end", behavior: motionReduced ? "auto" : "smooth" });
+      target?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [childConfirmed, guardianConfirmed, motionReduced, screen]);
+
   // Planning screens intentionally allow an empty list. Keep live-only derived
   // copy total during that brief state so clearing a draft cannot crash React.
   const activeStage = stages[activeIndex] ?? stages[0] ?? FALLBACK_STAGE;
@@ -1653,8 +1668,8 @@ export function StartApp() {
         <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={startsAtPlannedTime ? "check" : "alarm"} /><span><small>两个名字都亮起后</small><strong>{startsAtPlannedTime ? `按计划 ${startNowLabel} 开始` : `从现在 ${startNowLabel} 开始`}</strong><p>{startsAtPlannedTime ? "刚好到约定时间，直接进入第一项。" : "每一项保留原时长和间隔，整晚时间会一起顺延。"}</p></span></div>
         <div className="light-bridge" data-ready={bothParticipantsReady} />
-        <div className="dual-press"><button aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
-        <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div ref={dualStatusRef} tabIndex={-1} className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>
+        <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
+        <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button ref={launchCancelRef} type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>
       </div>}
 
       {screen === "running" && <div className="screen running-screen">
