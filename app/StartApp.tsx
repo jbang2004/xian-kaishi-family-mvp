@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -755,10 +755,22 @@ export function StartApp() {
   };
 
   const addStage = () => {
-    const lastEnd = stages.at(-1)?.end ?? data.planStart;
+    const slot = findPlanInsertionSlot(data.planStart, data.planEnd, stages);
+    if (slot.status !== "available") {
+      setToast(slot.status === "invalid" ? "先调整标出的时间，再增加节点" : "今晚已经排满，先留出至少5分钟再增加");
+      return;
+    }
+    setDeletedStage(null);
+    setShiftedPlanUndo(null);
     const id = createId("stage");
-    setStages(items => [...items, { id, title: "新事项", icon: "custom", start: lastEnd, end: addMinutes(lastEnd, 20), effort: 1, energy: 1, status: "pending", kind: "task" }]);
+    setStages(items => {
+      const next = [...items];
+      next.splice(slot.insertIndex, 0, { id, title: "新事项", icon: "custom", start: slot.start, end: slot.end, effort: 1, energy: 1, status: "pending", kind: "task" });
+      return next;
+    });
     setEditingStageId(id);
+    if (slot.usedShortGap) setToast(`已放进 ${slot.minutes} 分钟空档，可继续调整`);
+    else if (slot.insertIndex < stages.length) setToast("已放进时间表中的20分钟空档");
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       const input = phoneShellRef.current?.querySelector<HTMLInputElement>(`[data-stage-id="${id}"] [data-stage-title]`);
       input?.scrollIntoView({ block: "center", behavior: data.reducedMotion ? "auto" : "smooth" }); input?.focus({ preventScroll: true }); input?.select();

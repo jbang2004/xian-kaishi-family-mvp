@@ -104,6 +104,48 @@ export function shiftTimedPlanToStart<T extends TimedPlanItem>(items: T[], newSt
   return shiftTimedItemsFrom(items, 0, offset);
 }
 
+export function findPlanInsertionSlot<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], preferredMinutes = 20, minimumMinutes = 5) {
+  const availableMinutes = durationMinutes(planStart, planEnd);
+  const planStartMinutes = timeToMinutes(planStart);
+  if (availableMinutes <= 0 || planStartMinutes < 0) return { status: "invalid" as const };
+
+  const occupied = items.map((item, index) => {
+    const itemDuration = durationMinutes(item.start, item.end);
+    const itemStartMinutes = timeToMinutes(item.start);
+    const startOffset = itemStartMinutes < 0 ? -1 : (itemStartMinutes - planStartMinutes + 1440) % 1440;
+    return { index, startOffset, endOffset: startOffset + itemDuration, itemDuration };
+  }).sort((a, b) => a.startOffset - b.startOffset);
+
+  if (occupied.some(item => item.itemDuration <= 0 || item.startOffset < 0 || item.startOffset >= availableMinutes || item.endOffset > availableMinutes)) {
+    return { status: "invalid" as const };
+  }
+
+  const gaps: Array<{ startOffset: number; minutes: number }> = [];
+  let cursor = 0;
+  for (const item of occupied) {
+    if (item.startOffset < cursor) return { status: "invalid" as const };
+    if (item.startOffset > cursor) gaps.push({ startOffset: cursor, minutes: item.startOffset - cursor });
+    cursor = item.endOffset;
+  }
+  if (cursor < availableMinutes) gaps.push({ startOffset: cursor, minutes: availableMinutes - cursor });
+
+  const preferred = gaps.find(gap => gap.minutes >= preferredMinutes);
+  const fallback = preferred ?? gaps.filter(gap => gap.minutes >= minimumMinutes).sort((a, b) => b.minutes - a.minutes || a.startOffset - b.startOffset)[0];
+  if (!fallback) return { status: "full" as const };
+
+  const minutes = Math.min(preferredMinutes, fallback.minutes);
+  const start = addMinutes(planStart, fallback.startOffset);
+  const nextOccupied = occupied.find(item => item.startOffset >= fallback.startOffset);
+  return {
+    status: "available" as const,
+    start,
+    end: addMinutes(start, minutes),
+    minutes,
+    insertIndex: nextOccupied?.index ?? items.length,
+    usedShortGap: minutes < preferredMinutes,
+  };
+}
+
 export function rebaseFollowUpPlan<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], nowTime: string) {
   const availableMinutes = durationMinutes(planStart, planEnd);
   if (availableMinutes <= 0 || timeToMinutes(nowTime) < 0) {
