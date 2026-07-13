@@ -1100,11 +1100,10 @@ button.insight-card { cursor: pointer; }
   .bottom-nav { left: 10px; right: 10px; }
 }
 
-/* A due-stage action dock is intentionally tall. On short phone viewports a
-   sticky dock would cover the timer it is meant to support, so keep the full
-   decision block in the normal reading flow instead. */
+/* Tall decision docks should never cover the information they summarize. */
 @media (max-width: 900px) and (max-height: 640px) {
   .due-action-dock { position: static; margin-top: 10px; }
+  .wrap-action-dock { position: static; margin-top: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
