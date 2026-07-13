@@ -127,6 +127,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.due-action-dock \{ position: static/);
   assert.match(styles, /\.due-action-dock \{ position: static/);
   assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
+  assert.match(app, /const \[confirmPlanExpanded, setConfirmPlanExpanded\]/);
+  assert.match(app, /const visibleConfirmStages = confirmPlanExpanded \? confirmStages : confirmStages\.slice\(0, 4\)/);
+  assert.match(app, /aria-labelledby="confirm-plan-heading"/);
+  assert.match(app, /id="confirm-plan-list"/);
+  assert.match(app, /先从这里开始 ·/);
+  assert.match(app, /查看其余 \$\{confirmStages\.length - 4\} 个节点/);
+  assert.match(app, /aria-expanded=\{confirmPlanExpanded\}/);
+  assert.match(styles, /\.confirm-plan-overview \{/);
+  assert.match(styles, /\.confirm-plan-copy strong \{[^}]*-webkit-line-clamp: 2/);
+  assert.doesNotMatch(app, /className="first-stage-confirm"/);
   assert.match(styles, /\.home-plan-copy em \{[^}]*white-space: normal[^}]*-webkit-line-clamp: 2/);
   assert.match(styles, /\.live-resume-card > span:not\(\.live-pulse\) \{ min-width: 0/);
   assert.match(styles, /\.live-resume-card strong \{[^}]*overflow-wrap: anywhere[^}]*-webkit-line-clamp: 2/);
