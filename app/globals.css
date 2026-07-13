@@ -1347,6 +1347,19 @@ button.insight-card { cursor: pointer; }
   .welcome-action-dock .consent-row { margin-bottom: 6px; }
   .welcome-action-dock .primary-button { min-height: 50px; border-radius: 17px; font-size: 15px; }
   .welcome-action-dock > small { margin-top: 4px; }
+  .profile-screen { padding-top: 14px; padding-bottom: 16px; }
+  .profile-screen .app-header { margin-bottom: 2px; }
+  .profile-screen .title-with-mascot { grid-template-columns: minmax(0,1fr) 72px; gap: 4px; margin-bottom: 5px; }
+  .profile-screen .title-with-mascot h1 { margin: 3px 0 0; font-size: 27px; line-height: 1.12; }
+  .profile-screen .title-with-mascot .mascot { width: 72px; height: 72px; }
+  .profile-essential { padding: 14px; border-radius: 20px; }
+  .profile-essential label { margin-bottom: 13px; }
+  .profile-essential label:last-child { margin-bottom: 0; }
+  .profile-essential input { min-height: 48px; margin-top: 6px; padding: 11px 12px; border-radius: 14px; font-size: 16px; }
+  .profile-action-dock { margin-top: 8px; padding: 0; }
+  .profile-action-dock .microcopy { margin-bottom: 7px; font-size: var(--type-micro); line-height: 1.35; }
+  .profile-action-dock .primary-button { min-height: 50px; border-radius: 17px; font-size: 15px; }
+  .profile-action-dock > small { margin-top: 4px; }
   .confirm-screen { padding-top: 16px; }
   .confirm-screen .app-header { margin-bottom: 2px; }
   .confirm-hero { grid-template-columns: minmax(0,1fr) 74px; gap: 4px; }

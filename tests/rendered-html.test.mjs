@@ -603,6 +603,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);
   assert.match(styles, /\.welcome-boundary > button \{ min-height: 36px;[^}]*padding-top: 5px; \}/);
   assert.match(styles, /\.welcome-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
+  assert.match(styles, /\.profile-screen \{ padding-top: 14px; padding-bottom: 16px; \}/);
+  assert.match(styles, /\.profile-essential input \{[^}]*min-height: 48px;[^}]*font-size: 16px; \}/);
+  assert.match(styles, /\.profile-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
   assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /\{startNowLabel\}—\{dualFirstEndLabel\}/);
