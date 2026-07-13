@@ -193,8 +193,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.running-action-dock:not\(\.due-action-dock\)/);
   assert.match(styles, /\.running-action-dock:not\(\.due-action-dock\) \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.running-action-dock:not\(\.due-action-dock\) \.primary-button,[\s\S]*?min-height: 48px/);
-  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.due-action-dock \{ position: static/);
-  assert.match(styles, /\.due-action-dock \{ position: static/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.active-stage-card\.is-due/);
+  assert.match(styles, /\.due-action-dock \{ position: sticky/);
   assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /const \[confirmPlanExpanded, setConfirmPlanExpanded\]/);
   assert.match(app, /const visibleConfirmStages = confirmPlanExpanded \? confirmStages : confirmStages\.slice\(0, 4\)/);
@@ -251,6 +251,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /预计到时间了，可以完成、继续或调整/);
   assert.match(app, /const startRestNow/);
   assert.match(app, /到时间只是提醒，不代表必须完成/);
+  assert.match(app, /role="group" aria-label="到点后的选择"/);
+  assert.match(app, /之后只继续剩余时间/);
+  assert.match(styles, /\.due-action-grid \{[^}]*grid-template-columns: 1fr 1fr/);
+  assert.match(styles, /\.due-choice-button \{[^}]*min-height: 66px/);
   assert.match(app, /再继续 10 分钟/);
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
@@ -395,7 +399,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.today-jump \{[^}]*min-height: 44px/);
   assert.match(styles, /\.plan-tools button \{[^}]*min-height: 44px/);
   assert.match(styles, /\.confirm-plan-heading button \{[^}]*min-height: 44px/);
-  assert.match(styles, /\.due-action-dock \.text-button \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.due-choice-button \{[^}]*min-height: 66px/);
   assert.match(styles, /\.transition-actions \.text-button \{[^}]*min-height: 44px/);
   assert.match(styles, /\.redeem-confirm \.text-button \{[^}]*min-height: 44px/);
   assert.doesNotMatch(styles, /\.order-actions/);
@@ -506,7 +510,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.next-action-list li/);
   assert.match(styles, /\.support-line \{/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
-  assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.active-stage-card\.is-due \{ min-height: 0/);
   assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
