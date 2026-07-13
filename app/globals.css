@@ -647,6 +647,12 @@ button.insight-card { cursor: pointer; }
 .summary-strip strong, .summary-strip small { display: block; }
 .summary-strip strong { font-size: 17px; }
 .summary-strip small { color: var(--muted); margin-top: 3px; font-size: var(--type-micro); }
+.confirm-timing-note { min-height: 62px; display: grid; grid-template-columns: 40px minmax(0,1fr); align-items: center; gap: 9px; margin: 0 0 9px; padding: 9px 12px; border: 1px solid rgba(104,149,185,.28); border-radius: 18px; background: rgba(237,245,251,.78); color: #3f6382; }
+.confirm-timing-note.is-late { border-color: rgba(245,184,75,.38); background: rgba(255,248,225,.84); color: #815d1b; }
+.confirm-timing-note .app-icon { width: 38px; height: 38px; }
+.confirm-timing-note strong, .confirm-timing-note small { display: block; }
+.confirm-timing-note strong { font-size: 11px; line-height: 1.4; }
+.confirm-timing-note small { margin-top: 3px; color: var(--muted); font-size: var(--type-micro); line-height: 1.4; }
 .confirm-plan-overview { overflow: hidden; border: 1px solid rgba(190,159,103,.28); border-radius: 21px; background: rgba(255,255,255,.72); box-shadow: var(--shadow-soft); }
 .confirm-plan-heading { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px 9px 14px; }
 .confirm-plan-heading h2, .confirm-plan-heading small { display: block; margin: 0; }

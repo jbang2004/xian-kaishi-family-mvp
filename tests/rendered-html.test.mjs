@@ -121,7 +121,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /planNeedsTime \? "has-error" : "needs-input"/);
   assert.match(app, /draftReady \? openConfirmPlan\(\) : startAnotherPlan\(\)/);
   assert.match(app, /保存时间表，稍后开始/);
-  assert.match(app, /现在就开始，时间整体顺延/);
+  assert.match(app, /const plannedStartPassed = plannedStartOffset < 0/);
+  assert.match(app, /const startShiftVerb = plannedStartPassed \? "顺延" : "前移"/);
+  assert.match(app, /const shiftedPlanEndLabel = addMinutes\(startNowLabel, Math\.max\(1, durationMinutes\(data\.planStart, data\.planEnd\)\)\)/);
+  assert.match(app, /原定 \$\{plannedStartLabel\} 已过；现在开始会整体顺延/);
+  assert.match(app, /如果现在开始，时间会比原定 \$\{plannedStartLabel\} 整体前移/);
+  assert.match(app, /从现在一起开始，时间整体顺延/);
+  assert.match(app, /现在一起开始，时间整体前移/);
+  assert.match(app, /plannedStartOffset === 0 \? "最晚" : "原计划最晚"/);
+  assert.match(styles, /\.confirm-timing-note\.is-late/);
   assert.match(app, /时间表会留在首页/);
   assert.match(styles, /\.plan-balance\.needs-input/);
   assert.match(styles, /\.stage-editor\.needs-title/);
@@ -487,7 +495,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.confirm-action-dock, \.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
-  assert.match(app, /整晚时间会一起顺延/);
+  assert.match(app, /整晚时间会一起\$\{startShiftVerb\}/);
+  assert.doesNotMatch(app, /整晚时间会一起顺延/);
   assert.match(app, /const cleanStages = stages\.map/);
   assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
   assert.match(app, /const DUAL_START_DELAY_MS = 2400/);
