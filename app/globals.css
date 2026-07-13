@@ -251,10 +251,10 @@ button.insight-card { cursor: pointer; }
 .energy-leaves .filled { background: var(--sage); box-shadow: 0 2px 5px rgba(117,184,155,.28); }
 
 .bottom-nav { position: absolute; z-index: 5; left: 18px; right: 18px; bottom: 14px; min-height: 74px; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 8px; border: 1px solid rgba(255,255,255,.9); border-radius: 25px; background: rgba(255,253,248,.92); backdrop-filter: blur(18px); box-shadow: 0 14px 35px rgba(55,44,28,.15); }
-.bottom-nav button { min-height: 58px; border: 0; border-radius: 18px; background: transparent; display: grid; justify-items: center; align-content: center; gap: 3px; cursor: pointer; color: #7e817f; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out-soft); }
+.bottom-nav button { min-height: 58px; border: 0; border-radius: 18px; background: transparent; display: grid; justify-items: center; align-content: center; gap: 3px; cursor: pointer; color: #626965; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out-soft); }
 .bottom-nav .app-icon { width: 31px; height: 31px; opacity: .58; transition: transform .18s ease, opacity .18s ease; }
 .bottom-nav button small { font-size: 11px; }
-.bottom-nav button.active { color: var(--amber-deep); background: linear-gradient(180deg,rgba(255,242,203,.56),rgba(255,255,255,.18)); font-weight: 900; }
+.bottom-nav button.active { color: #80550f; background: linear-gradient(180deg,rgba(255,242,203,.72),rgba(255,255,255,.22)); font-weight: 900; }
 .bottom-nav button.active .app-icon { opacity: 1; transform: translateY(-2px) scale(1.06); }
 
 .input-composer { border: 1px solid var(--border); background: rgba(255,255,255,.76); border-radius: 20px; padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; box-shadow: var(--shadow-soft); }

@@ -452,7 +452,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /mascot-celebrate 1\.9s var\(--ease-out-soft\) 2/);
   assert.match(styles, /spark-pop 1\.9s ease-out 2/);
   assert.match(styles, /energy-rise 2\.4s ease-out 2/);
-  assert.match(styles, /\.bottom-nav button\.active \{ color: var\(--amber-deep\); background:/);
+  assert.match(styles, /\.bottom-nav button \{[^}]*color: #626965/);
+  assert.match(styles, /\.bottom-nav button\.active \{ color: #80550f; background:/);
+  assert.match(app, /aria-current=\{screen === id \? "page" : undefined\}/);
   assert.match(app, /icon: data\.rewardGoal\.icon/);
   assert.doesNotMatch(app, /能量不会清零、倒扣或过期/);
   assert.match(app, /className="stage-summary" aria-expanded=\{expanded\}/);
