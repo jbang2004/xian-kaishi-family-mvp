@@ -77,6 +77,8 @@ p { line-height: 1.65; }
 .mascot-blink-frame { z-index: 3; opacity: 0; animation: mascot-blink 5.8s linear var(--ambient-cycles); }
 .mascot-halo { position: absolute; width: 64%; height: 64%; border-radius: 50%; background: rgba(255, 202, 84, .28); filter: blur(24px); animation: halo-breathe 3s ease-in-out var(--ambient-cycles); }
 .mascot-compact { width: 104px; height: 104px; margin: -12px 0 0 auto; }
+.mascot-ready .mascot-pose { animation: mascot-ready 4.8s ease-in-out var(--ambient-cycles); }
+.mascot-ready .mascot-blink-frame { animation: mascot-ready 4.8s ease-in-out var(--ambient-cycles), mascot-blink 5.8s linear var(--ambient-cycles); }
 .mascot-confirm .mascot-pose { animation: mascot-nod 2.8s ease-in-out 2; }
 .mascot-support .mascot-pose { animation: mascot-listen 3.4s ease-in-out 2; }
 .mascot-breathe .mascot-pose { animation: mascot-breathe 3.6s ease-in-out infinite; }
@@ -87,6 +89,7 @@ p { line-height: 1.65; }
 .spark-two { right: 8%; top: 16%; animation-delay: .32s; background: var(--coral); }
 .spark-three { right: 18%; bottom: 20%; animation-delay: .62s; background: var(--sage); }
 @keyframes halo-breathe { 50% { transform: scale(1.16); opacity: .68; } }
+@keyframes mascot-ready { 0%, 100% { transform: none; } 42% { transform: translateY(-2px) rotate(-.7deg); } 72% { transform: translateY(-1px) rotate(.35deg); } }
 @keyframes mascot-blink { 0%, 45%, 49%, 100% { opacity: 0; } 46%, 48% { opacity: 1; } }
 @keyframes mascot-nod { 0%, 65%, 100% { transform: none; } 76% { transform: translateY(3px) rotate(1.4deg); } 86% { transform: translateY(1px) rotate(-.5deg); } }
 @keyframes mascot-listen { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(2px) rotate(-1deg); } }

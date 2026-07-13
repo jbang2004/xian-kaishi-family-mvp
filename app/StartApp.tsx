@@ -362,6 +362,7 @@ export function StartApp() {
   const [notificationPermission, setNotificationPermission] = useState<ReminderPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
   const [backgroundReminder, setBackgroundReminder] = useState(() => typeof window !== "undefined" && localStorage.getItem(REMINDER_PREF_KEY) === "true");
   const dueReminderPlayed = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const phoneShellRef = useRef<HTMLElement>(null);
   const addNodeButtonRef = useRef<HTMLButtonElement>(null);
   const planStartInputRef = useRef<HTMLInputElement>(null);
@@ -489,7 +490,7 @@ export function StartApp() {
   };
   const toggleParticipant = (role: "guardian" | "child") => {
     setDualStartPaused(false);
-    gentleVibrate(18);
+    playTone("tap"); gentleVibrate(18);
     if (role === "guardian") setGuardianConfirmed(value => !value);
     else setChildConfirmed(value => !value);
   };
@@ -629,6 +630,12 @@ export function StartApp() {
     const timer = window.setTimeout(() => setToast(""), 2400);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => () => {
+    const context = audioContextRef.current;
+    audioContextRef.current = null;
+    if (context && context.state !== "closed") void context.close();
+  }, []);
 
   useEffect(() => {
     if (!stageAdvanceUndo) return;
@@ -828,16 +835,28 @@ export function StartApp() {
     }
   };
 
-  const playTone = (kind: "confirm" | "transition" | "complete") => {
+  const playTone = (kind: "tap" | "confirm" | "transition" | "complete") => {
     if (!data.sound || typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     try {
-      const ctx = new AudioCtx(); const gain = ctx.createGain(); const osc = ctx.createOscillator();
-      osc.type = "sine"; osc.frequency.value = kind === "complete" ? 720 : kind === "transition" ? 540 : 620;
-      gain.gain.setValueAtTime(.0001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.055, ctx.currentTime + .02); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .55);
-      osc.addEventListener("ended", () => { void ctx.close(); });
-      osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .58);
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === "closed") { ctx = new AudioCtx(); audioContextRef.current = ctx; }
+      if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+      const motifs = {
+        tap: [[560, 0, .11, .018]],
+        confirm: [[523, 0, .17, .027], [659, .11, .23, .024]],
+        transition: [[440, 0, .25, .029], [523, .17, .29, .024]],
+        complete: [[523, 0, .22, .028], [659, .13, .27, .026], [784, .29, .34, .022]],
+      } as const;
+      const start = ctx.currentTime + .01;
+      motifs[kind].forEach(([frequency, offset, duration, peak]) => {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain(); const noteStart = start + offset;
+        osc.type = "sine"; osc.frequency.setValueAtTime(frequency, noteStart);
+        gain.gain.setValueAtTime(.0001, noteStart); gain.gain.exponentialRampToValueAtTime(peak, noteStart + .018); gain.gain.exponentialRampToValueAtTime(.0001, noteStart + duration);
+        osc.addEventListener("ended", () => { osc.disconnect(); gain.disconnect(); }, { once: true });
+        osc.connect(gain).connect(ctx.destination); osc.start(noteStart); osc.stop(noteStart + duration + .02);
+      });
     } catch { /* visual feedback remains available when browser audio is blocked */ }
   };
 
@@ -1707,7 +1726,7 @@ export function StartApp() {
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭称呼 <span>›</span></button></div>
-        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>确认、阶段转换和收尾</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他页面时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
+        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>轻触确认、阶段转换和收尾各有短音型</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他页面时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除全部家庭数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}

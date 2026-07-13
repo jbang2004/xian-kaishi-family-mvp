@@ -257,7 +257,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /已经告一段落/);
   assert.match(app, /进入今晚收尾/);
   assert.match(app, /restartFromNow \? Date\.now\(\) \+ 10 \* 60_000/);
+  assert.match(app, /const audioContextRef = useRef<AudioContext \| null>\(null\)/);
+  assert.match(app, /tap: \[\[560, 0, \.11, \.018\]\]/);
+  assert.match(app, /complete: \[\[523, 0, \.22, \.028\]/);
+  assert.match(app, /playTone\("tap"\); gentleVibrate\(18\)/);
   assert.match(app, /osc\.addEventListener\("ended"/);
+  assert.match(app, /osc\.disconnect\(\); gain\.disconnect\(\)/);
+  assert.match(app, /轻触确认、阶段转换和收尾各有短音型/);
   assert.match(app, /const liveResumeView/);
   assert.match(app, /activeNightLabel\}计划正在调整 · 进度已保存在本机/);
   assert.match(app, /这一段已完成 · 进度已保存在本机/);
@@ -381,6 +387,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@keyframes mascot-ground/);
   assert.match(styles, /mascot-ground 3\.6s ease-in-out var\(--ambient-cycles\)/);
   assert.match(styles, /mascot-blink 5\.8s linear var\(--ambient-cycles\)/);
+  assert.match(styles, /mascot-ready 4\.8s ease-in-out var\(--ambient-cycles\)/);
+  assert.match(styles, /@keyframes mascot-ready/);
   assert.match(styles, /halo-breathe 3s ease-in-out var\(--ambient-cycles\)/);
   assert.match(styles, /mascot-nod 2\.8s ease-in-out 2/);
   assert.match(styles, /mascot-listen 3\.4s ease-in-out 2/);
