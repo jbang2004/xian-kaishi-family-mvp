@@ -56,6 +56,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /e\.currentTarget\.blur\(\); focusStageDetails\(stage\.id\)/);
   assert.match(app, /aria-invalid=\{titleInvalid\}/);
   assert.match(app, /className="stage-inline-issue" aria-live="polite"/);
+  assert.match(app, /const restDurationChoices = Array\.from\(new Set\(\[5, 10, 15, editingStageDuration\]/);
+  assert.match(app, /title="调整节点"/);
+  assert.match(app, /选择会自动保存 · 先确定它是投入，还是恢复/);
+  assert.match(app, /完成调整，返回时间表/);
+  assert.match(styles, /\.rest-duration > div\.has-custom-duration/);
   assert.match(app, /className="input-label-row"/);
   assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
   assert.match(styles, /\.window-inputs input \{[^}]*min-height: 44px[^}]*font-size: 16px/);

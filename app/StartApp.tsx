@@ -1442,6 +1442,8 @@ export function StartApp() {
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const draftReady = stages.length > 0 && !planHasErrors;
   const editingStage = stages.find(item => item.id === editingStageId);
+  const editingStageDuration = editingStage ? durationMinutes(editingStage.start, editingStage.end) : 0;
+  const restDurationChoices = Array.from(new Set([5, 10, 15, editingStageDuration].filter(minutes => minutes > 0))).sort((a, b) => a - b);
   const commonIconLibrary = ICON_LIBRARY.filter(([icon]) => COMMON_ICON_NAMES.has(icon));
   const selectedIconEntry = ICON_LIBRARY.find(([icon]) => icon === editingStage?.icon);
   const visibleIconLibrary = showAllIcons ? ICON_LIBRARY : selectedIconEntry && !COMMON_ICON_NAMES.has(selectedIconEntry[0]) ? [selectedIconEntry, ...commonIconLibrary] : commonIconLibrary;
@@ -1655,13 +1657,13 @@ export function StartApp() {
       </div>}
 
       {screen === "effort" && <div className="screen effort-screen">
-        <Header back={() => back("plan")} />
-        <span className="eyebrow">先确定它是投入，还是恢复</span><h1>这段时间更像什么？</h1>
+        <Header back={() => back("plan")} title="调整节点" />
+        <span className="eyebrow">选择会自动保存 · 先确定它是投入，还是恢复</span><h1>这段时间更像什么？</h1>
         <div className="current-task-card"><AppIcon name={editingStage?.icon ?? "pencil"} /><div><strong>{editingStage?.title}</strong><small>同一件事在不同晚上，也可以有不同感觉</small></div></div>
         <div className="stage-kind-picker" role="group" aria-label="节点类型"><button aria-pressed={editingStage?.kind === "task"} className={editingStage?.kind === "task" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "task", energy: editingStage?.kind === "rest" ? Math.max(1, editingStage.energy) : editingStage?.energy ?? 1 })}><AppIcon name="pencil" /><span><strong>要做的事</strong><small>需要投入一点注意力</small></span></button><button aria-pressed={editingStage?.kind === "rest"} className={editingStage?.kind === "rest" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "rest", effort: 1, energy: editingStage?.kind === "task" ? 0 : editingStage?.energy ?? 0 })}><AppIcon name="quiet" /><span><strong>休息放松</strong><small>让身体和情绪恢复</small></span></button></div>
-        {editingStage?.kind === "task" ? <><h2 className="detail-heading">今天需要多少力气？</h2><div className="effort-options">{([1,2,3] as Effort[]).map(level => { const copy = { 1: ["一小步", "我可以先自己试试"], 2: ["需要专注", "请帮我把第一步说清楚"], 3: ["今天比较费力", "先缩小任务或多休息"] }[level]; const selected = editingStage?.effort === level; return <button key={level} aria-pressed={selected} className={selected ? `selected effort-${level}` : `effort-${level}`} onClick={() => updateStage(editingStageId, { effort: level })}><span className="effort-leaves">{Array.from({ length: level }).map((_, i) => <i key={i} />)}</span><span><strong>{copy[0]}</strong><small>{copy[1]}</small></span><b>{selected ? "✓" : "○"}</b></button>; })}</div></> : <div className="rest-duration"><span>这次准备休息多久？</span><div>{[5,10,15].map(minutes => { const selected = durationMinutes(editingStage?.start ?? "00:00", editingStage?.end ?? "00:00") === minutes; return <button key={minutes} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => editingStage && updateStageEnd(editingStageId, addMinutes(editingStage.start, minutes))}>{minutes}分钟</button>; })}</div><small>先约定时长，到点再一起看看下一步，不用突然打断。</small></div>}
+        {editingStage?.kind === "task" ? <><h2 className="detail-heading">今天需要多少力气？</h2><div className="effort-options">{([1,2,3] as Effort[]).map(level => { const copy = { 1: ["一小步", "我可以先自己试试"], 2: ["需要专注", "请帮我把第一步说清楚"], 3: ["今天比较费力", "先缩小任务或多休息"] }[level]; const selected = editingStage?.effort === level; return <button key={level} aria-pressed={selected} className={selected ? `selected effort-${level}` : `effort-${level}`} onClick={() => updateStage(editingStageId, { effort: level })}><span className="effort-leaves">{Array.from({ length: level }).map((_, i) => <i key={i} />)}</span><span><strong>{copy[0]}</strong><small>{copy[1]}</small></span><b>{selected ? "✓" : "○"}</b></button>; })}</div></> : <div className="rest-duration"><span>这次准备休息多久？</span><div className={restDurationChoices.length > 3 ? "has-custom-duration" : ""}>{restDurationChoices.map(minutes => { const selected = editingStageDuration === minutes; return <button key={minutes} aria-pressed={selected} aria-label={`${minutes}分钟${selected ? "，当前时长" : ""}`} className={selected ? "selected" : ""} onClick={() => editingStage && updateStageEnd(editingStageId, addMinutes(editingStage.start, minutes))}>{minutes}分钟</button>; })}</div><small>先约定时长，到点再一起看看下一步，不用突然打断。</small></div>}
         <div className="support-suggestion"><Mascot mood="support" compact /><div><small>今晚建议</small><strong>{editingStage?.kind === "rest" ? "休息也算照顾计划的一部分" : (editingStage?.effort ?? 1) === 3 ? "先休息10分钟，再缩小第一步" : "从第一小步开始，卡住时再求助"}</strong><p>{editingStage?.kind === "rest" ? "休息不会被当作偷懒，也不需要用屏幕填满。" : "用力程度不会改变家庭能量，也不会给孩子打分。"}</p></div></div>
-        <button className="primary-button" onClick={() => back("plan")}>保存到时间表</button>
+        <button className="primary-button" onClick={() => back("plan")}>完成调整，返回时间表</button>
       </div>}
 
       {screen === "confirm" && <div className="screen confirm-screen">

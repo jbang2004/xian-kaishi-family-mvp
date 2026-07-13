@@ -631,6 +631,7 @@ button.insight-card { cursor: pointer; }
 .rest-duration { border: 1px solid rgba(104,149,185,.25); border-radius: 22px; background: linear-gradient(145deg, #f3f7fb, rgba(255,255,255,.82)); padding: 17px; margin: 12px 0 18px; }
 .rest-duration > span { display: block; font-weight: 900; margin-bottom: 12px; }
 .rest-duration > div { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.rest-duration > div.has-custom-duration { grid-template-columns: repeat(2,1fr); }
 .rest-duration button { min-height: 46px; border: 1px solid var(--border); border-radius: 14px; background: white; color: #4a6072; font-weight: 800; cursor: pointer; }
 .rest-duration button.selected { border-color: #86a9c5; background: #eaf2f8; box-shadow: 0 0 0 2px rgba(104,149,185,.1); }
 .rest-duration > small { display: block; color: var(--muted); font-size: var(--type-micro); line-height: 1.55; margin-top: 12px; }
