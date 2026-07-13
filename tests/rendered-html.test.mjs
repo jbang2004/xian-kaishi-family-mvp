@@ -79,6 +79,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /className="home-plan-cta"/);
   assert.doesNotMatch(app, /className="draft-summary"/);
+  assert.match(app, /const startAnotherPlan = \(\) => \{\s+setEditingStageId\(""\);\s+go\("plan"\);\s+\}/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
   assert.match(app, /愿意一起停下来/);

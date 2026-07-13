@@ -1132,7 +1132,6 @@ export function StartApp() {
     go("review");
   };
   const startAnotherPlan = () => {
-    setStages(items => prepareNextRoundPlan(items, currentNightSummary?.stageTitles ?? []));
     setEditingStageId("");
     go("plan");
   };
