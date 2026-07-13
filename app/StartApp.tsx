@@ -1815,7 +1815,14 @@ export function StartApp() {
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 
-      {screen === "risk" && <div className="screen risk-screen"><Header back={() => back("settings")} /><span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p><div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div><section className="next-actions" aria-labelledby="next-actions-title"><h2 id="next-actions-title">接下来可以</h2><ol className="next-action-list"><li><b aria-hidden="true">1</b><span><strong>先暂停流程，陪孩子稳定下来</strong><small>不追问、不比较；先处理休息、饮水和当下感受。</small></span></li><li><b aria-hidden="true">2</b><span><strong>记录事实，再和了解孩子的老师沟通</strong><small>只记发生时间、场景、持续多久和已经尝试过什么。</small></span></li><li><b aria-hidden="true">3</b><span><strong>需要时咨询正规医疗机构</strong><small>可从儿童保健科、发育行为儿科、儿科或精神心理相关门诊了解下一步。</small></span></li></ol></section><div className="support-line"><AppIcon name="speech" /><span><strong>需要心理支持时</strong><small>可拨打全国统一心理援助热线 12356；它不替代急救服务。</small></span></div><div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div></div>}
+      {screen === "risk" && <div className="screen risk-screen">
+        <Header back={() => back("settings")} />
+        <span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p>
+        <div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div>
+        <section className="next-actions" aria-labelledby="next-actions-title"><h2 id="next-actions-title">接下来可以</h2><ol className="next-action-list"><li><b aria-hidden="true">1</b><span><strong>先暂停流程，陪孩子稳定下来</strong><small>不追问、不比较；先处理休息、饮水和当下感受。</small></span></li><li><b aria-hidden="true">2</b><span><strong>记录事实，再和了解孩子的老师沟通</strong><small>只记发生时间、场景、持续多久和已经尝试过什么。</small></span></li><li><b aria-hidden="true">3</b><span><strong>需要时咨询正规医疗机构</strong><small>可从儿童保健科、发育行为儿科、儿科或精神心理相关门诊了解下一步。</small></span></li></ol></section>
+        <div className="support-line"><AppIcon name="speech" /><span><strong>需要心理支持时</strong><small>全国统一心理援助热线；它不替代急救服务。</small></span><a className="support-call" href="tel:12356" aria-label="拨打全国统一心理援助热线 12356"><small>心理援助热线</small><strong>拨打 12356</strong></a></div>
+        <div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div>
+      </div>}
 
       {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} />}
       {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}

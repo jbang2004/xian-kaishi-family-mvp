@@ -99,6 +99,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /只记发生时间、场景、持续多久和已经尝试过什么/);
   assert.match(app, /儿童保健科、发育行为儿科、儿科或精神心理相关门诊/);
   assert.match(app, /全国统一心理援助热线 12356/);
+  assert.match(app, /href="tel:12356" aria-label="拨打全国统一心理援助热线 12356"/);
   assert.match(app, /它不替代急救服务/);
   assert.match(app, /className="next-action-list"/);
   assert.doesNotMatch(app, /今晚流程已暂停/);
@@ -512,6 +513,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 76px/);
   assert.match(styles, /\.next-action-list li/);
   assert.match(styles, /\.support-line \{/);
+  assert.match(styles, /\.toggle-row input \{[^}]*flex: 0 0 48px;[^}]*min-width: 48px/);
+  assert.match(styles, /\.settings-screen \.toggle-row,[^\n]+scroll-margin-bottom: 128px/);
+  assert.match(styles, /\.support-call \{[^}]*min-height: 52px/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
   assert.match(styles, /\.active-stage-card\.is-due \{ min-height: 0/);
   assert.match(styles, /\.wrap-action-dock \{ position: sticky; bottom: 0; display: grid/);
