@@ -474,6 +474,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.settled-home-card/);
   assert.match(app, /规则建议 · 不评价孩子/);
   assert.match(app, /只使用本周收尾次数、主动调整和大人的催促感记录/);
+  assert.match(app, /有记录的夜晚和已实现的期待会留在这里/);
+  assert.match(app, /这一天没有留下记录/);
+  assert.match(app, /日历不要求每天使用/);
+  assert.match(app, /还没有本周记录，所以这里只提供一个低压力的起点/);
+  assert.doesNotMatch(app, /每天收尾和家庭期待都会留在这里/);
+  assert.doesNotMatch(app, /这一天还没有记录/);
   assert.match(app, /这周只试这一件 · 给大人的提醒/);
   assert.match(app, /weekKey: weekStartKey/);
   assert.match(styles, /\.one-change-card/);

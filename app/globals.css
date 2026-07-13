@@ -1101,6 +1101,9 @@ button.insight-card { cursor: pointer; }
 @keyframes day-detail-arrive { from { opacity: .66; transform: translateY(5px); } }
 .empty-day { min-height: 80px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; }
 .empty-day .mascot { width: 74px; height: 74px; margin: 0; }
+.empty-day > span, .empty-day strong, .empty-day small { display: block; }
+.empty-day strong { color: #4f5d59; font-size: var(--type-caption); }
+.empty-day small { max-width: 158px; margin-top: 3px; color: var(--muted); font-size: var(--type-micro); line-height: 1.4; }
 .daily-summary { overflow: hidden; border: 1px solid rgba(117,184,155,.3); border-radius: 20px; background: linear-gradient(145deg, #f2f8f3, rgba(255,255,255,.88)); }
 .daily-summary-title { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 9px; padding: 11px 12px 8px; text-align: left; }
 .daily-summary-title .app-icon { width: 42px; height: 42px; }
