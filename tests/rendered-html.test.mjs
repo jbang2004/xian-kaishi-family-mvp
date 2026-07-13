@@ -240,7 +240,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
   assert.match(app, /const settlementFooter = settlementFooterCopy\(priorSettlementSessions\.length, hasDeferredStages\)/);
-  assert.match(app, /<small>\{settlementFooter\}<\/small>/);
+  assert.match(app, /promptReflection \? settlementFooter : `催促感可以不填 · \$\{settlementFooter\}`/);
   assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
   assert.match(app, /今晚，怎么称呼彼此？/);
@@ -511,7 +511,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.support-line \{/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
   assert.match(styles, /\.active-stage-card\.is-due \{ min-height: 0/);
-  assert.match(styles, /\.wrap-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.wrap-action-dock \{ position: sticky; bottom: 0; display: grid/);
+  assert.match(app, /className="energy-summary settlement-breakdown"/);
+  assert.match(app, /催促感可以不填/);
+  assert.match(app, /今晚，已经<br \/>好好收尾/);
+  assert.match(styles, /\.night-saved-screen \.saved-actions \{ position: sticky; bottom: 0/);
+  assert.match(styles, /\.achievement-screen \.achievement-actions \{ position: sticky; bottom: 0/);
+  assert.match(styles, /\.achievement-screen \.redeem-confirm \{ position: sticky; bottom: 0/);
+  assert.match(styles, /\.reward-saved-screen \.saved-actions \{ position: sticky; bottom: 0/);
+  assert.match(app, /这份期待，<br \/>已经实现/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);
