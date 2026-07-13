@@ -1036,7 +1036,7 @@ button.insight-card { cursor: pointer; }
 .achievement-night-saved strong { color: #397259; font-size: var(--type-caption); }
 .achievement-night-saved small { margin-top: 2px; color: var(--muted); font-size: var(--type-micro); line-height: 1.4; }
 .achievement-scene { height: 142px; border-radius: 24px; overflow: hidden; position: relative; margin: 7px 0 10px; box-shadow: 0 14px 30px rgba(61,48,27,.13); isolation: isolate; }
-.achievement-scene > img:first-child { width: 100%; height: 100%; object-fit: cover; object-position: center 55%; transform: scale(1.02); }
+.achievement-room-art { width: 100%; height: 100%; object-fit: cover; object-position: center 55%; transform: scale(1.02); }
 .achievement-glow { position: absolute; inset: 0; background: radial-gradient(circle at 28% 54%, rgba(255,229,137,.55), transparent 31%), linear-gradient(90deg, rgba(255,249,224,.15), transparent); animation: achievement-glow 2.8s ease-in-out 3; }
 .achievement-scene > .app-icon { position: absolute; left: 24px; top: 25px; width: 88px; height: 88px; filter: drop-shadow(0 10px 16px rgba(70,45,20,.25)); animation: reward-float 3s ease-in-out 3; }
 .achievement-card { display: grid; grid-template-columns: 54px 1fr; align-items: center; text-align: left; gap: 10px; border: 1px solid var(--border); border-radius: 20px; padding: 10px 12px; margin-bottom: 8px; background: rgba(255,255,255,.84); }

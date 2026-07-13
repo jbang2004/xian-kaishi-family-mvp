@@ -784,14 +784,17 @@ test("ships an installable, privacy-preserving app manifest", async () => {
 });
 
 test("ships optimized visual assets and persistent-state migration", async () => {
+  const app = await readFile(new URL("../app/StartApp.tsx", import.meta.url), "utf8");
   const roomAsset = new URL("../public/assets/energy-room-v3.jpg", import.meta.url);
   const iconDirectory = new URL("../public/assets/icons/", import.meta.url);
   const mascotDirectory = new URL("../public/assets/mascot/", import.meta.url);
   const optimizedIconDirectory = new URL("../public/assets/optimized/icons/", import.meta.url);
   const optimizedMascotDirectory = new URL("../public/assets/optimized/mascot/", import.meta.url);
+  const optimizedRoomAsset = new URL("../public/assets/optimized/energy-room-v3.webp", import.meta.url);
   const socialPreview = new URL("../public/og.jpg", import.meta.url);
   await access(roomAsset);
   assert.ok((await stat(roomAsset)).size < 200_000, "energy room should stay below 200KB");
+  assert.ok((await stat(optimizedRoomAsset)).size < 60_000, "the modern energy room asset should stay below 60KB");
   const visualAssets = await Promise.all([
     ...(await readdir(iconDirectory)).filter(name => name.endsWith(".png")).map(name => stat(new URL(name, iconDirectory))),
     ...(await readdir(mascotDirectory)).filter(name => name.endsWith(".png")).map(name => stat(new URL(name, mascotDirectory))),
@@ -811,6 +814,9 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   ]);
   assert.ok(optimizedAssets.reduce((total, file) => total + file.size, 0) < 600_000, "modern icon and mascot delivery should stay below 600KB combined");
   assert.ok((await stat(socialPreview)).size < 200_000, "the social preview should stay below 200KB");
+  assert.match(app, /assets\/optimized\/energy-room-v3\.webp/);
+  assert.match(app, /className="achievement-room-art"/);
+  await assert.rejects(access(new URL("../public/og.png", import.meta.url)), "the unused legacy social PNG should not ship");
   await assert.rejects(access(new URL("../public/assets/energy-room-v2.png", import.meta.url)));
   await assert.rejects(access(new URL("../public/assets/warm-lamp.png", import.meta.url)));
   const [initialMigration, revisionMigration, route] = await Promise.all([
