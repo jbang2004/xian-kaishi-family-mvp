@@ -87,6 +87,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /onChange=\{e => updateStageStart\(stage\.id, e\.target\.value\)\}/);
   assert.match(app, /stageTimeEditRef = useRef/);
   assert.match(app, /onFocus=\{\(\) => beginStageTimeEdit\(stage\.id, "start"\)\}/);
+  assert.match(app, /endStageTimeEdit\(stage\.id, "start", e\.currentTarget\.value\)/);
+  assert.match(app, /这项的时间还没选好，已恢复刚才的安排/);
   assert.match(app, /const baseline = timeEditBaseline\(id, "end"\)/);
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /const updatePlanStart = \(start: string\) =>/);
