@@ -584,10 +584,15 @@ button.insight-card { cursor: pointer; }
 .add-node-button:active span { transform: scale(.94); }
 .add-node-button:disabled { border-style: solid; border-color: rgba(117,184,155,.32); background: rgba(237,246,239,.58); color: #65766d; cursor: default; }
 .add-node-button:disabled span { background: #8faf9e; box-shadow: none; font-size: 19px; }
-.empty-plan { min-height: 178px; border: 2px dashed rgba(190,159,103,.38); border-radius: 22px; background: rgba(255,255,255,.42); display: grid; place-items: center; align-content: center; gap: 5px; text-align: center; color: #596b62; }
+.empty-plan { width: 100%; min-height: 178px; border: 2px dashed rgba(190,159,103,.38); border-radius: 22px; background: rgba(255,255,255,.42); display: grid; place-items: center; align-content: center; gap: 5px; padding: 12px; text-align: center; color: #596b62; font: inherit; }
 .empty-plan .mascot { width: 82px; height: 82px; margin: -8px auto -4px; }
 .empty-plan strong { font-size: 15px; }
 .empty-plan span { color: var(--muted); font-size: 11px; }
+.empty-plan-action { cursor: pointer; touch-action: manipulation; transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out-soft); }
+.empty-plan-action .empty-plan-cta { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 4px 13px 4px 5px; border-radius: 99px; background: var(--sage-soft); color: #397259; font-size: 12px; font-weight: 900; box-shadow: 0 6px 16px rgba(72,126,103,.1); }
+.empty-plan-action .empty-plan-cta b { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; background: var(--sage); color: white; font-size: 20px; font-weight: 500; line-height: 1; }
+.empty-plan-action > small { color: var(--muted); font-size: var(--type-micro); }
+.empty-plan-action:active { transform: scale(.99); }
 .icon-library { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 18px 0; }
 .icon-library button { min-width: 0; min-height: 100px; border: 1px solid var(--border); border-radius: 19px; background: rgba(255,255,255,.78); display: grid; place-items: center; align-content: center; gap: 3px; padding: 6px 3px; cursor: pointer; }
 .icon-library button.selected { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,184,75,.14); background: #fff9ea; }

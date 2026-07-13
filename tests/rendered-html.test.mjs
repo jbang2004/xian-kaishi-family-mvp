@@ -207,6 +207,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /今晚正在进行，按自己的节奏来/);
   assert.match(app, /进度已经保存；继续、调整或先收尾都可以/);
   assert.match(app, /家庭日历已记录/);
+  assert.match(app, /className="empty-plan empty-plan-action"/);
+  assert.match(app, /增加第一个节点/);
+  assert.match(app, /stages\.length > 0 && <button ref=\{addNodeButtonRef\} className="add-node-button"/);
+  assert.match(app, /已移除“\{deletedStage\.stage\.title\.trim\(\) \|\| "未命名事项"\}”/);
+  assert.match(app, /已恢复“\$\{stage\.title\.trim\(\) \|\| "未命名事项"\}”/);
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
   assert.match(app, /const settlementFooter = settlementFooterCopy\(priorSettlementSessions\.length, hasDeferredStages\)/);
