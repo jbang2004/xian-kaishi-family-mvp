@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -248,8 +248,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /findPlanInsertionSlot\(data\.planStart, data\.planEnd, stages\)/);
   assert.match(app, /moveTimedItemPreservingGaps\(stages, index, target, data\.planStart\)/);
   assert.match(app, /已调换顺序，原来的时间空档保持不变/);
-  assert.match(app, /swapTimedItemsPreservingGaps\(stages, pending\[0\]\.index, pending\[1\]\.index, data\.planStart\)/);
+  assert.match(app, /swapNextPendingItems\(stages, activeIndex, data\.planStart\)/);
   assert.match(app, /后两项已调换，原来的休息空档还在/);
+  assert.match(app, /当前事项明天再做/);
+  assert.match(app, /deferNextPendingItem\(stages, activeIndex\)/);
+  assert.match(app, /这一段结束后即可温和收尾/);
+  assert.match(app, /一起确认调整/);
   assert.match(app, /今晚已经排满，先留出至少5分钟再增加/);
   assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+setClearedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
   assert.doesNotMatch(app, /className="draft-summary"/);
@@ -970,6 +974,39 @@ test("preserves a cross-midnight gap when swapping tasks", () => {
   ], 0, 1, "18:00").moved, false);
 });
 
+test("swaps upcoming live items even when an overlapping item is already deferred", () => {
+  const result = swapNextPendingItems([
+    { id: "language", start: "04:31", end: "04:51", status: "tomorrow" },
+    { id: "rest", start: "04:37", end: "04:47", status: "active" },
+    { id: "math", start: "04:47", end: "05:06", status: "pending" },
+    { id: "reading", start: "05:06", end: "05:26", status: "pending" },
+  ], 1, "04:31");
+
+  assert.equal(result.moved, true);
+  assert.deepEqual(result.items.map(item => [item.id, item.start, item.end, item.status]), [
+    ["language", "04:31", "04:51", "tomorrow"],
+    ["rest", "04:37", "04:47", "active"],
+    ["reading", "04:47", "05:07", "pending"],
+    ["math", "05:07", "05:26", "pending"],
+  ]);
+});
+
+test("moves the next item to tomorrow and closes its slot for the remaining evening", () => {
+  const result = deferNextPendingItem([
+    { id: "rest", start: "04:37", end: "04:47", status: "active" },
+    { id: "reading", start: "04:47", end: "05:07", status: "pending" },
+    { id: "math", start: "05:07", end: "05:26", status: "pending" },
+  ], 0);
+
+  assert.equal(result.moved, true);
+  assert.equal(result.minutes, 20);
+  assert.deepEqual(result.items.map(item => [item.id, item.start, item.end, item.status]), [
+    ["rest", "04:37", "04:47", "active"],
+    ["reading", "04:47", "05:07", "tomorrow"],
+    ["math", "04:47", "05:06", "pending"],
+  ]);
+});
+
 test("swaps non-adjacent pending positions without moving the intervening status", () => {
   const result = swapTimedItemsPreservingGaps([
     { title: "当前", start: "18:00", end: "18:20", status: "active" },
@@ -1263,6 +1300,20 @@ test("advances restored live stages without leaving two active items", () => {
     { title: "下一段", status: "pending" },
   ], 0, 1);
   assert.deepEqual(alreadyCompleted.map(item => item.status), ["done", "active"]);
+});
+
+test("moves the current stuck stage to tomorrow and activates exactly one next stage", () => {
+  const deferred = deferActiveStage([
+    { id: "language", status: "active" },
+    { id: "math", status: "pending" },
+    { id: "reading", status: "pending" },
+  ], 0, 1);
+  assert.deepEqual(deferred.map(item => [item.id, item.status]), [
+    ["language", "tomorrow"],
+    ["math", "active"],
+    ["reading", "pending"],
+  ]);
+  assert.equal(deferred.filter(item => item.status === "active").length, 1);
 });
 
 test("deletes one settlement without corrupting nightly bonuses or a later energy cycle", () => {

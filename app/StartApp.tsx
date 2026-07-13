@@ -4,13 +4,13 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "./plan-utils";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, titleAfterIconChoice } from "./plan-utils";
 import { foregroundCueStatus, ReminderPermission, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -18,7 +18,7 @@ type Effort = 1 | 2 | 3;
 type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PromptReflection = "less" | "same" | "more";
 type TransitionReason = "completed" | "due";
-type AdjustmentChoice = "extend" | "rest" | "swap" | "tomorrow" | "finish";
+type AdjustmentChoice = "extend" | "rest" | "defer" | "swap" | "tomorrow" | "finish";
 type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "night-saved" | "energy" | "reward-setup" | "reward-achieved" | "reward-saved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 type NavigationMode = "push" | "replace";
@@ -1309,21 +1309,36 @@ export function StartApp() {
     setAdjustments(value => value + 1); setToast(`现在休息10分钟，事项预计${scheduledEndTime(result.items, result.planEnd)}结束`); go("running");
   };
 
+  const deferCurrentStage = () => {
+    setStageAdvanceUndo(null);
+    const nextIndex = nextPendingIndex(activeIndex);
+    if (!canStartRest || activeStage.status === "done" || nextIndex < 0) { setToast("当前状态不需要移到明天"); return; }
+    const nextStage = stages[nextIndex];
+    const startedAt = Date.now();
+    const actualStart = clockTimeFromDate(new Date(startedAt));
+    const scheduleDelta = clockDeltaMinutes(nextStage.start, actualStart);
+    const alignedStages = alignLiveStagesToStart(stages, nextIndex, actualStart);
+    setStages(deferActiveStage(alignedStages, activeIndex, nextIndex));
+    if (scheduleDelta > 0) setData(current => ({ ...current, planEnd: addMinutes(current.planEnd, scheduleDelta) }));
+    setActiveIndex(nextIndex); setActiveEndsAt(startedAt + Math.max(1, durationMinutes(nextStage.start, nextStage.end)) * 60_000);
+    setClockNow(startedAt); setStageDue(false); dueReminderPlayed.current = false;
+    setAdjustments(value => value + 1); setToast(`“${activeStage.title}”已移到明天，现在进入“${nextStage.title}”`); go("running");
+  };
+
   const applyAdjustment = () => {
     if (!effectiveAdjustChoice) { setToast("先一起选择一种调整方式"); return; }
     if (effectiveAdjustChoice === "finish") { endTonightEarly(); return; }
     if (effectiveAdjustChoice === "extend") { extendCurrent(); return; }
     if (effectiveAdjustChoice === "rest") { startRestNow(); return; }
+    if (effectiveAdjustChoice === "defer") { deferCurrentStage(); return; }
     if (effectiveAdjustChoice === "swap") {
-      const pending = stages.map((item, index) => ({ item, index })).filter(({ item, index }) => index > activeIndex && item.status === "pending");
-      if (pending.length < 2) { setToast("后面没有两项可以调换"); returnFromAdjust(); return; }
-      const result = swapTimedItemsPreservingGaps(stages, pending[0].index, pending[1].index, data.planStart);
+      const result = swapNextPendingItems(stages, activeIndex, data.planStart);
       if (!result.moved) { setToast("当前时间表需要先调整，暂时不能调换"); return; }
       setStages(result.items); setToast("后两项已调换，原来的休息空档还在");
     } else {
-      const idx = nextPendingIndex(activeIndex);
-      if (idx < 0) { setToast("后面已经没有待安排的事项"); returnFromAdjust(); return; }
-      setStages(items => items.map((item, index) => index === idx ? { ...item, status: "tomorrow" } : item)); setToast("下一项已移到明天");
+      const result = deferNextPendingItem(stages, activeIndex);
+      if (!result.moved) { setToast("后面已经没有待安排的事项"); returnFromAdjust(); return; }
+      setStages(result.items); setToast(`“${nextPendingStage?.title ?? "下一项"}”已移到明天，今晚预计提前${result.minutes}分钟结束`);
     }
     setAdjustments(value => value + 1); returnFromAdjust();
   };
@@ -1548,12 +1563,16 @@ export function StartApp() {
   const dualFirstDuration = Math.max(1, durationMinutes(dualFirstStage.start, dualFirstStage.end));
   const dualFirstEndLabel = addMinutes(startNowLabel, dualFirstDuration);
   const pendingAfterActiveCount = stages.filter((item, index) => index > activeIndex && item.status === "pending").length;
+  const pendingAfterActiveStages = stages.filter((item, index) => index > activeIndex && item.status === "pending");
+  const secondPendingAfterActiveStage = pendingAfterActiveStages[1];
+  const nextPendingDuration = nextPendingStage ? Math.max(1, durationMinutes(nextPendingStage.start, nextPendingStage.end)) : 0;
   const activeStageCompleted = activeStage.status === "done";
   const adjustmentOptions: Array<{ id: AdjustmentChoice; icon: string; title: string; copy: string }> = [
     ...(!activeStageCompleted ? [{ id: "extend" as const, icon: "steps", title: canStartRest ? "延长当前阶段" : "再休息10分钟", copy: "后续时间顺延10分钟" }] : []),
     ...(canStartRest ? [{ id: "rest" as const, icon: "quiet", title: activeStageCompleted ? "下一项前休息10分钟" : "现在休息10分钟", copy: activeStageCompleted ? "已完成事项保持完成" : "原事项随后继续" }] : []),
-    ...(pendingAfterActiveCount >= 2 ? [{ id: "swap" as const, icon: "speech", title: "调换后两项", copy: "时长和休息空档都会保留" }] : []),
-    ...(pendingAfterActiveCount >= 1 ? [{ id: "tomorrow" as const, icon: "moon", title: "下一项移到明天", copy: "保留已经完成的进展" }] : []),
+    ...(canStartRest && !activeStageCompleted && pendingAfterActiveCount >= 1 ? [{ id: "defer" as const, icon: "moon", title: "当前事项明天再做", copy: `先放下${activeStage.title}，接着${nextPendingStage?.title ?? "下一项"}` }] : []),
+    ...(pendingAfterActiveCount >= 2 ? [{ id: "swap" as const, icon: "speech", title: "调换后两项", copy: `${nextPendingStage?.title ?? "下一项"} ↔ ${secondPendingAfterActiveStage?.title ?? "再后一项"}` }] : []),
+    ...(pendingAfterActiveCount >= 1 ? [{ id: "tomorrow" as const, icon: "backpack", title: "下一项移到明天", copy: pendingAfterActiveCount > 1 ? `${nextPendingStage?.title ?? "下一项"}先放下，后面提前${nextPendingDuration}分钟` : `${nextPendingStage?.title ?? "下一项"}先放下，这一段后收尾` }] : []),
     { id: "finish", icon: "home-heart", title: "今晚先到这里", copy: "保留进展，温和收尾" },
   ];
   const completedStageCount = stages.filter(item => item.status === "done").length;
@@ -1809,7 +1828,7 @@ export function StartApp() {
       {screen === "adjust" && <div className="screen adjust-screen">
         <Header back={returnFromAdjust} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
         <div className="adjust-grid">{adjustmentOptions.map(({ id, icon, title, copy }) => <button key={id} aria-pressed={effectiveAdjustChoice === id} className={`${effectiveAdjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
-        <div className={`adjust-decision-dock ${effectiveAdjustChoice ? "is-ready" : "is-waiting"}`} aria-label="调整预览与确认"><div className={`change-preview ${effectiveAdjustChoice ? "" : "is-waiting"}`} role="status" aria-live="polite" aria-atomic="true"><small>{effectiveAdjustChoice ? "本次调整预览" : "先一起选一种方式"}</small><strong>{effectiveAdjustChoice === "extend" ? `${activeStage.title}${canStartRest ? "延长" : "再休息"}10分钟，事项预计${formatPlanClock(addMinutes(liveScheduledEnd, 10), data.planStart, addMinutes(data.planEnd, 10))}结束` : effectiveAdjustChoice === "rest" ? activeStageCompleted ? `从现在休息10分钟，之后进入${nextPendingStage?.title ?? "今晚收尾"}，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : `从现在休息10分钟，之后只继续剩余时长，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : effectiveAdjustChoice === "swap" ? "调换后两项，时长和休息空档保持不变" : effectiveAdjustChoice === "tomorrow" ? "把下一项移到明天" : effectiveAdjustChoice === "finish" ? "保留已完成的部分，今晚温和收尾" : "选择后先看清变化，再由双方确认；现在还不会改动时间表。"}</strong></div><p className="adjust-safety-note">确认前不会改动 · 调整不扣能量 · 已完成进展会保留</p><div className="adjust-dock-actions"><button className="primary-button" disabled={!effectiveAdjustChoice} onClick={applyAdjustment}>{!effectiveAdjustChoice ? "先选择一种调整" : effectiveAdjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="adjust-cancel-button" onClick={returnFromAdjust}>取消</button></div></div>
+        <div className={`adjust-decision-dock ${effectiveAdjustChoice ? "is-ready" : "is-waiting"}`} aria-label="调整预览与确认"><div className={`change-preview ${effectiveAdjustChoice ? "" : "is-waiting"}`} role="status" aria-live="polite" aria-atomic="true"><small>{effectiveAdjustChoice ? "本次调整预览" : "先一起选一种方式"}</small><strong>{effectiveAdjustChoice === "extend" ? `${activeStage.title}${canStartRest ? "延长" : "再休息"}10分钟，事项预计${formatPlanClock(addMinutes(liveScheduledEnd, 10), data.planStart, addMinutes(data.planEnd, 10))}结束` : effectiveAdjustChoice === "rest" ? activeStageCompleted ? `从现在休息10分钟，之后进入${nextPendingStage?.title ?? "今晚收尾"}，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : `从现在休息10分钟，之后只继续剩余时长，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : effectiveAdjustChoice === "defer" ? `把“${activeStage.title}”移到明天，接着进入“${nextPendingStage?.title ?? "下一项"}”` : effectiveAdjustChoice === "swap" ? `调换“${nextPendingStage?.title ?? "下一项"}”和“${secondPendingAfterActiveStage?.title ?? "再后一项"}”，时长与空档不变` : effectiveAdjustChoice === "tomorrow" ? pendingAfterActiveCount > 1 ? `把“${nextPendingStage?.title ?? "下一项"}”移到明天，后面事项提前${nextPendingDuration}分钟衔接` : `把“${nextPendingStage?.title ?? "下一项"}”移到明天，这一段结束后即可温和收尾` : effectiveAdjustChoice === "finish" ? "保留已完成的部分，今晚温和收尾" : "选择后先看清变化，再一起确认；现在还不会改动时间表。"}</strong></div><p className="adjust-safety-note">确认前不会改动 · 调整不扣能量 · 已完成进展会保留</p><div className="adjust-dock-actions"><button className="primary-button" disabled={!effectiveAdjustChoice} onClick={applyAdjustment}>{!effectiveAdjustChoice ? "先选择一种调整" : effectiveAdjustChoice === "finish" ? "确认并温和收尾" : "一起确认调整"}</button><button className="adjust-cancel-button" onClick={returnFromAdjust}>取消</button></div></div>
       </div>}
 
       {screen === "wrap" && <div className="screen wrap-screen">

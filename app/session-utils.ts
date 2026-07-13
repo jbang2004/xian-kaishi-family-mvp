@@ -74,6 +74,16 @@ export function advanceStageStatuses<T extends { status: string }>(items: T[], c
   });
 }
 
+export function deferActiveStage<T extends { status: string }>(items: T[], currentIndex: number, nextIndex: number): T[] {
+  if (currentIndex < 0 || currentIndex >= items.length) return items;
+  return items.map((item, index) => {
+    if (index === currentIndex) return { ...item, status: "tomorrow" };
+    if (index === nextIndex) return { ...item, status: "active" };
+    if (item.status === "active") return { ...item, status: "pending" };
+    return item;
+  });
+}
+
 type RemovableSession = {
   id: string;
   date: string;

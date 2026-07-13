@@ -239,6 +239,35 @@ export function swapTimedItemsPreservingGaps<T extends TimedPlanItem>(items: T[]
   return retimeReorderedItems(items, reordered, planStart);
 }
 
+export function swapNextPendingItems<T extends TimedPlanItem & { status: string }>(items: T[], activeIndex: number, planStart: string) {
+  const tonight = items.map((item, originalIndex) => ({ item, originalIndex })).filter(({ item }) => item.status !== "tomorrow");
+  const pending = tonight.map((entry, index) => ({ ...entry, index })).filter(({ item, originalIndex }) => originalIndex > activeIndex && item.status === "pending");
+  if (pending.length < 2) return { items, moved: false };
+  const livePlanStart = tonight[0]?.item.start ?? planStart;
+  const result = swapTimedItemsPreservingGaps(tonight.map(({ item }) => item), pending[0].index, pending[1].index, livePlanStart);
+  if (!result.moved) return { items, moved: false };
+  let liveIndex = 0;
+  return {
+    items: items.map(item => item.status === "tomorrow" ? item : result.items[liveIndex++] ?? item),
+    moved: true,
+  };
+}
+
+export function deferNextPendingItem<T extends TimedPlanItem & { status: string }>(items: T[], activeIndex: number) {
+  const nextIndex = items.findIndex((item, index) => index > activeIndex && item.status === "pending");
+  if (nextIndex < 0) return { items, moved: false, minutes: 0 };
+  const minutes = Math.max(1, durationMinutes(items[nextIndex].start, items[nextIndex].end));
+  return {
+    items: items.map((item, index) => {
+      if (index === nextIndex) return { ...item, status: "tomorrow" };
+      if (index > nextIndex && item.status !== "tomorrow") return { ...item, start: addMinutes(item.start, -minutes), end: addMinutes(item.end, -minutes) };
+      return item;
+    }),
+    moved: true,
+    minutes,
+  };
+}
+
 export function rebaseFollowUpPlan<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], nowTime: string) {
   const availableMinutes = durationMinutes(planStart, planEnd);
   if (availableMinutes <= 0 || timeToMinutes(nowTime) < 0) {
