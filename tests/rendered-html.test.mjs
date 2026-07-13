@@ -5,7 +5,7 @@ import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, cl
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -482,6 +482,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /item\.nightKey===key/);
   assert.match(app, /selectedIncludesAfterMidnightSession/);
   assert.match(app, /晚间记录 · 凌晨收尾仍归这一晚/);
+  assert.match(app, /familyNightDisplayLabel\(lastSavedSession\.nightKey, lastSavedSession\.date\)/);
+  assert.match(app, /openCalendar=\{\(\) => openCalendar\(currentFamilyNightKey\)\}/);
   assert.doesNotMatch(app, /const cooperationEnergy = 2/);
   assert.match(styles, /\.settled-home-card/);
   assert.match(app, /规则建议 · 不评价孩子/);
@@ -1226,6 +1228,12 @@ test("keeps a late-night session through the early morning but not into the next
   assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-14T05:00:00+08:00")), false);
   assert.equal(liveNightLabel(started, new Date("2026-07-14T01:00:00+08:00")), "昨晚");
   assert.equal(isLiveSessionFresh(started, updated, new Date("2026-07-15T00:30:00+08:00")), false);
+});
+
+test("labels early-morning wrap-up with the family night it belongs to", () => {
+  assert.equal(familyNightDisplayLabel("2026-07-13", "2026-07-14T04:20:00+08:00"), "7月13日晚 · 凌晨收尾");
+  assert.equal(familyNightDisplayLabel("2026-07-14", "2026-07-14T21:20:00+08:00"), "7月14日 · 今晚记录");
+  assert.equal(familyNightDisplayLabel("invalid", "2026-07-14T21:20:00+08:00"), "这一晚 · 家庭记录");
 });
 
 test("awards shared-night bonuses only once while allowing later task energy", () => {

@@ -21,6 +21,16 @@ export function familyNightKey(value: string | Date | number) {
   return localKey(date);
 }
 
+export function familyNightDisplayLabel(nightKey: string, recordedAt: string | Date | number) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nightKey);
+  if (!match) return "这一晚 · 家庭记录";
+  const recorded = validDate(recordedAt);
+  const dateLabel = `${Number(match[2])}月${Number(match[3])}日`;
+  return recorded && localKey(recorded) !== nightKey
+    ? `${dateLabel}晚 · 凌晨收尾`
+    : `${dateLabel} · 今晚记录`;
+}
+
 export function isLiveSessionFresh(startedAt: string, updatedAt: string, now: Date = new Date()) {
   const started = validDate(startedAt);
   const updated = validDate(updatedAt);

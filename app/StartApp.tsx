@@ -10,7 +10,7 @@ import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -265,9 +265,9 @@ function Header({ title, back, step }: { title?: string; back?: () => void; step
   </header>;
 }
 
-function BottomNav({ screen, go }: { screen: Screen; go: (screen: Screen) => void }) {
+function BottomNav({ screen, go, openCalendar }: { screen: Screen; go: (screen: Screen) => void; openCalendar: () => void }) {
   const items: Array<[Screen, string, string]> = [["home", "home-heart", "首页"], ["review", "chart", "日历"], ["energy", "plant", "能量"], ["settings", "privacy", "设置"]];
-  return <nav className="bottom-nav" aria-label="主导航">{items.map(([id, icon, label]) => <button key={id} aria-current={screen === id ? "page" : undefined} className={screen === id ? "active" : ""} onClick={() => go(id)}><AppIcon name={icon} /><small>{label}</small></button>)}</nav>;
+  return <nav className="bottom-nav" aria-label="主导航">{items.map(([id, icon, label]) => <button key={id} aria-current={screen === id ? "page" : undefined} className={screen === id ? "active" : ""} onClick={id === "review" ? openCalendar : () => go(id)}><AppIcon name={icon} /><small>{label}</small></button>)}</nav>;
 }
 
 function normalizeData(value: unknown): AppData {
@@ -1607,11 +1607,17 @@ export function StartApp() {
     setSelectedDay(key); setDayDetailsExpanded(false); setSessionDeleteArmedId("");
     window.requestAnimationFrame(() => calendarDetailRef.current?.scrollIntoView({ block: "start", behavior: motionReduced ? "auto" : "smooth" }));
   };
-  const openNightRecord = (nightKey: string) => {
+  const openCalendar = (nightKey: string) => {
     const date = new Date(`${nightKey}T12:00:00`);
     setSelectedDay(nightKey); setDayDetailsExpanded(false); setSessionDeleteArmedId("");
     if (Number.isFinite(date.getTime())) setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1));
     go("review");
+  };
+  const openNightRecord = (nightKey: string) => {
+    openCalendar(nightKey);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      calendarDetailRef.current?.scrollIntoView({ block: "start", behavior: motionReduced ? "auto" : "smooth" });
+    }));
   };
   const hasRewardResetAfter = (record: SessionRecord) => {
     const recordTime = Date.parse(record.date);
@@ -1818,7 +1824,7 @@ export function StartApp() {
         <div className="saved-hero"><div><span className="eyebrow">已安全保存在家庭日历</span><h1>今晚，已经<br />好好收尾</h1><p>这不是成绩，也不要求连续打卡。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="saved-energy"><small>本次家庭能量</small><strong>+{lastSavedSession.energyEarned}</strong><span>现在共有 {data.energy} 点</span><div className="energy-rise" aria-hidden="true"><i /><i /><i /></div></div>
         <details className="saved-breakdown"><summary><span><strong>能量组成</strong><small>完成与合作如何记入本次记录</small></span><b>查看 <i aria-hidden="true">⌄</i></b></summary><div><span><b>完成事项</b><em>+{lastSavedSession.taskEnergy}</em></span><span className={lastSavedSession.cooperationEnergy ? "" : "already-counted"}><b>{lastSavedSession.cooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{lastSavedSession.cooperationEnergy}</em></span>{lastSavedSession.adjustments > 0 && <span className={lastSavedSession.adjustmentEnergy ? "" : "already-counted"}><b>{lastSavedSession.adjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{lastSavedSession.adjustmentEnergy}</em></span>}</div></details>
-        <div className="saved-calendar-note"><AppIcon name="moon" /><span><strong>{new Date(lastSavedSession.date).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 今晚记录</strong><small>{lastSavedSession.completedCount} 个{lastSavedSession.completionUnit === "tasks" ? "完成事项" : "完成节点"}{lastSavedSession.promptReflection ? ` · ${promptReflectionCopy[lastSavedSession.promptReflection]}` : " · 催促感可下次再记"}</small></span></div>
+        <div className="saved-calendar-note"><AppIcon name="moon" /><span><strong>{familyNightDisplayLabel(lastSavedSession.nightKey, lastSavedSession.date)}</strong><small>{lastSavedSession.completedCount} 个{lastSavedSession.completionUnit === "tasks" ? "完成事项" : "完成节点"}{lastSavedSession.promptReflection ? ` · ${promptReflectionCopy[lastSavedSession.promptReflection]}` : " · 催促感可下次再记"}</small></span></div>
         <div className="saved-actions"><button className="primary-button" onClick={() => go("home")}>回到首页</button><button className="secondary-button" onClick={() => openNightRecord(lastSavedSession.nightKey)}>查看这一晚的记录</button></div>
       </div>}
 
@@ -1893,7 +1899,7 @@ export function StartApp() {
         <div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div>
       </div>}
 
-      {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} />}
+      {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} openCalendar={() => openCalendar(currentFamilyNightKey)} />}
       {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title.trim() || "未命名事项"}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
       {shiftedPlanUndo && <div className="undo-toast" role="status"><span>{shiftedPlanUndo.message}</span><button onClick={undoPlanShift}>撤销</button></div>}
