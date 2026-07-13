@@ -42,3 +42,12 @@ export function calculateNightBonus(existing: Array<{ adjustmentEnergy: number }
     adjustmentEnergy: adjustments > 0 && !existing.some(item => item.adjustmentEnergy > 0) ? 1 : 0,
   };
 }
+
+export function advanceStageStatuses<T extends { status: string }>(items: T[], currentIndex: number, nextIndex: number): T[] {
+  if (currentIndex < 0 || nextIndex < 0 || currentIndex >= items.length || nextIndex >= items.length || currentIndex === nextIndex) return items;
+  return items.map((item, index) => {
+    if (index === nextIndex) return { ...item, status: "active" };
+    if (index === currentIndex && item.status === "active") return { ...item, status: "done" };
+    return item;
+  });
+}

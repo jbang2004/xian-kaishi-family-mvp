@@ -5,7 +5,7 @@ import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTi
 import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, liveNightLabel } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -284,6 +284,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.launch-progress \{ display: none; \}/);
   assert.match(app, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
   assert.match(app, /useSyncExternalStore\(subscribeToNetworkStatus/);
+  assert.match(app, /useSyncExternalStore\(subscribeToReducedMotion/);
+  assert.match(app, /query\.addEventListener\("change", onChange\)/);
+  assert.match(app, /const motionReduced = data\.reducedMotion \|\| systemReducedMotion/);
+  assert.match(app, /behavior: motionReduced \? "auto" : "smooth"/);
+  assert.match(app, /site-shell \$\{motionReduced \? "reduce-motion"/);
+  assert.match(app, /已跟随系统减少动画、平滑滚动和轻触震动/);
+  assert.match(app, /aria-describedby="motion-preference-status"/);
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
   assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
   assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
@@ -772,6 +779,22 @@ test("awards shared-night bonuses only once while allowing later task energy", (
   assert.deepEqual(calculateNightBonus([], 1), { cooperationEnergy: 2, adjustmentEnergy: 1 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 1 }], 2), { cooperationEnergy: 0, adjustmentEnergy: 0 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 0 }], 1), { cooperationEnergy: 0, adjustmentEnergy: 1 });
+});
+
+test("advances restored live stages without leaving two active items", () => {
+  const advanced = advanceStageStatuses([
+    { title: "上一段", status: "active" },
+    { title: "下一段", status: "pending" },
+    { title: "稍后", status: "pending" },
+  ], 0, 1);
+  assert.deepEqual(advanced.map(item => item.status), ["done", "active", "pending"]);
+  assert.equal(advanced.filter(item => item.status === "active").length, 1);
+
+  const alreadyCompleted = advanceStageStatuses([
+    { title: "上一段", status: "done" },
+    { title: "下一段", status: "pending" },
+  ], 0, 1);
+  assert.deepEqual(alreadyCompleted.map(item => item.status), ["done", "active"]);
 });
 
 test("suggests one transparent, parent-facing weekly change", () => {
