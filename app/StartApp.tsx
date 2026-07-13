@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -308,6 +308,7 @@ export function StartApp() {
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [calendarCursor, setCalendarCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState("");
+  const [followUpPlanMessage, setFollowUpPlanMessage] = useState("");
   const [syncLabel, setSyncLabel] = useState("本机已保存");
   const isOnline = useOnlineStatus();
   const [deletingData, setDeletingData] = useState(false);
@@ -1205,6 +1206,17 @@ export function StartApp() {
   };
   const startAnotherPlan = () => {
     setEditingStageId("");
+    if (currentNightSummary) {
+      const nowTime = clockTimeFromDate(new Date());
+      const followUp = rebaseFollowUpPlan(data.planStart, data.planEnd, stages, nowTime);
+      setStages(followUp.items);
+      setData(current => ({ ...current, planStart: followUp.planStart, planEnd: followUp.planEnd }));
+      setFollowUpPlanMessage(followUp.keptPlanEnd
+        ? `剩余事项保留原时长和顺序，收尾仍是 ${followUp.planEnd}。`
+        : `剩余事项保留原时长和顺序，收尾更新为 ${followUp.planEnd}。`);
+    } else {
+      setFollowUpPlanMessage("");
+    }
     go("plan");
   };
   const toggleWeeklyFocus = () => {
@@ -1263,7 +1275,8 @@ export function StartApp() {
 
       {screen === "plan" && <div className="screen plan-screen">
         <Header back={() => back("home")} title="一起安排今晚" step="1/3" />
-        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => setData(current => ({ ...current, planStart: e.target.value }))} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => setData(current => ({ ...current, planEnd: e.target.value }))} /></div>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
+        <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input aria-label="今晚开始时间" type="time" value={data.planStart} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planStart: e.target.value })); }} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planEnd: e.target.value })); }} /></div>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
+        {followUpPlanMessage && <div className="follow-up-plan-note" role="status"><AppIcon name="check" /><span><strong>已从现在续排</strong><small>{followUpPlanMessage}</small></span></div>}
         <div className={`plan-balance ${planHasErrors ? "has-error" : ""}`} role="status"><div><span>{planHasErrors ? "先调整一下时间" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "从空白开始"}</button>}</div>
         <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <div className="empty-plan"><Mascot mood="breathe" compact /><strong>今晚还没有节点</strong><span>先加一件最容易开始的小事就好</span></div>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = Boolean(planItemErrors[index]?.title); const timeInvalid = Boolean(planItemErrors[index]?.time); return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${hasIssue ? "has-stage-issue" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>

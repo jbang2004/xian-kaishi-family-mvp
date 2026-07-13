@@ -489,6 +489,11 @@ button.insight-card { cursor: pointer; }
 .availability-card strong { font-size: 20px; margin-top: 5px; }
 .availability-card .mascot { width: 82px; height: 82px; margin: 0; }
 .custom-window { min-height: 118px; }
+.follow-up-plan-note { min-height: 58px; display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: 10px; margin-top: 10px; padding: 9px 12px; border: 1px solid rgba(117,184,155,.36); border-radius: 18px; background: linear-gradient(135deg, rgba(237,246,239,.94), rgba(255,253,248,.88)); color: #397259; }
+.follow-up-plan-note .app-icon { width: 36px; height: 36px; }
+.follow-up-plan-note strong, .follow-up-plan-note small { display: block; }
+.follow-up-plan-note strong { font-size: 12px; }
+.follow-up-plan-note small { margin-top: 3px; color: #587165; font-size: var(--type-caption); line-height: 1.4; }
 .window-inputs { display: flex; align-items: center; gap: 4px; margin-top: 7px; }
 .window-inputs input { width: 92px; min-height: 44px; border: 1px solid var(--border); border-radius: 11px; background: #fff9ed; color: var(--navy); padding: 7px 4px; font-size: 16px; font-weight: 800; }
 .overnight-note { display: block; width: fit-content; margin-top: 7px; padding: 4px 8px; border-radius: 99px; background: var(--blue-soft); color: #4b6f91; font-size: var(--type-micro); font-weight: 900; }

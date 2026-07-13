@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -91,7 +91,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
   assert.match(app, /className="home-plan-cta"/);
   assert.doesNotMatch(app, /className="draft-summary"/);
-  assert.match(app, /const startAnotherPlan = \(\) => \{\s+setEditingStageId\(""\);\s+go\("plan"\);\s+\}/);
+  assert.match(app, /const startAnotherPlan = \(\) => \{/);
+  assert.match(app, /rebaseFollowUpPlan\(data\.planStart, data\.planEnd, stages, nowTime\)/);
+  assert.match(app, /className="follow-up-plan-note" role="status"/);
+  assert.match(app, /剩余事项保留原时长和顺序，收尾仍是 \$\{followUp\.planEnd\}/);
+  assert.match(styles, /\.follow-up-plan-note \{[^}]*min-height: 58px/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);
   assert.match(styles, /\.family-agreement strong \{[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /activeNightLabel\}等待温和收尾/);
@@ -536,6 +540,38 @@ test("restores the family planning window after a session starts at a different 
     ["math", "18:10", "18:40", "pending"],
     ["book", "18:50", "19:10", "pending"],
   ]);
+});
+
+test("rebases a same-night follow-up without extending an end time that still fits", () => {
+  const result = rebaseFollowUpPlan("18:00", "20:00", [
+    { title: "阅读", start: "18:00", end: "18:20" },
+    { title: "整理书包", start: "18:30", end: "18:45" },
+  ], "19:00");
+  assert.equal(result.planStart, "19:00");
+  assert.equal(result.planEnd, "20:00");
+  assert.equal(result.keptPlanEnd, true);
+  assert.deepEqual(result.items.map(item => [item.start, item.end]), [["19:00", "19:20"], ["19:30", "19:45"]]);
+});
+
+test("rebases a follow-up and moves the end only when the old window no longer fits", () => {
+  const result = rebaseFollowUpPlan("18:00", "20:00", [
+    { title: "阅读", start: "18:00", end: "18:30" },
+    { title: "整理书包", start: "18:30", end: "19:00" },
+  ], "19:40");
+  assert.equal(result.planStart, "19:40");
+  assert.equal(result.planEnd, "20:40");
+  assert.equal(result.keptPlanEnd, false);
+  assert.deepEqual(result.items.map(item => [item.start, item.end]), [["19:40", "20:10"], ["20:10", "20:40"]]);
+});
+
+test("preserves a cross-midnight follow-up window when its remaining time is enough", () => {
+  const result = rebaseFollowUpPlan("23:20", "00:40", [
+    { title: "阅读", start: "23:20", end: "23:40" },
+  ], "00:05");
+  assert.equal(result.planStart, "00:05");
+  assert.equal(result.planEnd, "00:40");
+  assert.equal(result.keptPlanEnd, true);
+  assert.deepEqual(result.items.map(item => [item.start, item.end]), [["00:05", "00:25"]]);
 });
 
 test("preserves planned gaps and the trailing buffer after a live rest", () => {

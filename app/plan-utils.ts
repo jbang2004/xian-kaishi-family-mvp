@@ -104,6 +104,27 @@ export function shiftTimedPlanToStart<T extends TimedPlanItem>(items: T[], newSt
   return shiftTimedItemsFrom(items, 0, offset);
 }
 
+export function rebaseFollowUpPlan<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], nowTime: string) {
+  const availableMinutes = durationMinutes(planStart, planEnd);
+  if (availableMinutes <= 0 || timeToMinutes(nowTime) < 0) {
+    return { planStart, planEnd, items, keptPlanEnd: true };
+  }
+
+  const elapsedMinutes = (timeToMinutes(nowTime) - timeToMinutes(planStart) + 1440) % 1440;
+  const stillInsideWindow = elapsedMinutes < availableMinutes;
+  const nextItems = shiftTimedPlanToStart(items, nowTime);
+  const scheduledSpan = nextItems.length ? durationMinutes(nowTime, nextItems.at(-1)!.end) : 0;
+  const remainingWindow = stillInsideWindow ? availableMinutes - elapsedMinutes : 0;
+  const keptPlanEnd = stillInsideWindow && scheduledSpan <= remainingWindow;
+
+  return {
+    planStart: nowTime,
+    planEnd: keptPlanEnd ? planEnd : addMinutes(nowTime, stillInsideWindow ? scheduledSpan : Math.max(scheduledSpan, availableMinutes)),
+    items: nextItems,
+    keptPlanEnd,
+  };
+}
+
 export function reflowTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, startTime: string): T[] {
   let cursor = startTime;
   return items.map((item, index) => {
