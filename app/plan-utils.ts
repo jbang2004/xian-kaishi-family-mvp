@@ -30,6 +30,10 @@ export function scheduledEndTime<T extends TimedPlanItem & { status?: string }>(
   return [...items].reverse().find(item => item.status !== "tomorrow")?.end || fallback;
 }
 
+export function countCompletedTasks<T extends { status: string; kind?: string }>(items: T[]) {
+  return items.filter(item => item.status === "done" && item.kind !== "rest").length;
+}
+
 export function addMinutes(time: string, amount: number) {
   const [hours, minutes] = time.split(":").map(Number);
   const total = (hours * 60 + minutes + amount + 1440) % 1440;

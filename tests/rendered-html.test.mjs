@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -485,6 +485,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /未完成或暂停不会倒扣、过期/);
   assert.match(app, /保存记录并结束今晚/);
   assert.match(app, /本次新增能量/);
+  assert.match(app, /completionUnit: record\.completionUnit === "tasks" \? "tasks" : "nodes"/);
+  assert.match(app, /completedCount, completionUnit: "tasks"/);
+  assert.match(app, /currentNightSummary\.completionUnit === "tasks" \? "完成事项" : "完成节点"/);
   assert.match(app, /taskEnergy: Number\(record\.taskEnergy \?\? record\.childEnergy/);
   assert.match(app, /cooperationEnergy: Number\(record\.cooperationEnergy/);
   assert.doesNotMatch(app, /childEnergy, guardianEnergy/);
@@ -988,6 +991,14 @@ test("separates the last scheduled item from the wider family availability windo
     { title: "明天再做", start: "18:30", end: "19:00", status: "tomorrow" },
   ], "20:30"), "18:20");
   assert.equal(scheduledEndTime([], "20:30"), "20:30");
+});
+
+test("keeps completed rest breaks out of the completed task count", () => {
+  assert.equal(countCompletedTasks([
+    { status: "done", kind: "rest" },
+    { status: "done", kind: "task" },
+    { status: "pending", kind: "task" },
+  ]), 1);
 });
 
 test("gives a due stage a small follow-up window after resting", () => {
