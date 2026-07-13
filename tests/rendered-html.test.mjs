@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
 import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
@@ -70,7 +70,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
   assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
   assert.match(styles, /\.offline-ribbon,[\s\S]*?\.undo-toast \{ left: 50%; right: auto; width: min\(560px, calc\(100% - 36px\)\); transform: translateX\(-50%\); \}/);
-  assert.equal(ASSET_VERSION, "2026-07-13-1");
+  assert.equal(ASSET_VERSION, "2026-07-13-2");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(app, /loading\?: "eager" \| "lazy"/);
@@ -488,8 +488,17 @@ test("ships an installable, privacy-preserving app manifest", async () => {
 
 test("ships optimized visual assets and persistent-state migration", async () => {
   const roomAsset = new URL("../public/assets/energy-room-v3.jpg", import.meta.url);
+  const iconDirectory = new URL("../public/assets/icons/", import.meta.url);
+  const mascotDirectory = new URL("../public/assets/mascot/", import.meta.url);
   await access(roomAsset);
   assert.ok((await stat(roomAsset)).size < 200_000, "energy room should stay below 200KB");
+  const visualAssets = await Promise.all([
+    ...(await readdir(iconDirectory)).filter(name => name.endsWith(".png")).map(name => stat(new URL(name, iconDirectory))),
+    ...(await readdir(mascotDirectory)).filter(name => name.endsWith(".png")).map(name => stat(new URL(name, mascotDirectory))),
+  ]);
+  assert.ok(visualAssets.reduce((total, file) => total + file.size, 0) < 1_600_000, "icons and mascot poses should stay below 1.6MB combined");
+  assert.ok((await stat(new URL("ready.png", mascotDirectory))).size < 50_000, "the primary mascot pose should stay below 50KB");
+  assert.ok((await stat(new URL("home-heart.png", iconDirectory))).size < 35_000, "the primary app icon should stay below 35KB");
   await assert.rejects(access(new URL("../public/assets/energy-room-v2.png", import.meta.url)));
   await assert.rejects(access(new URL("../public/assets/warm-lamp.png", import.meta.url)));
   const [initialMigration, revisionMigration, route] = await Promise.all([
