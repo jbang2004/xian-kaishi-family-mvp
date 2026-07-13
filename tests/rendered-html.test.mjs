@@ -111,7 +111,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? FALLBACK_STAGE/);
   assert.match(app, /const addNodeButtonRef = useRef<HTMLButtonElement>\(null\)/);
   assert.match(app, /focusPlanTarget\(nextStageId\)/);
-  assert.match(app, /setToast\("今晚已从空白开始"\); focusPlanTarget\(\)/);
+  assert.match(app, /setToast\("时间表已清空，可以重新安排"\); focusPlanTarget\(\)/);
+  assert.match(app, /清空时间表/);
+  assert.match(app, /调整节点类型和用力程度/);
+  assert.match(app, /editingStage\?\.title\.trim\(\) \|\| "这个时间节点"/);
   assert.match(app, /ref=\{addNodeButtonRef\} className="add-node-button"/);
   assert.match(app, /const MAX_PLAN_STAGES = 20/);
   assert.match(app, /title: "", icon: "custom", start: slot\.start/);
@@ -520,6 +523,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.achievement-screen \.redeem-confirm \{ position: sticky; bottom: 0/);
   assert.match(styles, /\.reward-saved-screen \.saved-actions \{ position: sticky; bottom: 0/);
   assert.match(app, /这份期待，<br \/>已经实现/);
+  assert.match(styles, /\.effort-screen \.effort-options \{ grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.effort-screen \.rest-duration > div\.has-custom-duration \{ grid-template-columns: repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.effort-screen > \.primary-button \{ position: sticky; bottom: 0/);
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);

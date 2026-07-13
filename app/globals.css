@@ -1361,6 +1361,37 @@ button.insight-card { cursor: pointer; }
   .reward-saved-screen .reward-saved-hero { min-height: 124px; grid-template-columns: minmax(0,1fr) 88px; }
   .reward-saved-screen .reward-saved-hero h1 { font-size: 26px; }
   .reward-saved-screen .reward-saved-hero .mascot { width: 86px; height: 86px; }
+  .effort-screen .app-header { margin-bottom: 2px; }
+  .effort-screen > .eyebrow { margin-bottom: 2px; font-size: var(--type-micro); }
+  .effort-screen h1 { margin-bottom: 4px; font-size: 25px; line-height: 1.12; }
+  .effort-screen .current-task-card { min-height: 56px; grid-template-columns: 42px minmax(0,1fr); gap: 9px; margin: 5px 0; padding: 7px 10px; border-radius: 17px; }
+  .effort-screen .current-task-card > .app-icon { width: 40px; height: 40px; }
+  .effort-screen .current-task-card strong { font-size: 12px; }
+  .effort-screen .current-task-card small { margin-top: 2px; color: var(--muted); font-size: var(--type-micro); line-height: 1.3; }
+  .effort-screen .stage-kind-picker { gap: 7px; margin: 6px 0 8px; }
+  .effort-screen .stage-kind-picker button { min-height: 78px; grid-template-columns: 38px minmax(0,1fr); gap: 6px; padding: 7px; border-radius: 17px; }
+  .effort-screen .stage-kind-picker .app-icon { width: 36px; height: 36px; }
+  .effort-screen .stage-kind-picker strong { margin-bottom: 2px; font-size: 12px; }
+  .effort-screen .stage-kind-picker small { font-size: var(--type-micro); line-height: 1.25; }
+  .effort-screen .detail-heading { margin: 5px 0; font-size: 13px; }
+  .effort-screen .effort-options { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 5px 0; }
+  .effort-screen .effort-options button { min-width: 0; min-height: 116px; grid-template-columns: 1fr; grid-template-rows: 24px minmax(0,1fr) 18px; place-items: center; gap: 3px; padding: 7px 4px; border-radius: 17px; text-align: center; }
+  .effort-screen .effort-options strong { margin-bottom: 2px; font-size: 12px; line-height: 1.25; }
+  .effort-screen .effort-options small { font-size: var(--type-micro); line-height: 1.25; }
+  .effort-screen .effort-options b { font-size: 16px; }
+  .effort-screen .effort-leaves i { width: 10px; height: 16px; }
+  .effort-screen .rest-duration { margin: 6px 0; padding: 9px 10px; border-radius: 17px; }
+  .effort-screen .rest-duration > span { margin-bottom: 6px; font-size: 12px; }
+  .effort-screen .rest-duration > div { gap: 6px; }
+  .effort-screen .rest-duration > div.has-custom-duration { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .effort-screen .rest-duration button { min-height: 42px; border-radius: 12px; font-size: 11px; }
+  .effort-screen .rest-duration > small { margin-top: 6px; line-height: 1.3; }
+  .effort-screen .support-suggestion { grid-template-columns: 42px minmax(0,1fr); gap: 7px; margin: 6px 0; padding: 7px 9px; border-radius: 17px; }
+  .effort-screen .support-suggestion .mascot { width: 40px; height: 40px; }
+  .effort-screen .support-suggestion small { font-size: var(--type-micro); }
+  .effort-screen .support-suggestion strong { margin: 2px 0; font-size: 11px; line-height: 1.3; }
+  .effort-screen .support-suggestion p { font-size: var(--type-micro); line-height: 1.25; }
+  .effort-screen > .primary-button { position: sticky; bottom: 0; z-index: 10; min-height: 50px; margin: auto -8px -36px; border-radius: 17px; font-size: 13px; box-shadow: 0 -10px 26px rgba(55,44,28,.1), inset 0 1px 0 rgba(255,255,255,.7); }
   .welcome-action-dock, .profile-action-dock { position: static; margin-top: 10px; }
   .reward-save-dock { position: static; margin-top: 10px; }
   .confirm-action-dock { position: sticky; bottom: 0; display: grid; grid-template-columns: minmax(0,1fr) 106px; align-items: stretch; gap: 8px; margin: auto -8px -36px; padding: 9px 8px calc(10px + env(safe-area-inset-bottom)); }
