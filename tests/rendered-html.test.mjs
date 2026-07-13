@@ -253,6 +253,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.availability-card \.mascot \{ display: none; \}/);
   assert.match(styles, /\.stage-actions \{ grid-column: 1 \/ -1; grid-row: 2; grid-template-columns: repeat\(3,1fr\); \}/);
   assert.match(styles, /\.reward-idea-grid small \{ display: none; \}/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\)/);
+  assert.match(styles, /\.due-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-toast \{ z-index: 51/);
   assert.match(app, /从现在 \$\{startNowLabel\} 开始/);
   assert.match(app, /整晚时间会一起顺延/);
