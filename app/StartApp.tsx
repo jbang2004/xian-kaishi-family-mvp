@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { rewardThresholdBounds } from "./reward-utils";
@@ -183,13 +183,6 @@ function normalizePromptReflection(value: unknown): PromptReflection | null {
 
 function normalizeTransitionReason(value: unknown, wasDue = false): TransitionReason {
   return value === "completed" || value === "due" ? value : wasDue ? "due" : "completed";
-}
-
-function formatCountdown(seconds: number) {
-  const safe = Math.max(0, seconds);
-  const minutes = Math.floor(safe / 60);
-  const rest = safe % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function subscribeToNetworkStatus(onChange: () => void) {
@@ -850,6 +843,8 @@ export function StartApp() {
   const remainingSeconds = activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - clockNow) / 1000)) : 0;
   const canStartRest = canInsertRestBreak(activeStage.kind);
   const effectiveAdjustChoice: AdjustmentChoice = !canStartRest && adjustChoice === "rest" ? "extend" : adjustChoice;
+  const adjustReturnScreen: LiveScreen = activeStage.status === "done" ? "transition" : "running";
+  const returnFromAdjust = () => go(adjustReturnScreen);
 
   useEffect(() => {
     if (screen !== "adjust") return;
@@ -885,6 +880,14 @@ export function StartApp() {
     setTransitionReason("completed");
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
     playTone("confirm"); navigator.vibrate?.([20]); go("transition");
+  };
+
+  const undoStageFinished = () => {
+    const now = Date.now();
+    const isDueNow = activeEndsAt > 0 && now >= activeEndsAt;
+    setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "active" } : item));
+    setClockNow(now); setStageDue(isDueNow); dueReminderPlayed.current = isDueNow;
+    setToast("已回到这一段，按原来的节奏继续"); go("running");
   };
 
   const continueToNext = () => {
@@ -929,15 +932,15 @@ export function StartApp() {
     if (effectiveAdjustChoice === "rest") { startRestNow(); return; }
     if (effectiveAdjustChoice === "swap") {
       const pending = stages.map((item, index) => ({ item, index })).filter(({ item, index }) => index > activeIndex && item.status === "pending");
-      if (pending.length < 2) { setToast("后面没有两项可以调换"); go("running"); return; }
+      if (pending.length < 2) { setToast("后面没有两项可以调换"); returnFromAdjust(); return; }
       const firstIndex = pending[0].index; const next = [...stages]; [next[firstIndex], next[pending[1].index]] = [next[pending[1].index], next[firstIndex]];
       setStages(reflowTimedItemsFrom(next, firstIndex, stages[firstIndex].start)); setToast("后两项已调换，时间也重新排好了");
     } else {
       const idx = nextPendingIndex(activeIndex);
-      if (idx < 0) { setToast("后面已经没有待安排的事项"); go("running"); return; }
+      if (idx < 0) { setToast("后面已经没有待安排的事项"); returnFromAdjust(); return; }
       setStages(items => items.map((item, index) => index === idx ? { ...item, status: "tomorrow" } : item)); setToast("下一项已移到明天");
     }
-    setAdjustments(value => value + 1); go("running");
+    setAdjustments(value => value + 1); returnFromAdjust();
   };
 
   const endTonightEarly = () => {
@@ -1109,15 +1112,17 @@ export function StartApp() {
         ? { title: `轮到${data.guardianAlias}确认`, detail: "大人确认手机仍由自己保管，再一起开始。" }
         : { title: `先由${data.guardianAlias}确认`, detail: `这不是身份验证；再请${data.childAlias}轻点自己的名字，不用同时按住。` };
   const startsAtPlannedTime = startNowLabel === (stages[0]?.start ?? data.planStart);
+  const pendingAfterActiveCount = stages.filter((item, index) => index > activeIndex && item.status === "pending").length;
   const adjustmentOptions: Array<{ id: AdjustmentChoice; icon: string; title: string; copy: string }> = [
     { id: "extend", icon: "steps", title: canStartRest ? "延长当前阶段" : "再休息10分钟", copy: "后续时间顺延10分钟" },
     ...(canStartRest ? [{ id: "rest" as const, icon: "quiet", title: "现在休息10分钟", copy: "原事项随后继续" }] : []),
-    { id: "swap", icon: "speech", title: "调换后两项", copy: "时间会自动重排" },
-    { id: "tomorrow", icon: "moon", title: "下一项移到明天", copy: "保留已经完成的进展" },
+    ...(pendingAfterActiveCount >= 2 ? [{ id: "swap" as const, icon: "speech", title: "调换后两项", copy: "时间会自动重排" }] : []),
+    ...(pendingAfterActiveCount >= 1 ? [{ id: "tomorrow" as const, icon: "moon", title: "下一项移到明天", copy: "保留已经完成的进展" }] : []),
     { id: "finish", icon: "home-heart", title: "今晚先到这里", copy: "保留进展，温和收尾" },
   ];
   const completedStageCount = stages.filter(item => item.status === "done").length;
   const tonightStageCount = stages.filter(item => item.status !== "tomorrow").length;
+  const activeTonightOrdinal = Math.max(1, stages.slice(0, activeIndex + 1).filter(item => item.status !== "tomorrow").length);
   const activeNightLabel = liveNightLabel(liveSessionStartedAt);
   const liveResumeView = (() => {
     const stageTitle = activeStage?.title || "继续今晚";
@@ -1246,28 +1251,28 @@ export function StartApp() {
       </div>}
 
       {screen === "running" && <div className="screen running-screen">
-        <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeIndex + 1}/{stages.filter(s => s.status !== "tomorrow").length}</span><Mascot mood="breathe" compact /></div>
+        <Header title="今晚进行中" /><div className="running-hero"><span className="eyebrow">当前阶段 · {activeTonightOrdinal}/{tonightStageCount}</span><Mascot mood="breathe" compact /></div>
         {stageDue && <span className="sr-only" role="status">{activeStage.title}预计到时间了，可以完成、继续或调整。</span>}
-        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {formatPlanClock(activeStage.start, data.planStart, data.planEnd)}—{formatPlanClock(activeStage.end, data.planStart, data.planEnd)}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : formatCountdown(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
+        <div className={`active-stage-card ${stageDue ? "is-due" : ""}`}><AppIcon name={activeStage.icon} /><div><small>计划时间 {formatPlanClock(activeStage.start, data.planStart, data.planEnd)}—{formatPlanClock(activeStage.end, data.planStart, data.planEnd)}</small><h1>{activeStage.title}</h1><span className={`effort-pill effort-${activeStage.effort}`}>{activeStage.kind === "rest" ? "休息放松" : effortCopy[activeStage.effort]}</span><span className="active-energy">完成后 +{activeStage.energy} 能量</span></div><div className="stage-timer"><small>{stageDue ? "可以看看下一步了" : "距离柔和提醒"}</small><strong>{stageDue ? "到时间啦" : gentleRemainingLabel(remainingSeconds)}</strong><div><i style={{ width: `${Math.max(0, Math.min(100, remainingSeconds / Math.max(1, durationMinutes(activeStage.start, activeStage.end) * 60) * 100))}%` }} /></div></div></div>
         <div className="running-support-strip"><AppIcon name="privacy" /><span><strong>手机留在大人手里</strong><small>不记录坐姿、声音、人脸或是否一直在桌前</small></span></div>
         <div className="next-stage-preview"><span><small>这一段之后</small><strong>{nextPendingStage ? nextPendingStage.title : "就可以温和收尾"}</strong></span>{nextPendingStage && <time>{formatPlanClock(nextPendingStage.start, data.planStart, data.planEnd)}</time>}</div>
         <details className="timeline-disclosure"><summary><span><small>今晚进度 · 最晚 {formatPlanClock(data.planEnd, data.planStart, data.planEnd)} 收尾</small><strong>{completedStageCount}/{tonightStageCount} 个阶段已完成</strong></span><b>查看全部 <i>⌄</i></b></summary><div className="mini-timeline">{stages.map((stage, index) => <div key={stage.id} className={`${stage.status} ${index === activeIndex ? "now" : ""}`}><i /><span>{stage.title}</span><small>{stage.status === "done" ? "完成" : stage.status === "tomorrow" ? "明天" : formatPlanClock(stage.start, data.planStart, data.planEnd)}</small></div>)}</div></details>
-        <div className={`running-action-dock ${stageDue ? "due-action-dock" : ""}`}>{stageDue ? <><div className="due-choice-copy"><strong>到时间只是提醒，不代表必须完成</strong><small>现在更适合哪一步，就选哪一步</small></div><button className="primary-button" onClick={stageFinished}>已经完成这一段</button><div className="due-quick-actions"><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? "再继续 10 分钟" : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>更多调整</button></> : <><button className="primary-button" onClick={stageFinished}>提前完成这一阶段</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></>}</div>
+        <div className={`running-action-dock ${stageDue ? "due-action-dock" : ""}`}>{stageDue ? <><div className="due-choice-copy"><strong>到时间只是提醒，不代表必须完成</strong><small>现在更适合哪一步，就选哪一步</small></div><button className="primary-button" onClick={stageFinished}>{activeStage.kind === "rest" ? "结束这次休息" : "这一段已经完成"}</button><div className="due-quick-actions"><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? "再继续 10 分钟" : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>更多调整</button></> : <><button className="primary-button" onClick={stageFinished}>{activeStage.kind === "rest" ? "结束这次休息" : "这一段已经做完"}</button><button className="secondary-button adjust-button" onClick={openAdjust}>调整今晚计划</button></>}</div>
       </div>}
 
       {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
         <div className="transition-hero"><div><span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}告一段落` : `${activeStage.title}预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p></div><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} compact /></div></div>
-        <div className="transition-result"><AppIcon name={activeStage.icon} /><span><small>{transitionReason === "completed" ? "已经记下" : "当前阶段"}</small><strong>{activeStage.title}</strong><em>{transitionReason === "completed" ? `+${activeStage.energy} 家庭能量` : canStartRest ? "完成、继续或休息都可以" : "结束、延长或调整都可以"}</em></span></div>
+        <div className="transition-result"><AppIcon name={activeStage.icon} /><span><small>{transitionReason === "completed" ? "已经记下" : "当前阶段"}</small><strong>{activeStage.title}</strong><em>{transitionReason === "completed" ? `+${activeStage.energy} 家庭能量` : canStartRest ? "完成、继续或休息都可以" : "结束、延长或调整都可以"}</em></span></div>{transitionReason === "completed" && <button className="undo-completion-button" onClick={undoStageFinished}>点错了，回到这一段</button>}
         <div className="transition-next"><span><small>接下来</small><strong>{nextPendingStage ? nextPendingStage.title : "今晚温和收尾"}</strong></span>{nextPendingStage && <time>{formatPlanClock(nextPendingStage.start, data.planStart, data.planEnd)}</time>}</div>
         <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? `进入${nextPendingStage?.title ?? "下一阶段"}` : "进入今晚收尾"}</button><div><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? (transitionReason === "completed" ? "还想继续 10 分钟" : "再继续 10 分钟") : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>调整今晚计划</button></div>
-        <div className="privacy-note">{transitionReason === "completed" ? "提前完成不是必须；按自己的节奏走，也可以停下来调整。" : "只提醒这一次，不会连续催促。"}</div>
+        <div className="privacy-note">{transitionReason === "completed" ? "不需要赶着完成；按自己的节奏走，也可以停下来调整。" : "只提醒这一次，不会连续催促。"}</div>
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">
-        <Header back={() => go("running")} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
+        <Header back={returnFromAdjust} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
         <div className="adjust-grid">{adjustmentOptions.map(({ id, icon, title, copy }) => <button key={id} aria-pressed={effectiveAdjustChoice === id} className={`${effectiveAdjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
         <div className="change-preview"><small>本次调整预览</small><strong>{effectiveAdjustChoice === "extend" ? `${activeStage.title}${canStartRest ? "延长" : "再休息"}10分钟，最晚${addMinutes(data.planEnd, 10)}收尾` : effectiveAdjustChoice === "rest" ? `从现在休息10分钟，之后只继续剩余时长，约${restPlanPreview.planEnd}前收尾` : effectiveAdjustChoice === "swap" ? "调换后两项，并重新排好时间" : effectiveAdjustChoice === "tomorrow" ? "把下一项移到明天" : "保留已完成的部分，今晚温和收尾"}</strong></div>
-        <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{effectiveAdjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={() => go("running")}>取消</button>
+        <div className="gentle-note">调整不会扣掉家庭能量，已经完成的进展会保留。</div><button className="primary-button" onClick={applyAdjustment}>{effectiveAdjustChoice === "finish" ? "确认并温和收尾" : "双方确认调整"}</button><button className="text-button" onClick={returnFromAdjust}>取消</button>
       </div>}
 
       {screen === "wrap" && <div className="screen wrap-screen">

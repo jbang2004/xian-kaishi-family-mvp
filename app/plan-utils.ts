@@ -50,6 +50,13 @@ export function remainingTimerMinutes(endsAt: number, now: number) {
   return endsAt > 0 ? Math.max(0, Math.ceil((endsAt - now) / 60_000)) : 0;
 }
 
+export function gentleRemainingLabel(seconds: number) {
+  const safe = Math.max(0, Math.ceil(seconds));
+  if (safe <= 0) return "可以看看下一步";
+  if (safe < 60) return "不到 1 分钟";
+  return `${Math.ceil(safe / 60)} 分钟左右`;
+}
+
 export function canInsertRestBreak(activeKind: string) {
   return activeKind !== "rest";
 }

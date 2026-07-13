@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -258,6 +258,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /已经停住，可以再商量一下/);
   assert.match(app, /dualStatusRef\.current\?\.focus\(\)/);
   assert.match(app, /约 2 秒后开始/);
+  assert.match(app, /const adjustReturnScreen: LiveScreen = activeStage\.status === "done" \? "transition" : "running"/);
+  assert.match(app, /pendingAfterActiveCount >= 2 \? \[\{ id: "swap" as const/);
+  assert.match(app, /pendingAfterActiveCount >= 1 \? \[\{ id: "tomorrow" as const/);
+  assert.match(app, /当前阶段 · \{activeTonightOrdinal\}\/\{tonightStageCount\}/);
   assert.match(app, /这不是身份验证/);
   assert.match(app, /className="launch-cancel-button"/);
   assert.match(app, /className="launch-status-copy"/);
@@ -266,6 +270,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@keyframes launch-fill/);
   assert.match(styles, /animation: launch-fill 2\.4s linear both/);
   assert.match(app, /activeStage\.kind === "rest" \? "休息放松"/);
+  assert.match(app, /点错了，回到这一段/);
+  assert.match(app, /这一段已经做完/);
+  assert.doesNotMatch(app, /提前完成这一阶段/);
   assert.match(app, /planStart: data\.planStart, planEnd: data\.planEnd, stages/);
   assert.match(app, /planStart: livePlanStart \|\|/);
   assert.match(app, /screen !== "dual-start"/);
@@ -439,6 +446,13 @@ test("uses the confirmation moment for whole remaining timer minutes", () => {
   assert.equal(remainingTimerMinutes(now + 17 * 60_000 + 2_000, now), 18);
   assert.equal(remainingTimerMinutes(now - 1, now), 0);
   assert.equal(remainingTimerMinutes(0, now), 0);
+});
+
+test("shows a calm approximate timer instead of a second-by-second deadline", () => {
+  assert.equal(gentleRemainingLabel(20 * 60), "20 分钟左右");
+  assert.equal(gentleRemainingLabel(61), "2 分钟左右");
+  assert.equal(gentleRemainingLabel(59), "不到 1 分钟");
+  assert.equal(gentleRemainingLabel(0), "可以看看下一步");
 });
 
 test("never nests an adaptive rest inside an active rest stage", () => {
