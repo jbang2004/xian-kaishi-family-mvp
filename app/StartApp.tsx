@@ -96,7 +96,7 @@ const FAMILY_UPDATED_AT_KEY = "xian-kaishi-family-updated-at-v1";
 const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
 const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
-const DUAL_START_DELAY_MS = 2400;
+const DUAL_START_DELAY_MS = 3200;
 const MAX_PLAN_STAGES = 20;
 const MAX_SESSION_RECORDS = 730;
 const MAX_REWARD_HISTORY = 120;
@@ -1469,15 +1469,18 @@ export function StartApp() {
   );
   const bothParticipantsReady = guardianConfirmed && childConfirmed;
   const dualStartStatus = bothParticipantsReady
-    ? { title: `即将进入“${stages[0]?.title || "第一项"}”`, detail: "约 2 秒后开始；如果还想商量一下，点“先等等”就会停住。" }
+    ? { title: `即将进入“${stages[0]?.title || "第一项"}”`, detail: "约 3 秒后开始；如果还想商量一下，点“先等等”就会停住。" }
     : dualStartPaused
-      ? { title: "已经停住，可以再商量一下", detail: "准备好了，再各点一次名字；不着急。" }
+      ? { title: "已经停住，可以再商量一下", detail: "第一步仍然可以调整；准备好了，再各点一次名字。" }
     : guardianConfirmed
-      ? { title: `轮到${data.childAlias}确认`, detail: "可以自己轻点，也可以请大人协助；这不是考试。" }
+      ? { title: `轮到${data.childAlias}确认`, detail: "如果这一步也可以，就轻点名字；卡住时随时可以调整。" }
       : childConfirmed
-        ? { title: `轮到${data.guardianAlias}确认`, detail: "大人确认手机仍由自己保管，再一起开始。" }
-        : { title: `先由${data.guardianAlias}确认`, detail: `这不是身份验证；再请${data.childAlias}轻点自己的名字，不用同时按住。` };
+        ? { title: `轮到${data.guardianAlias}确认`, detail: "大人确认手机仍由自己保管，也确认第一步可以随时调整。" }
+        : { title: `先由${data.guardianAlias}确认`, detail: `这不是指纹或身份验证；先看看第一步是否合适，再请${data.childAlias}轻点名字。` };
   const startsAtPlannedTime = plannedStartOffset === 0;
+  const dualFirstStage = stages[0] ?? FALLBACK_STAGE;
+  const dualFirstDuration = Math.max(1, durationMinutes(dualFirstStage.start, dualFirstStage.end));
+  const dualFirstEndLabel = addMinutes(startNowLabel, dualFirstDuration);
   const pendingAfterActiveCount = stages.filter((item, index) => index > activeIndex && item.status === "pending").length;
   const activeStageCompleted = activeStage.status === "done";
   const adjustmentOptions: Array<{ id: AdjustmentChoice; icon: string; title: string; copy: string }> = [
@@ -1704,7 +1707,7 @@ export function StartApp() {
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
         <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
-        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={startsAtPlannedTime ? "check" : "alarm"} /><span><small>两个名字都亮起后</small><strong>{startsAtPlannedTime ? `按计划 ${startNowLabel} 开始` : `从现在 ${startNowLabel} 开始`}</strong><p>{startsAtPlannedTime ? "刚好到约定时间，直接进入第一项。" : `每一项保留原时长和间隔，整晚时间会一起${startShiftVerb}；最晚 ${formatPlanClock(shiftedPlanEndLabel, startNowLabel, shiftedPlanEndLabel)} 收尾。`}</p></span></div>
+        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>两个名字都亮起后 · 第一小步</small><strong>{dualFirstStage.title || "从第一小步开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "先试这一小步；卡住时随时可以调整，不需要硬撑。" : `原时长和间隔都会保留，整晚一起${startShiftVerb}，最晚 ${formatPlanClock(shiftedPlanEndLabel, startNowLabel, shiftedPlanEndLabel)} 收尾；卡住仍可以调整。`}</p></span></div>
         <div className="light-bridge" data-ready={bothParticipantsReady} />
         <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
         <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button ref={launchCancelRef} type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>

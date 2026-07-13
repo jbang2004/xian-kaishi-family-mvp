@@ -722,6 +722,9 @@ button.insight-card { cursor: pointer; }
 .start-now-card small, .start-now-card strong { display: block; }
 .start-now-card small { color: var(--muted); font-size: var(--type-micro); margin-bottom: 3px; }
 .start-now-card strong { font-size: 13px; }
+.start-contract-meta { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 5px; }
+.start-contract-meta span { padding: 3px 7px; border-radius: 99px; background: rgba(255,255,255,.72); color: #6c6049; font-size: var(--type-micro); font-weight: 900; }
+.start-now-card.on-time .start-contract-meta span { color: #397259; }
 .start-now-card p { color: var(--muted); font-size: var(--type-micro); line-height: 1.45; margin: 4px 0 0; }
 .light-bridge { width: 48%; height: 2px; margin: 0 auto -20px; background: linear-gradient(90deg, var(--sage), #fff7cc, var(--amber)); opacity: .25; transition: .4s; box-shadow: 0 0 16px var(--amber); }
 .light-bridge[data-ready="true"] { opacity: 1; height: 4px; }
@@ -744,7 +747,7 @@ button.insight-card { cursor: pointer; }
 .launch-status.is-launching { border-color: rgba(245,184,75,.48); background: #fff9e8; box-shadow: 0 10px 24px rgba(229,156,30,.12); }
 .launch-cancel-button { min-width: 104px; min-height: 44px; margin-top: 9px; padding: 8px 16px; border: 1px solid rgba(190,159,103,.32); border-radius: 99px; background: rgba(255,255,255,.82); color: #6c6049; font-size: 11px; font-weight: 900; cursor: pointer; }
 .launch-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(245,184,75,.12); overflow: hidden; }
-.launch-progress i { display: block; height: 100%; width: 100%; transform-origin: left center; background: linear-gradient(90deg,var(--sage),var(--amber)); animation: launch-fill 2.4s linear both; }
+.launch-progress i { display: block; height: 100%; width: 100%; transform-origin: left center; background: linear-gradient(90deg,var(--sage),var(--amber)); animation: launch-fill 3.2s linear both; }
 @keyframes launch-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .running-hero { display: flex; justify-content: space-between; align-items: center; }
