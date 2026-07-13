@@ -886,6 +886,32 @@ export function StartApp() {
     }
   };
 
+  const showBackgroundSystemReminder = async () => {
+    const title = "这一段预计到时间了";
+    const options: NotificationOptions = {
+      body: "完成、继续或调整，都可以。打开后再看具体安排。",
+      icon: `/assets/icons/alarm.png?v=${ASSET_VERSION}`,
+      badge: `/assets/icons/alarm.png?v=${ASSET_VERSION}`,
+      tag: "xian-kaishi-stage-due",
+      renotify: false,
+      data: { url: "/" },
+    };
+    try {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.showNotification(title, options);
+          return true;
+        }
+      }
+      const reminder = new Notification(title, options);
+      reminder.onclick = () => { window.focus(); reminder.close(); };
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const playTone = (kind: "tap" | "confirm" | "transition" | "complete") => {
     if (!data.sound || typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -1192,15 +1218,9 @@ export function StartApp() {
       if (now >= activeEndsAt && !dueReminderPlayed.current) {
         dueReminderPlayed.current = true; setStageDue(true);
         const visibility = document.visibilityState;
-        let systemReminderShown = false;
         if (shouldUseBackgroundReminder(backgroundReminder, visibility, notificationPermission)) {
-          try {
-            const reminder = new Notification("这一段预计到时间了", { body: `${activeStage.title}：完成、继续或调整，都可以。`, icon: `/assets/icons/alarm.png?v=${ASSET_VERSION}`, tag: "xian-kaishi-stage-due" });
-            reminder.onclick = () => { window.focus(); reminder.close(); };
-            systemReminderShown = true;
-          } catch { /* fall back to the in-page reminder below */ }
-        }
-        if (!systemReminderShown && shouldUseForegroundCue(visibility)) { playTone("transition"); gentleVibrate([25, 35, 25]); }
+          void showBackgroundSystemReminder();
+        } else if (shouldUseForegroundCue(visibility)) { playTone("transition"); gentleVibrate([25, 35, 25]); }
       }
     };
     tick(); const timer = window.setInterval(tick, 1000);
@@ -1548,10 +1568,10 @@ export function StartApp() {
   })();
   const foregroundReminderStatus = foregroundCueStatus(data.sound, motionReduced);
   const backgroundReminderStatus = notificationPermission === "granted"
-    ? backgroundReminder ? "切到其他页面时会尝试系统提醒；锁屏或省电模式可能延迟" : "已获得系统权限，需要时可以在这里开启"
+    ? backgroundReminder ? "应用保持打开时，切到其他应用或锁屏会尝试提醒；省电模式可能延迟" : "已获得系统权限，需要时可以在这里开启"
     : notificationPermission === "denied" ? `${foregroundReminderStatus}；如需后台提醒，请在浏览器设置中重新允许`
       : notificationPermission === "unsupported" ? `当前浏览器不支持系统提醒；${foregroundReminderStatus}`
-        : "开启时只向家长请求一次浏览器通知权限";
+        : "开启时只向家长请求一次浏览器通知权限；关闭页面后不会送达";
   const motionPreferenceStatus = data.reducedMotion
     ? "应用内已固定减少动画、页面自动滑动和轻触震动"
     : systemReducedMotion
@@ -1840,7 +1860,7 @@ export function StartApp() {
 
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭称呼 <span>›</span></button></div>
-        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>轻触确认、阶段转换和收尾各有短音型</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他页面时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
+        <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>轻触确认、阶段转换和收尾各有短音型</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他应用或锁屏时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported"} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
         <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除全部家庭数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}

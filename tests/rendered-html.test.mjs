@@ -42,11 +42,12 @@ test("aligns calm decision-screen updates to minute boundaries", () => {
 });
 
 test("contains the complete 先开始 product shell", async () => {
-  const [page, layout, app, styles] = await Promise.all([
+  const [page, layout, app, styles, serviceWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StartApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
   assert.match(layout, /先开始｜家庭晚间习惯助手/);
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
@@ -373,7 +374,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /className="timeline-disclosure"/);
   assert.match(app, /今晚进度/);
   assert.match(app, /running-action-dock/);
-  assert.match(app, /切到其他页面时尝试提醒/);
+  assert.match(app, /切到其他应用或锁屏时尝试提醒/);
   assert.match(app, /xian-kaishi-background-reminder-v1/);
   assert.match(app, /关闭浏览器后不承诺提醒送达/);
   assert.match(app, /xian-kaishi-family-revision-v1/);
@@ -662,12 +663,21 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /planStart: livePlanStart \|\|/);
   assert.match(app, /screen !== "dual-start"/);
   assert.match(app, /Notification\.requestPermission/);
-  assert.match(app, /new Notification\("这一段预计到时间了"/);
+  assert.match(app, /registration\.showNotification\(title, options\)/);
+  assert.match(app, /new Notification\(title, options\)/);
+  assert.match(app, /打开后再看具体安排/);
+  assert.doesNotMatch(app, /body: `\$\{activeStage\.title\}/);
   assert.match(app, /window\.addEventListener\("focus", refreshNotificationPermission\)/);
   assert.match(app, /document\.addEventListener\("visibilitychange", refreshNotificationPermission\)/);
   assert.match(app, /setNotificationPermission\(Notification\.permission\)/);
   assert.match(app, /如需后台提醒，请在浏览器设置中重新允许/);
-  assert.match(app, /锁屏或省电模式可能延迟/);
+  assert.match(app, /切到其他应用或锁屏时尝试提醒/);
+  assert.match(serviceWorker, /notificationclick/);
+  assert.match(serviceWorker, /clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/);
+  assert.match(serviceWorker, /existing\.focus\(\)/);
+  assert.match(serviceWorker, /clients\.openWindow\(targetUrl\)/);
+  assert.match(app, /应用保持打开时，切到其他应用或锁屏会尝试提醒；省电模式可能延迟/);
+  assert.match(app, /关闭页面后不会送达/);
   assert.match(app, /const softLanding = shouldShowSoftLanding\(remainingSeconds, stageDue\)/);
   assert.match(app, /这一分钟，慢慢收一收/);
   assert.match(app, /下一步先看一眼/);
