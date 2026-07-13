@@ -28,10 +28,10 @@
 * { box-sizing: border-box; }
 html { background: #f5ead8; color: var(--navy); }
 body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 10% 10%, #fffaf1 0, transparent 30%), linear-gradient(135deg, #f9eedf, #edf3e9); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 input { scroll-margin-block: 120px; }
 button { color: inherit; }
-button:focus-visible, input:focus-visible { outline: 3px solid rgba(35, 50, 74, .25); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid rgba(35, 50, 74, .25); outline-offset: 3px; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 .site-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 64px; padding: 34px; position: relative; overflow: hidden; }

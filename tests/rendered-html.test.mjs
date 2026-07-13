@@ -23,7 +23,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
   assert.match(layout, /appleWebApp: \{ capable: true/);
   assert.match(layout, /themeColor: "#fff8ec"/);
+  assert.match(layout, /把每晚合作和共同期待留在家庭日历里/);
+  assert.doesNotMatch(layout, /兑换/);
   assert.match(page, /<StartApp \/>/);
+  assert.match(page, /把每晚合作和共同期待留在家庭日历里/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
   assert.match(app, /name="child-alias" aria-label="孩子化名"/);
@@ -70,6 +73,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /今晚草稿 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
   assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
   assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? DEFAULT_STAGES\[0\]/);
+  assert.match(app, /const addNodeButtonRef = useRef<HTMLButtonElement>\(null\)/);
+  assert.match(app, /focusPlanTarget\(nextStageId\)/);
+  assert.match(app, /setToast\("今晚已从空白开始"\); focusPlanTarget\(\)/);
+  assert.match(app, /ref=\{addNodeButtonRef\} className="add-node-button"/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.match(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);
@@ -228,6 +235,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.stage-editor\.is-expanded/);
   assert.match(styles, /\.screen h1\[tabindex="-1"\]:focus \{ outline: none; \}/);
   assert.match(styles, /@media \(pointer: coarse\)/);
+  assert.match(styles, /summary:focus-visible/);
   assert.match(styles, /\.phone-shell button \{ min-height: 44px; \}/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /transition-duration: \.001ms !important/);

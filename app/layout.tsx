@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "先开始｜家庭晚间习惯助手";
-  const description = "共同安排时间、选择事项能量，每晚完成和家庭期待兑换都记录在日历里。";
+  const description = "亲子共同安排时间、选择家庭能量，把每晚合作和共同期待留在家庭日历里。";
   const appIcon = versionedAsset("/assets/icons/home-heart.png");
   return {
     title,
