@@ -98,6 +98,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.time-range input \{[^}]*font-size: 16px/);
   assert.match(styles, /\.window-inputs input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
   assert.match(styles, /\.reward-compact-input input \{[^}]*min-height: 44px[^}]*font-size: 16px/);
+  assert.match(styles, /\.energy-screen \.room-scene \{[^}]*height: clamp\(156px, 28\.5vh, 194px\)/);
+  assert.match(styles, /\.energy-screen \.goal-card,[\s\S]*?\.energy-screen \.empty-goal-card \{[^}]*grid-template-columns: 50px minmax\(0,1fr\)/);
   assert.match(styles, /--type-micro: 11px/);
   assert.match(styles, /--type-caption: 12px/);
   assert.doesNotMatch(styles, /font-size:\s*10px/);
