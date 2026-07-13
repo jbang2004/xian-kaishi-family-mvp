@@ -1322,6 +1322,14 @@ button.insight-card { cursor: pointer; }
   .review-screen .calendar-meta { min-height: 24px; margin: -2px 0 4px; }
   .review-screen .calendar-card { padding: 6px 7px; }
   .review-screen .weekdays b { padding: 2px 0 3px; }
+  .running-screen { padding-top: 18px; }
+  .running-screen .app-header { margin-bottom: 0; }
+  .running-screen .running-hero .mascot { width: 64px; height: 64px; margin: -18px 0 -6px; }
+  .running-screen .active-stage-card:not(.is-due) { min-height: 0; grid-template-columns: 68px minmax(0,1fr); align-items: center; gap: 10px; padding: 14px; border-radius: 22px; }
+  .running-screen .active-stage-card:not(.is-due) > .app-icon { width: 64px; height: 64px; }
+  .running-screen .active-stage-card:not(.is-due) h1 { display: -webkit-box; overflow: hidden; margin: 4px 0; font-size: 22px; line-height: 1.14; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  .running-screen .active-stage-card:not(.is-due) .active-energy { margin: 4px 0 0 4px; }
+  .running-screen .active-stage-card:not(.is-due) .stage-timer { padding-top: 8px; }
   .confirm-action-dock {
     position: sticky;
     bottom: 0;

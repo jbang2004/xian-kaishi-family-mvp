@@ -694,6 +694,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.review-insight p \{ display: none; \}/);
   assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.month-nav h1 \{ font-size: 26px; \}/);
   assert.match(styles, /max-height: 700px[\s\S]*?\.review-screen \.calendar-card \{ padding: 6px 7px; \}/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.running-screen \.active-stage-card:not\(\.is-due\) \{[^}]*grid-template-columns: 68px minmax\(0,1fr\)/);
+  assert.match(styles, /\.running-screen \.active-stage-card:not\(\.is-due\) h1 \{[^}]*font-size: 22px;[^}]*-webkit-line-clamp: 3;/);
+  assert.match(styles, /\.running-screen \.active-stage-card:not\(\.is-due\) \.stage-timer \{ padding-top: 8px; \}/);
   assert.match(app, /className=\{`adjust-decision-dock \$\{effectiveAdjustChoice \? "is-ready" : "is-waiting"\}`\}/);
   assert.match(app, /aria-label="调整预览与确认"/);
   assert.match(app, /role="status" aria-live="polite" aria-atomic="true"/);
