@@ -30,6 +30,11 @@ export function scheduledEndTime<T extends TimedPlanItem & { status?: string }>(
   return [...items].reverse().find(item => item.status !== "tomorrow")?.end || fallback;
 }
 
+export function titleAfterIconChoice(currentTitle: string, icon: string, label: string) {
+  if (currentTitle.trim() || icon === "custom") return currentTitle;
+  return label;
+}
+
 export function countCompletedTasks<T extends { status: string; kind?: string }>(items: T[]) {
   return items.filter(item => item.status === "done" && item.kind !== "rest").length;
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -39,6 +39,13 @@ test("aligns calm decision-screen updates to minute boundaries", () => {
   assert.equal(millisecondsUntilNextMinute(59_999), 1);
   assert.equal(millisecondsUntilNextMinute(60_000), 60_000);
   assert.equal(millisecondsUntilNextMinute(Number.NaN), 60_000);
+});
+
+test("uses an icon label only to help name an empty stage", () => {
+  assert.equal(titleAfterIconChoice("", "book", "阅读"), "阅读");
+  assert.equal(titleAfterIconChoice("  ", "backpack", "整理书包"), "整理书包");
+  assert.equal(titleAfterIconChoice("自主阅读", "book", "阅读"), "自主阅读");
+  assert.equal(titleAfterIconChoice("", "custom", "自定义"), "");
 });
 
 test("contains the complete 先开始 product shell", async () => {
@@ -138,6 +145,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.confirm-action-dock \{[\s\S]*?grid-template-columns: minmax\(0,1fr\) 106px/);
   assert.match(layout, /images: \[\{ url: `\$\{origin\}\/og\.jpg`/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
+  assert.match(app, /当前图标 \+ \$\{commonIconLibrary\.length\} 个家庭高频图标/);
   assert.match(app, /const COMMON_ICON_NAMES = new Set<string>/);
   assert.match(app, /showAllIcons \? ICON_LIBRARY/);
   assert.match(app, /显示全部 \$\{ICON_LIBRARY\.length\} 个图标/);

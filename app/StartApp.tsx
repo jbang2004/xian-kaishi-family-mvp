@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "./plan-utils";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "./plan-utils";
 import { foregroundCueStatus, ReminderPermission, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -1505,6 +1505,7 @@ export function StartApp() {
   const restDurationChoices = Array.from(new Set([5, 10, 15, editingStageDuration].filter(minutes => minutes > 0))).sort((a, b) => a - b);
   const commonIconLibrary = ICON_LIBRARY.filter(([icon]) => COMMON_ICON_NAMES.has(icon));
   const selectedIconEntry = ICON_LIBRARY.find(([icon]) => icon === editingStage?.icon);
+  const selectedIconOutsideCommon = Boolean(selectedIconEntry && !COMMON_ICON_NAMES.has(selectedIconEntry[0]));
   const visibleIconLibrary = showAllIcons ? ICON_LIBRARY : selectedIconEntry && !COMMON_ICON_NAMES.has(selectedIconEntry[0]) ? [selectedIconEntry, ...commonIconLibrary] : commonIconLibrary;
   const startNowLabel = clockTimeFromDate(new Date(clockNow));
   const plannedStartLabel = stages[0]?.start ?? data.planStart;
@@ -1738,8 +1739,8 @@ export function StartApp() {
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
-        <Header back={() => back("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
-        <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon }); setShowAllIcons(false); back("plan"); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
+        <Header back={() => back("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : selectedIconOutsideCommon ? `当前图标 + ${commonIconLibrary.length} 个家庭高频图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
+        <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; const fillsEmptyTitle = !editingStage?.title.trim() && icon !== "custom"; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon, title: titleAfterIconChoice(editingStage?.title ?? "", icon, label) }); setShowAllIcons(false); back("plan"); if (fillsEmptyTitle) setToast(`已用“${label}”补上名称，仍可修改`); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
         <button className="icon-library-toggle" aria-expanded={showAllIcons} onClick={() => setShowAllIcons(value => !value)}>{showAllIcons ? "收起到常用图标" : `显示全部 ${ICON_LIBRARY.length} 个图标`}</button>
       </div>}
 
