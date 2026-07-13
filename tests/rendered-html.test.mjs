@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -104,6 +104,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /findPlanInsertionSlot\(data\.planStart, data\.planEnd, stages\)/);
   assert.match(app, /moveTimedItemPreservingGaps\(stages, index, target, data\.planStart\)/);
   assert.match(app, /已调换顺序，原来的时间空档保持不变/);
+  assert.match(app, /swapTimedItemsPreservingGaps\(stages, pending\[0\]\.index, pending\[1\]\.index, data\.planStart\)/);
+  assert.match(app, /后两项已调换，原来的休息空档还在/);
   assert.match(app, /今晚已经排满，先留出至少5分钟再增加/);
   assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
   assert.doesNotMatch(app, /className="draft-summary"/);
@@ -538,6 +540,22 @@ test("preserves a cross-midnight gap when swapping tasks", () => {
     { title: "阅读", start: "18:30", end: "19:00" },
     { title: "整理", start: "18:50", end: "19:10" },
   ], 0, 1, "18:00").moved, false);
+});
+
+test("swaps non-adjacent pending positions without moving the intervening status", () => {
+  const result = swapTimedItemsPreservingGaps([
+    { title: "当前", start: "18:00", end: "18:20", status: "active" },
+    { title: "阅读", start: "18:30", end: "18:50", status: "pending" },
+    { title: "明天再做", start: "19:00", end: "19:10", status: "tomorrow" },
+    { title: "整理", start: "19:20", end: "19:50", status: "pending" },
+  ], 1, 3, "18:00");
+  assert.equal(result.moved, true);
+  assert.deepEqual(result.items.map(item => [item.title, item.start, item.end, item.status]), [
+    ["当前", "18:00", "18:20", "active"],
+    ["整理", "18:30", "19:00", "pending"],
+    ["明天再做", "19:10", "19:20", "tomorrow"],
+    ["阅读", "19:30", "19:50", "pending"],
+  ]);
 });
 
 test("inserts a live rest break from now and resumes only the unfinished time", () => {

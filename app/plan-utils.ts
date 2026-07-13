@@ -147,11 +147,8 @@ export function findPlanInsertionSlot<T extends TimedPlanItem>(planStart: string
   };
 }
 
-export function moveTimedItemPreservingGaps<T extends TimedPlanItem>(items: T[], fromIndex: number, toIndex: number, planStart: string) {
-  if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex || timeToMinutes(planStart) < 0) {
-    return { items, moved: false };
-  }
-
+function retimeReorderedItems<T extends TimedPlanItem>(items: T[], reordered: T[], planStart: string) {
+  if (timeToMinutes(planStart) < 0) return { items, moved: false };
   const planStartMinutes = timeToMinutes(planStart);
   const timing = items.map(item => {
     const minutes = durationMinutes(item.start, item.end);
@@ -164,10 +161,6 @@ export function moveTimedItemPreservingGaps<T extends TimedPlanItem>(items: T[],
 
   const leadingGap = timing[0]?.startOffset ?? 0;
   const positionGaps = timing.slice(0, -1).map((item, index) => Math.max(0, timing[index + 1].startOffset - item.endOffset));
-  const reordered = [...items];
-  const [movedItem] = reordered.splice(fromIndex, 1);
-  reordered.splice(toIndex, 0, movedItem);
-
   let cursor = addMinutes(planStart, leadingGap);
   const nextItems = reordered.map((item, index) => {
     const minutes = durationMinutes(item.start, item.end);
@@ -177,6 +170,21 @@ export function moveTimedItemPreservingGaps<T extends TimedPlanItem>(items: T[],
     return { ...item, start, end };
   });
   return { items: nextItems, moved: true };
+}
+
+export function moveTimedItemPreservingGaps<T extends TimedPlanItem>(items: T[], fromIndex: number, toIndex: number, planStart: string) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex) return { items, moved: false };
+  const reordered = [...items];
+  const [movedItem] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, movedItem);
+  return retimeReorderedItems(items, reordered, planStart);
+}
+
+export function swapTimedItemsPreservingGaps<T extends TimedPlanItem>(items: T[], firstIndex: number, secondIndex: number, planStart: string) {
+  if (firstIndex < 0 || secondIndex < 0 || firstIndex >= items.length || secondIndex >= items.length || firstIndex === secondIndex) return { items, moved: false };
+  const reordered = [...items];
+  [reordered[firstIndex], reordered[secondIndex]] = [reordered[secondIndex], reordered[firstIndex]];
+  return retimeReorderedItems(items, reordered, planStart);
 }
 
 export function rebaseFollowUpPlan<T extends TimedPlanItem>(planStart: string, planEnd: string, items: T[], nowTime: string) {
