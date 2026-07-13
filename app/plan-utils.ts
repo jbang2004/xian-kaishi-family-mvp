@@ -42,6 +42,14 @@ export function clockDeltaMinutes(from: string, to: string) {
   return delta;
 }
 
+export function clockMinutesUntil(now: string, target: string) {
+  const nowMinutes = timeToMinutes(now);
+  const targetMinutes = timeToMinutes(target);
+  if (nowMinutes < 0 || targetMinutes < 0) return 0;
+  const directDelta = targetMinutes - nowMinutes;
+  return directDelta < -720 ? directDelta + 1440 : directDelta;
+}
+
 export function clockTimeFromDate(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

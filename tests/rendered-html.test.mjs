@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -92,7 +92,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /xian-kaishi-plan-draft-v1/);
   assert.match(app, /xian-kaishi-live-session-v1/);
   assert.match(app, /休息也算照顾计划的一部分/);
-  assert.match(app, /今晚草稿 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
+  assert.match(app, /今晚时间表 · \$\{draftUpdatedAt \? "已自动保存" : "仅保存在这台设备"\}/);
+  assert.match(app, /item\.title \?\? ""/);
   assert.match(app, /const \[editingStageId, setEditingStageId\] = useState\(""\)/);
   assert.match(app, /const activeStage = stages\[activeIndex\] \?\? stages\[0\] \?\? FALLBACK_STAGE/);
   assert.match(app, /const addNodeButtonRef = useRef<HTMLButtonElement>\(null\)/);
@@ -100,6 +101,18 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setToast\("今晚已从空白开始"\); focusPlanTarget\(\)/);
   assert.match(app, /ref=\{addNodeButtonRef\} className="add-node-button"/);
   assert.match(app, /const MAX_PLAN_STAGES = 20/);
+  assert.match(app, /title: "", icon: "custom", start: slot\.start/);
+  assert.match(app, /placeholder="例如：阅读、吃饭或休息"/);
+  assert.match(app, /先写下这件事，再继续安排/);
+  assert.match(app, /const planNeedsTitle = planItemErrors\.some/);
+  assert.match(app, /planNeedsTime \? "has-error" : "needs-input"/);
+  assert.match(app, /draftReady \? openConfirmPlan\(\) : startAnotherPlan\(\)/);
+  assert.match(app, /保存时间表，稍后开始/);
+  assert.match(app, /现在就开始，时间整体顺延/);
+  assert.match(app, /时间表会留在首页/);
+  assert.match(styles, /\.plan-balance\.needs-input/);
+  assert.match(styles, /\.stage-editor\.needs-title/);
+  assert.match(styles, /\.confirm-secondary-action/);
   assert.match(app, /stages\.length >= MAX_PLAN_STAGES/);
   assert.match(app, /今晚最多保留\$\{MAX_PLAN_STAGES\}个节点/);
   assert.match(app, /id="plan-node-guidance"/);
@@ -769,6 +782,13 @@ test("suggests a first planning window that still makes sense when the family ar
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 23, 57)), { planStart: "00:00", planEnd: "01:30" });
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 4, 58)), { planStart: "05:00", planEnd: "06:30" });
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 5, 0)), { planStart: "18:00", planEnd: "20:30" });
+});
+
+test("distinguishes a future planned start from a start time that has already passed", () => {
+  assert.equal(clockMinutesUntil("15:10", "18:00"), 170);
+  assert.equal(clockMinutesUntil("05:00", "18:00"), 780);
+  assert.equal(clockMinutesUntil("18:10", "18:00"), -10);
+  assert.equal(clockMinutesUntil("23:57", "00:00"), 3);
 });
 
 test("never nests an adaptive rest inside an active rest stage", () => {
