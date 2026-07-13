@@ -466,7 +466,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /halo-breathe 3s ease-in-out var\(--ambient-cycles\)/);
   assert.match(styles, /mascot-nod 2\.8s ease-in-out 2/);
   assert.match(styles, /mascot-listen 3\.4s ease-in-out 2/);
-  assert.match(styles, /mascot-breathe 3\.6s ease-in-out infinite/);
+  assert.match(styles, /--attention-cycles: 3/);
+  assert.match(styles, /mascot-breathe 3\.6s ease-in-out var\(--ambient-cycles\)/);
+  assert.match(styles, /live-soft-pulse 2\.8s ease-in-out var\(--attention-cycles\)/);
+  assert.match(styles, /due-gentle 1\.8s ease-in-out var\(--attention-cycles\)/);
+  assert.deepEqual(styles.match(/animation:[^;{}]+infinite/g), ["animation: loading-leaf 1.35s ease-in-out infinite"]);
   assert.match(styles, /room-drift 10s ease-in-out var\(--ambient-cycles\) alternate/);
   assert.match(styles, /room-light 5\.5s ease-in-out var\(--ambient-cycles\)/);
   assert.doesNotMatch(styles, /breathing-ring|ring-breathe/);
