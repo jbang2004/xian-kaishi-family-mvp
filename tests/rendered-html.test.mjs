@@ -350,7 +350,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const startRestNow/);
   assert.match(app, /到时间只是提醒，不代表必须完成/);
   assert.match(app, /role="group" aria-label="到点后的选择"/);
-  assert.match(app, /之后只继续剩余时间/);
+  assert.match(app, /休息后再试 10 分钟/);
   assert.match(styles, /\.due-action-grid \{[^}]*grid-template-columns: 1fr 1fr/);
   assert.match(styles, /\.due-choice-button \{[^}]*min-height: 66px/);
   assert.match(app, /再继续 10 分钟/);
@@ -367,11 +367,14 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /已进入“\{stageAdvanceUndo\.nextTitle\}”/);
   assert.match(styles, /\.live-undo-toast \{ bottom: calc\(210px/);
   assert.match(styles, /max-height: 700px[\s\S]*?\.live-undo-toast \{ bottom: calc\(76px/);
-  assert.match(app, /现在休息10分钟，事项预计\$\{scheduledEndTime\(result\.items, result\.planEnd\)\}结束/);
+  assert.match(app, /const resumedCopy = result\.resumedMinutes \? `，之后再试\$\{result\.resumedMinutes\}分钟` : ""/);
+  assert.match(app, /先休息10分钟\$\{resumedCopy\}；事项预计\$\{scheduledEndTime\(result\.items, result\.planEnd\)\}结束/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
   assert.match(app, /事项预计\$\{nextScheduledEnd\}结束/);
   assert.match(app, /今晚进度 · 事项预计 \{formatPlanClock\(liveScheduledEnd, data\.planStart, data\.planEnd\)\} 结束/);
   assert.match(app, /之后只继续剩余时长/);
+  assert.match(app, /休息后继续 · \$\{nextPendingDuration\}分钟/);
+  assert.match(app, /stageDue \? `从现在休息10分钟，之后再试\$\{restPlanPreview\.resumedMinutes\}分钟/);
   assert.match(app, /跨到次日 · 结束时间按第二天计算/);
   assert.match(app, /const planCrossesMidnight = spansMidnight/);
   assert.match(app, /onChange=\{e => updatePlanStart\(e\.target\.value\)\}/);
@@ -690,6 +693,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.adjust-decision-dock\.is-ready \.change-preview/);
   assert.match(styles, /\.adjust-screen \{ padding-bottom: calc\(176px \+ env\(safe-area-inset-bottom\)\); animation-fill-mode: none; \}/);
   assert.match(styles, /\.adjust-decision-dock \{ position: fixed;[^}]*bottom: 0;[^}]*width: min\(560px, calc\(100% - 36px\)\)/);
+  assert.match(styles, /\.adjust-decision-dock\.is-waiting \.change-preview \{ min-height: 44px; padding: 6px 9px; \}/);
+  assert.match(styles, /\.adjust-decision-dock\.is-waiting \.change-preview small,[\s\S]*?\.adjust-decision-dock\.is-waiting \.adjust-safety-note \{ display: none; \}/);
   assert.match(app, /if \(screenRef\.current === "dual-start" && next !== "dual-start"\)/);
   assert.match(app, /已经停住，可以再商量一下/);
   assert.match(app, /const guardianConfirmRef = useRef<HTMLButtonElement>\(null\)/);

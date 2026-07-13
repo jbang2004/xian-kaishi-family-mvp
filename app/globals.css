@@ -1508,6 +1508,9 @@ button.insight-card { cursor: pointer; }
   .adjust-decision-dock .change-preview { min-height: 56px; padding: 9px 11px; border-radius: 16px; gap: 3px; }
   .adjust-decision-dock .change-preview small { font-size: var(--type-micro); }
   .adjust-decision-dock .change-preview strong { font-size: var(--type-caption); line-height: 1.38; }
+  .adjust-decision-dock.is-waiting .change-preview { min-height: 44px; padding: 6px 9px; }
+  .adjust-decision-dock.is-waiting .change-preview small,
+  .adjust-decision-dock.is-waiting .adjust-safety-note { display: none; }
   .adjust-safety-note { margin: 5px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .adjust-dock-actions { grid-template-columns: minmax(0,1fr) 82px; }
   .adjust-dock-actions .primary-button, .adjust-cancel-button { min-height: 48px; border-radius: 16px; }
