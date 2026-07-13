@@ -26,19 +26,19 @@
 }
 
 * { box-sizing: border-box; }
-html { background: #f5ead8; color: var(--navy); }
-body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 10% 10%, #fffaf1 0, transparent 30%), linear-gradient(135deg, #f9eedf, #edf3e9); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+html { min-height: 100%; background: #f5ead8; color: var(--navy); }
+body { margin: 0; min-height: 100vh; min-height: 100svh; min-height: 100dvh; overflow: hidden; background: radial-gradient(circle at 10% 10%, #fffaf1 0, transparent 30%), linear-gradient(135deg, #f9eedf, #edf3e9); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
 button, input, select, textarea { font: inherit; }
 input { scroll-margin-block: 120px; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid rgba(35, 50, 74, .25); outline-offset: 3px; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-.site-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 64px; padding: 34px; position: relative; overflow: hidden; }
+.site-shell { min-height: 100vh; min-height: 100svh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; gap: 64px; padding: 34px; position: relative; overflow: hidden; }
 .ambient { position: fixed; border-radius: 999px; filter: blur(4px); pointer-events: none; opacity: .55; }
 .ambient-one { width: 360px; height: 360px; background: #ffda82; top: -150px; right: -100px; }
 .ambient-two { width: 290px; height: 290px; background: #afcfbd; bottom: -130px; left: -90px; }
-.phone-shell { width: min(430px, 100%); height: min(860px, calc(100vh - 68px)); min-height: min(690px, calc(100vh - 68px)); background: var(--cream); border: 1px solid rgba(255,255,255,.8); border-radius: 40px; overflow-y: auto; position: relative; z-index: 2; box-shadow: 0 34px 90px rgba(62, 48, 28, .22), inset 0 0 0 6px rgba(255,255,255,.42); scrollbar-width: none; }
+.phone-shell { width: min(430px, 100%); height: min(860px, calc(100vh - 68px)); min-height: min(690px, calc(100vh - 68px)); background: var(--cream); border: 1px solid rgba(255,255,255,.8); border-radius: 40px; overflow-y: auto; overscroll-behavior-y: contain; scroll-padding-block: 24px 128px; -webkit-overflow-scrolling: touch; position: relative; z-index: 2; box-shadow: 0 34px 90px rgba(62, 48, 28, .22), inset 0 0 0 6px rgba(255,255,255,.42); scrollbar-width: none; }
 .phone-shell::-webkit-scrollbar { display: none; }
 .offline-ribbon { position: absolute; z-index: 45; top: 14px; left: 18px; right: 18px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 7px 12px; border: 1px solid rgba(166,109,13,.28); border-radius: 16px; background: rgba(255,249,230,.96); box-shadow: 0 9px 24px rgba(100,76,38,.12); backdrop-filter: blur(14px); }
 .offline-ribbon > i { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--amber-deep); box-shadow: 0 0 0 5px rgba(245,184,75,.16); }
@@ -1087,13 +1087,22 @@ button.insight-card { cursor: pointer; }
 
 @media (max-width: 900px) {
   .site-shell { padding: 0; display: block; }
-  .phone-shell { width: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
-  .offline-ribbon { top: max(12px, env(safe-area-inset-top)); }
+  .phone-shell { width: 100%; height: 100vh; height: 100svh; height: 100dvh; min-height: 100vh; min-height: 100svh; min-height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .offline-ribbon { top: max(12px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); }
   .phone-shell.is-offline .screen { padding-top: calc(max(26px, env(safe-area-inset-top)) + 50px); }
-  .screen { padding-top: max(26px, env(safe-area-inset-top)); padding-bottom: max(36px, env(safe-area-inset-bottom)); }
+  .screen { padding-top: max(26px, env(safe-area-inset-top)); padding-right: max(24px, env(safe-area-inset-right)); padding-bottom: max(36px, env(safe-area-inset-bottom)); padding-left: max(24px, env(safe-area-inset-left)); }
   .screen.with-nav { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
-  .bottom-nav { position: fixed; left: 18px; right: 18px; bottom: max(14px, env(safe-area-inset-bottom)); }
+  .bottom-nav { position: fixed; left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); }
+  .toast, .undo-toast { left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); width: auto; }
   .desktop-note, .ambient { display: none; }
+}
+
+@media (max-width: 900px) and (orientation: landscape) and (min-width: 600px) {
+  .screen { width: min(600px, 100%); margin-inline: auto; }
+  .offline-ribbon,
+  .bottom-nav,
+  .toast,
+  .undo-toast { left: 50%; right: auto; width: min(560px, calc(100% - 36px)); transform: translateX(-50%); }
 }
 
 @media (hover: hover) {
@@ -1113,7 +1122,7 @@ button.insight-card { cursor: pointer; }
 }
 
 @media (max-width: 380px) {
-  .screen { padding-left: 18px; padding-right: 18px; }
+  .screen { padding-left: max(18px, env(safe-area-inset-left)); padding-right: max(18px, env(safe-area-inset-right)); }
   .home-hero { grid-template-columns: minmax(0,1fr) 86px; }
   .home-hero h1 { font-size: 28px; }
   .home-hero .mascot { width: 86px; height: 86px; }
@@ -1138,7 +1147,7 @@ button.insight-card { cursor: pointer; }
   .choice-card { padding: 10px; }
   .first-step-card { min-height: 200px; }
   .metric-grid strong { font-size: 15px; }
-  .bottom-nav { left: 10px; right: 10px; }
+  .bottom-nav { left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); }
 }
 
 /* Keep the two live-session choices visible together on shorter phones,

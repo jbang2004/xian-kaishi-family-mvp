@@ -53,6 +53,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /--type-caption: 12px/);
   assert.doesNotMatch(styles, /font-size:\s*10px/);
   assert.doesNotMatch(styles, /font-size:\s*[789]px/);
+  assert.match(styles, /body \{[^}]*min-height: 100svh;[^}]*min-height: 100dvh;[^}]*overflow: hidden/);
+  assert.match(styles, /\.site-shell \{[^}]*min-height: 100svh;[^}]*min-height: 100dvh/);
+  assert.match(styles, /\.phone-shell \{[^}]*overflow-y: auto;[^}]*overscroll-behavior-y: contain;[^}]*scroll-padding-block: 24px 128px/);
+  assert.match(styles, /@media \(max-width: 900px\) \{[\s\S]*?\.phone-shell \{[^}]*height: 100svh;[^}]*height: 100dvh;[^}]*min-height: 100svh;[^}]*min-height: 100dvh/);
+  assert.match(styles, /\.screen \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-left\)/);
+  assert.match(styles, /\.bottom-nav \{ position: fixed; left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\)/);
+  assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
+  assert.match(styles, /\.offline-ribbon,[\s\S]*?\.undo-toast \{ left: 50%; right: auto; width: min\(560px, calc\(100% - 36px\)\); transform: translateX\(-50%\); \}/);
   assert.equal(ASSET_VERSION, "2026-07-13-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
