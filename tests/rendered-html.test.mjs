@@ -289,7 +289,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const motionReduced = data\.reducedMotion \|\| systemReducedMotion/);
   assert.match(app, /behavior: motionReduced \? "auto" : "smooth"/);
   assert.match(app, /site-shell \$\{motionReduced \? "reduce-motion"/);
-  assert.match(app, /已跟随系统减少动画、页面滑动和轻触震动/);
+  assert.match(app, /已跟随系统减少动画、页面自动滑动和轻触震动/);
   assert.match(app, /aria-describedby="motion-preference-status"/);
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
   assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
