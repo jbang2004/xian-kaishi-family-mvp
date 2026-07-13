@@ -124,6 +124,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.screen \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-left\)/);
   assert.match(styles, /\.bottom-nav \{ position: fixed; left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\)/);
   assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
+  assert.match(styles, /\.toast \{[^}]*font-size: 13px[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /@media \(max-width: 380px\) and \(max-height: 640px\) \{[\s\S]*?\.toast \{[^}]*bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)[^}]*font-size: 12px/);
   assert.match(styles, /\.undo-toast span \{[^}]*white-space: normal;[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
   assert.match(app, /screen !== "confirm" && screen !== "dual-start" && screen !== "adjust"/);
@@ -162,7 +164,19 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /删除全部家庭数据/);
   assert.doesNotMatch(app, /删除孩子全部数据/);
   assert.match(app, /旧家庭的云端副本等待清理/);
-  assert.match(app, /只保留随机家庭 ID 作为删除凭证/);
+  assert.match(app, /只保留随机家庭令牌作为删除凭证/);
+  assert.match(app, /高熵随机家庭令牌关联/);
+  assert.match(app, /令牌只经同源请求发送，不放进网址/);
+  assert.doesNotMatch(app, /随机家庭 ID/);
+  assert.match(app, /backLabel=\{privacyReturn === "welcome" \? "返回监护人授权页" : "返回设置页"\}/);
+  assert.match(app, /backLabel=\{profileReturn === "settings" \? "返回设置页" : "返回监护人授权页"\}/);
+  assert.match(app, /backLabel = "返回上一页"/);
+  assert.match(app, /<Header back=\{\(\) => back\("home"\)\} title="一起安排今晚"/);
+  assert.match(app, /<Header back=\{\(\) => back\("plan"\)\} title="共同确认"/);
+  assert.match(app, /backLabel="返回共同确认" title="一起点亮"/);
+  assert.match(app, /backLabel="返回今晚进行中" title="调整今晚"/);
+  assert.match(app, /backLabel="返回家庭能量房间" title="家庭期待"/);
+  assert.match(app, /backLabel="返回设置页"/);
   assert.match(app, /先暂停流程，陪孩子稳定下来/);
   assert.match(app, /只记发生时间、场景、持续多久和已经尝试过什么/);
   assert.match(app, /儿童保健科、发育行为儿科、儿科或精神心理相关门诊/);
@@ -582,7 +596,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(app, /track\(fetch\(/);
   assert.match(app, /deleteInProgressRef\.current\) return/);
   assert.match(app, /联网后继续清理云端副本/);
-  assert.match(app, /只暂存随机家庭 ID；联网后自动重试/);
+  assert.match(app, /只暂存随机家庭令牌；联网后自动重试/);
   assert.match(styles, /\.phone-shell\.is-offline \.screen \{ padding-top:/);
   assert.match(app, /共同商量能量/);
   assert.match(app, /先写名称/);

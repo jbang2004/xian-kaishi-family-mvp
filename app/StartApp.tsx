@@ -275,9 +275,9 @@ function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "confirm
   </div>;
 }
 
-function Header({ title, back, step }: { title?: string; back?: () => void; step?: string }) {
+function Header({ title, back, backLabel = "返回上一页", step }: { title?: string; back?: () => void; backLabel?: string; step?: string }) {
   return <header className="app-header">
-    {back ? <button className="icon-button" onClick={back} aria-label="返回">‹</button> : <span className="header-spacer" />}
+    {back ? <button className="icon-button" onClick={back} aria-label={backLabel}>‹</button> : <span className="header-spacer" />}
     <strong data-screen-heading={title ? "true" : undefined} tabIndex={title ? -1 : undefined}>{title}</strong>
     {step ? <span className="step-pill">{step}</span> : <span className="header-spacer" />}
   </header>;
@@ -1706,7 +1706,7 @@ export function StartApp() {
     go("plan");
   };
   const savePlanForLater = () => {
-    setToast(`时间表已保存，${formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)}再回来一起点亮`);
+    setToast(`已保存，${formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)}再回来一起点亮`);
     go("home");
   };
   const toggleWeeklyFocus = () => {
@@ -1724,7 +1724,7 @@ export function StartApp() {
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="welcome-brand"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><span>家庭晚间习惯助手</span></div>
         {deletionNotice === "complete" && <div className="pending-delete-note deletion-complete-note" role="status"><AppIcon name="check" /><span><strong>家庭数据已全部删除</strong><small>本机和云端记录都已清理；重新开始时不会带入旧家庭的信息。</small></span></div>}
-        {(pendingCloudDeletion || deletionNotice === "pending") && <div className="pending-delete-note welcome-pending-delete" role="status"><AppIcon name="alarm" /><span><strong>旧家庭的云端副本等待清理</strong><small>本机数据已经删除；恢复联网后会自动重试，只保留随机家庭 ID 作为删除凭证。</small></span></div>}
+        {(pendingCloudDeletion || deletionNotice === "pending") && <div className="pending-delete-note welcome-pending-delete" role="status"><AppIcon name="alarm" /><span><strong>旧家庭的云端副本等待清理</strong><small>本机数据已经删除；恢复联网后会自动重试，只保留随机家庭令牌作为删除凭证。</small></span></div>}
         <div className="welcome-hero"><div><span className="eyebrow">孩子只短暂看屏幕 · 大人掌控手机</span><h1>今晚少催一次，<br />先一起商量</h1><p className="lead">不讲题、不监控、不比较。只帮你们把“开始—完成—收尾”变得更容易。</p></div><Mascot mood="ready" compact /></div>
         <div className="welcome-flow" aria-label="三步使用方式"><div><b>1</b><span><strong>排今晚</strong><small>商量任务与休息</small></span></div><div><b>2</b><span><strong>一起点亮</strong><small>两人确认再开始</small></span></div><div><b>3</b><span><strong>柔和提醒</strong><small>每阶段只提醒一次</small></span></div></div>
         <div className="privacy-card welcome-boundary"><div><span className="big-icon"><AppIcon name="privacy" /></span><span><strong>孩子不会被监控或公开比较</strong><small>仅使用家庭化名；不收集学校、年级、位置、录音或社交平台数据。</small></span></div><button type="button" onClick={() => openPrivacy("welcome")}>查看数据保存与删除说明 <span>›</span></button></div>
@@ -1732,22 +1732,22 @@ export function StartApp() {
       </div>}
 
       {appReady && screen === "privacy" && <div className="screen privacy-screen">
-        <Header back={() => back(privacyReturn)} title="隐私与数据说明" />
+        <Header back={() => back(privacyReturn)} backLabel={privacyReturn === "welcome" ? "返回监护人授权页" : "返回设置页"} title="隐私与数据说明" />
         <div className="title-with-mascot"><div><span className="eyebrow">监护人先看清楚，再决定是否使用</span><h1>哪些数据保存在哪里？</h1></div><Mascot mood="support" compact /></div>
         <p className="lead">我们只保留完成核心流程需要的信息，不收集孩子真实姓名、年级、学校、精确位置、通讯录、人脸、声音或持续行为监控数据。</p>
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；凌晨可以接着昨晚，最迟到次日清晨5点自动失效。</p></section></div>
           <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
-          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过随机家庭 ID 关联；旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过保存在当前设备上的高熵随机家庭令牌关联；令牌只经同源请求发送，不放进网址。旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
         <div className="privacy-transparency"><strong>受邀测试说明</strong><p>当前版本仅供受邀家庭试用，请不要转发测试入口。正式开放前，我们会增加监护人登录与家庭访问保护；如果无法做到，就停止云端同步。</p></div>
-        <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭 ID。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={requestDeleteData}>删除全部家庭数据</button></div>}</div>
+        <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭令牌。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={requestDeleteData}>删除全部家庭数据</button></div>}</div>
         <button className="primary-button" onClick={() => back(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}
 
       {appReady && screen === "profile" && <div className="screen profile-screen">
-        <Header back={() => back(profileReturn)} title="家庭设置" />
+        <Header back={() => back(profileReturn)} backLabel={profileReturn === "settings" ? "返回设置页" : "返回监护人授权页"} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，怎么称呼彼此？</h1></div><Mascot compact /></div>
         <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input ref={childAliasInputRef} name="child-alias" aria-label="孩子化名" placeholder="例如：小橙" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); guardianAliasInputRef.current?.focus(); } }} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input ref={guardianAliasInputRef} name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); finishProfile(); } }} /></label></div>
         <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className="primary-button" disabled={!data.childAlias.trim() || !data.guardianAlias.trim()} onClick={finishProfile}>{profileReturn === "settings" ? "保存修改" : "保存并安排今晚"}</button>{profileReturn !== "settings" && <small>下一步直接商量今晚的任务与休息</small>}</div>
@@ -1795,13 +1795,13 @@ export function StartApp() {
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
-        <Header back={() => back("plan")} title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : selectedIconOutsideCommon ? `当前图标 + ${commonIconLibrary.length} 个家庭高频图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
+        <Header back={() => back("plan")} backLabel="返回今晚计划" title="选择活动图标" /><span className="eyebrow">{showAllIcons ? `全部 ${ICON_LIBRARY.length} 个图标` : selectedIconOutsideCommon ? `当前图标 + ${commonIconLibrary.length} 个家庭高频图标` : `先显示 ${commonIconLibrary.length} 个家庭高频图标`}</span><h1>这件事看起来像什么？</h1>
         <div className="icon-library">{visibleIconLibrary.map(([icon,label]) => { const selected = editingStage?.icon === icon; const fillsEmptyTitle = !editingStage?.title.trim() && icon !== "custom"; return <button key={icon} aria-pressed={selected} className={selected ? "selected" : ""} onClick={() => { updateStage(editingStageId, { icon, title: titleAfterIconChoice(editingStage?.title ?? "", icon, label) }); setShowAllIcons(false); back("plan"); if (fillsEmptyTitle) setToast(`已用“${label}”补上名称，仍可修改`); }}><AppIcon name={icon} loading="lazy" /><small>{label}</small></button>; })}</div>
         <button className="icon-library-toggle" aria-expanded={showAllIcons} onClick={() => setShowAllIcons(value => !value)}>{showAllIcons ? "收起到常用图标" : `显示全部 ${ICON_LIBRARY.length} 个图标`}</button>
       </div>}
 
       {screen === "effort" && <div className="screen effort-screen">
-        <Header back={() => back("plan")} title="调整节点" />
+        <Header back={() => back("plan")} backLabel="返回今晚计划" title="调整节点" />
         <span className="eyebrow">选择会自动保存 · 先确定它是投入，还是恢复</span><h1>这段时间更像什么？</h1>
         <div className="current-task-card"><AppIcon name={editingStage?.icon ?? "pencil"} /><div><strong>{editingStage?.title.trim() || "这个时间节点"}</strong><small>同一件事在不同晚上，也可以有不同感觉</small></div></div>
         <div className="stage-kind-picker" role="group" aria-label="节点类型"><button aria-pressed={editingStage?.kind === "task"} className={editingStage?.kind === "task" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "task", energy: editingStage?.kind === "rest" ? Math.max(1, editingStage.energy) : editingStage?.energy ?? 1 })}><AppIcon name="pencil" /><span><strong>要做的事</strong><small>需要投入一点注意力</small></span></button><button aria-pressed={editingStage?.kind === "rest"} className={editingStage?.kind === "rest" ? "selected" : ""} onClick={() => updateStage(editingStageId, { kind: "rest", effort: 1, energy: editingStage?.kind === "task" ? 0 : editingStage?.energy ?? 0 })}><AppIcon name="quiet" /><span><strong>休息放松</strong><small>让身体和情绪恢复</small></span></button></div>
@@ -1821,7 +1821,7 @@ export function StartApp() {
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={leaveDualStart} title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
+        <Header back={leaveDualStart} backLabel="返回共同确认" title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>两个名字都亮起后 · 第一小步</small><strong>{dualFirstStage.title || "从第一小步开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "先试这一小步；卡住时随时可以调整，不需要硬撑。" : `原时长和间隔都会保留，事项预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束；卡住仍可以调整。`}</p></span></div>
         <div className="light-bridge" data-ready={bothParticipantsReady} />
         <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
@@ -1847,7 +1847,7 @@ export function StartApp() {
       </div>}
 
       {screen === "adjust" && <div className="screen adjust-screen">
-        <Header back={returnFromAdjust} title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
+        <Header back={returnFromAdjust} backLabel="返回今晚进行中" title="调整今晚" /><div className="title-with-mascot"><div><span className="eyebrow">计划服务于家庭，而不是反过来</span><h1>现在更适合怎么调整？</h1></div><Mascot mood="support" compact /></div>
         <div className="adjust-grid">{adjustmentOptions.map(({ id, icon, title, copy }) => <button key={id} aria-pressed={effectiveAdjustChoice === id} className={`${effectiveAdjustChoice === id ? "selected" : ""} ${id === "finish" ? "finish-choice" : ""}`} onClick={() => setAdjustChoice(id)}><AppIcon name={icon} /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</div>
         <div className={`adjust-decision-dock ${effectiveAdjustChoice ? "is-ready" : "is-waiting"}`} aria-label="调整预览与确认"><div className={`change-preview ${effectiveAdjustChoice ? "" : "is-waiting"}`} role="status" aria-live="polite" aria-atomic="true"><small>{effectiveAdjustChoice ? "本次调整预览" : "先一起选一种方式"}</small><strong>{effectiveAdjustChoice === "extend" ? `${activeStage.title}${canStartRest ? "延长" : "再休息"}10分钟，事项预计${formatPlanClock(addMinutes(liveScheduledEnd, 10), data.planStart, addMinutes(data.planEnd, 10))}结束` : effectiveAdjustChoice === "rest" ? activeStageCompleted ? `从现在休息10分钟，之后进入${nextPendingStage?.title ?? "今晚收尾"}，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : `从现在休息10分钟，之后只继续剩余时长，事项预计${formatPlanClock(restPreviewScheduledEnd, startNowLabel, restPlanPreview.planEnd)}结束` : effectiveAdjustChoice === "defer" ? `把“${activeStage.title}”移到明天，接着进入“${nextPendingStage?.title ?? "下一项"}”` : effectiveAdjustChoice === "swap" ? `调换“${nextPendingStage?.title ?? "下一项"}”和“${secondPendingAfterActiveStage?.title ?? "再后一项"}”，时长与空档不变` : effectiveAdjustChoice === "tomorrow" ? pendingAfterActiveCount > 1 ? `把“${nextPendingStage?.title ?? "下一项"}”移到明天，后面事项提前${nextPendingDuration}分钟衔接` : `把“${nextPendingStage?.title ?? "下一项"}”移到明天，这一段结束后即可温和收尾` : effectiveAdjustChoice === "finish" ? "保留已完成的部分，今晚温和收尾" : "选择后先看清变化，再一起确认；现在还不会改动时间表。"}</strong></div><p className="adjust-safety-note">确认前不会改动 · 调整不扣能量 · 已完成进展会保留</p><div className="adjust-dock-actions"><button className="primary-button" disabled={!effectiveAdjustChoice} onClick={applyAdjustment}>{!effectiveAdjustChoice ? "先选择一种调整" : effectiveAdjustChoice === "finish" ? "确认并温和收尾" : "一起确认调整"}</button><button className="adjust-cancel-button" onClick={returnFromAdjust}>取消</button></div></div>
       </div>}
@@ -1877,7 +1877,7 @@ export function StartApp() {
       </div>}
 
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
-        <Header back={() => back("energy")} title="家庭期待" step="一起商量" />
+        <Header back={() => back("energy")} backLabel="返回家庭能量房间" title="家庭期待" step="一起商量" />
         <div className="reward-setup-hero"><div><span className="eyebrow">不是奖品清单</span><h1>想一起度过怎样的时光？</h1><p>先选家庭时光，再共同商量积累节奏。</p></div><Mascot mood="support" compact /></div>
         <section className="reward-step"><div className="reward-step-heading"><b>1</b><span><strong>先选想一起做的事</strong><small>优先选择陪伴和共同体验</small></span></div><div className="reward-idea-grid">{REWARD_IDEAS.map(idea => <button type="button" key={idea.label} aria-pressed={rewardDraft.title === idea.title} className={rewardDraft.title === idea.title ? "selected" : ""} onClick={() => reviseRewardDraft({ icon: idea.icon, title: idea.title })}><AppIcon name={idea.icon} /><span><strong>{idea.label}</strong><small>{idea.title}</small></span></button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>也可以写下你们自己的想法</span><small>{rewardDraft.title.length}/24</small></span><input name="reward-title" aria-label="家庭期待" value={rewardDraft.title} placeholder="例如：周末一起去公园" maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="next" onChange={e => reviseRewardDraft({ title: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); rewardDateInputRef.current?.focus(); } }} /></label></section>
         <section className="reward-step"><div className="reward-step-heading"><b>2</b><span><strong>商量什么时候一起实现</strong><small>这是共同约定，不是限时任务</small></span></div><div className="reward-date-chips">{REWARD_DATE_IDEAS.map(date => <button type="button" key={date} aria-pressed={rewardDraft.date === date} className={rewardDraft.date === date ? "selected" : ""} onClick={() => reviseRewardDraft({ date })}>{date}</button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>或自己写一个时间</span><small>{rewardDraft.date.length}/16</small></span><input ref={rewardDateInputRef} name="reward-date" aria-label="期待实现时间" value={rewardDraft.date} placeholder="例如：下周六下午" maxLength={16} autoComplete="off" spellCheck={false} enterKeyHint="next" onChange={e => reviseRewardDraft({ date: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); rewardEnergyConfirmRef.current?.focus(); } }} /></label></section>
@@ -1888,7 +1888,7 @@ export function StartApp() {
       </div>}
 
       {screen === "reward-achieved" && <div className="screen achievement-screen">
-        <Header title="家庭期待" back={keepRewardForLater} />
+        <Header title="家庭期待" back={keepRewardForLater} backLabel="返回家庭能量房间" />
         <div className="achievement-hero"><div><span className="eyebrow">家庭期待已点亮</span><h1>一起积累到了</h1><p><strong>{data.energy}</strong> 点家庭能量</p></div><Mascot mood="celebrate" compact /></div>
         {rewardReachedFromNight && lastSavedSession && <div className="achievement-night-saved"><AppIcon name="check" /><span><strong>今晚的收尾已经先保存</strong><small>{lastSavedSession.completedCount ? `${lastSavedSession.completedCount} 个${lastSavedSession.completionUnit === "tasks" ? "完成事项" : "完成节点"}` : "温和收尾"} · +{lastSavedSession.energyEarned} 家庭能量 · 日历可回看</small></span></div>}
         <div className="achievement-scene"><img src={`/assets/energy-room-v3.jpg?v=${ASSET_VERSION}`} width="960" height="720" loading="eager" decoding="async" fetchPriority="high" alt="点亮的家庭房间" /><span className="achievement-glow" /><AppIcon name={data.rewardGoal.icon} /></div>
@@ -1926,12 +1926,12 @@ export function StartApp() {
       {screen === "settings" && <div className="screen with-nav settings-screen">
         <Header title="设置" /><div className="settings-group"><h2>家庭称呼</h2><div className="setting-row"><span>孩子化名</span><strong>{data.childAlias}</strong></div><div className="setting-row"><span>大人称呼</span><strong>{data.guardianAlias}</strong></div><button className="setting-action" onClick={() => openProfile("settings")}>修改家庭称呼 <span>›</span></button></div>
         <div className="settings-group"><h2>提醒与动效</h2><label className="toggle-row"><span><strong>温和提示音</strong><small>轻触确认、阶段转换和收尾各有短音型</small></span><input type="checkbox" checked={data.sound} onChange={e => persist({ ...data, sound: e.target.checked })} /></label><label className="toggle-row reminder-toggle"><span><strong>切到其他应用或锁屏时尝试提醒</strong><small>由家长主动授权，不连续催促</small></span><input type="checkbox" checked={backgroundReminder && notificationPermission === "granted"} disabled={notificationPermission === "unsupported" || requestingNotificationPermission} aria-busy={requestingNotificationPermission || undefined} aria-describedby="background-reminder-status" onChange={e => void changeBackgroundReminder(e.target.checked)} /></label><div id="background-reminder-status" className={`permission-note permission-${requestingNotificationPermission ? "pending" : notificationPermission}`}><AppIcon name={notificationPermission === "granted" && backgroundReminder ? "check" : "alarm"} /><span><strong>{requestingNotificationPermission ? "正在等待浏览器授权" : notificationPermission === "granted" && backgroundReminder ? "后台提醒已开启" : "后台提醒说明"}</strong><small>{backgroundReminderStatus}</small></span></div><label className="toggle-row"><span><strong>减少动态与触感</strong><small id="motion-preference-status">{motionPreferenceStatus}</small></span><input type="checkbox" checked={data.reducedMotion} aria-describedby="motion-preference-status" onChange={e => persist({ ...data, reducedMotion: e.target.checked })} /></label></div>
-        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭 ID；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除全部家庭数据"} <span>{deletingData ? "" : "›"}</span></button></div>
+        <div className="settings-group"><h2>隐私与数据</h2><div className="setting-row"><span>未收集年级和学校</span><strong>已启用</strong></div><div className="setting-row"><span>数据状态</span><strong>{syncLabel}</strong></div>{pendingCloudDeletion && <div className="pending-delete-note" role="status"><AppIcon name="alarm" /><span><strong>云端副本等待清理</strong><small>只暂存随机家庭令牌；联网后自动重试，不包含孩子资料。</small></span></div>}<button className="setting-action" onClick={() => openPrivacy("settings")}>查看隐私与数据说明 <span>›</span></button><button className="setting-action" onClick={exportData}>导出家庭数据 <span>›</span></button><button className="setting-action danger" disabled={deletingData} onClick={requestDeleteData}>{deletingData ? "正在删除本机与云端数据…" : "删除全部家庭数据"} <span>{deletingData ? "" : "›"}</span></button></div>
         <button className="risk-entry" onClick={() => go("risk")}><AppIcon name="privacy" /><div><strong>有些情况，需要更多支持</strong><small>查看风险提示与转介建议</small></div><span>›</span></button>
       </div>}
 
       {screen === "risk" && <div className="screen risk-screen">
-        <Header back={() => back("settings")} />
+        <Header back={() => back("settings")} backLabel="返回设置页" />
         <span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p>
         <div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div>
         <section className="next-actions" aria-labelledby="next-actions-title"><h2 id="next-actions-title">接下来可以</h2><ol className="next-action-list"><li><b aria-hidden="true">1</b><span><strong>先暂停流程，陪孩子稳定下来</strong><small>不追问、不比较；先处理休息、饮水和当下感受。</small></span></li><li><b aria-hidden="true">2</b><span><strong>记录事实，再和了解孩子的老师沟通</strong><small>只记发生时间、场景、持续多久和已经尝试过什么。</small></span></li><li><b aria-hidden="true">3</b><span><strong>需要时咨询正规医疗机构</strong><small>可从儿童保健科、发育行为儿科、儿科或精神心理相关门诊了解下一步。</small></span></li></ol></section>
