@@ -43,6 +43,17 @@ export function calculateNightBonus(existing: Array<{ adjustmentEnergy: number }
   };
 }
 
+export function settlementFooterCopy(priorSettlementCount: number, hasDeferredStages: boolean) {
+  if (priorSettlementCount > 0) {
+    return hasDeferredStages
+      ? "未完成事项留到明天；本夜合作与调整能量不重复记录"
+      : "保存后继续写入同一晚；合作与调整能量不重复记录";
+  }
+  return hasDeferredStages
+    ? "未完成事项留到明天；不会扣掉已经获得的能量"
+    : "保存后写入家庭日历；不会公开，也不会用于比较";
+}
+
 export function advanceStageStatuses<T extends { status: string }>(items: T[], currentIndex: number, nextIndex: number): T[] {
   if (currentIndex < 0 || nextIndex < 0 || currentIndex >= items.length || nextIndex >= items.length || currentIndex === nextIndex) return items;
   return items.map((item, index) => {

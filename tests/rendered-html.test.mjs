@@ -5,7 +5,7 @@ import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, cl
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -209,6 +209,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /家庭日历已记录/);
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
+  assert.match(app, /const settlementFooter = settlementFooterCopy\(priorSettlementSessions\.length, hasDeferredStages\)/);
+  assert.match(app, /<small>\{settlementFooter\}<\/small>/);
   assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
   assert.match(app, /今晚，怎么称呼彼此？/);
@@ -1004,6 +1006,13 @@ test("awards shared-night bonuses only once while allowing later task energy", (
   assert.deepEqual(calculateNightBonus([], 1), { cooperationEnergy: 2, adjustmentEnergy: 1 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 1 }], 2), { cooperationEnergy: 0, adjustmentEnergy: 0 });
   assert.deepEqual(calculateNightBonus([{ adjustmentEnergy: 0 }], 1), { cooperationEnergy: 0, adjustmentEnergy: 1 });
+});
+
+test("keeps the wrap-up promise consistent with the actual settlement state", () => {
+  assert.equal(settlementFooterCopy(0, false), "保存后写入家庭日历；不会公开，也不会用于比较");
+  assert.equal(settlementFooterCopy(0, true), "未完成事项留到明天；不会扣掉已经获得的能量");
+  assert.equal(settlementFooterCopy(1, false), "保存后继续写入同一晚；合作与调整能量不重复记录");
+  assert.equal(settlementFooterCopy(1, true), "未完成事项留到明天；本夜合作与调整能量不重复记录");
 });
 
 test("advances restored live stages without leaving two active items", () => {

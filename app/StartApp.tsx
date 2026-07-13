@@ -10,7 +10,7 @@ import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -1429,6 +1429,7 @@ export function StartApp() {
   const settlementTaskEnergy = stages.filter(item => item.status === "done").reduce((sum, item) => sum + item.energy, 0);
   const { cooperationEnergy: settlementCooperationEnergy, adjustmentEnergy: settlementAdjustmentEnergy } = calculateNightBonus(priorSettlementSessions, adjustments);
   const settlementTotalEnergy = settlementTaskEnergy + settlementCooperationEnergy + settlementAdjustmentEnergy;
+  const settlementFooter = settlementFooterCopy(priorSettlementSessions.length, hasDeferredStages);
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const draftReady = stages.length > 0 && !planHasErrors;
@@ -1702,7 +1703,7 @@ export function StartApp() {
         <div className="wrap-summary"><div><strong>{stages.filter(s => s.status === "done").length}</strong><small>完成阶段</small></div><div><strong>{adjustments}</strong><small>主动调整</small></div><div className="energy-total"><strong>+{settlementTotalEnergy}</strong><small>本次新增能量</small></div></div>
         <div className="energy-summary"><div><strong>今晚会这样留下</strong><small>能量属于家庭合作，不给孩子单独打分</small></div><span><b>完成事项</b><em>+{settlementTaskEnergy}</em></span><span className={settlementCooperationEnergy ? "" : "already-counted"}><b>{settlementCooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{settlementCooperationEnergy}</em></span>{adjustments > 0 && <span className={settlementAdjustmentEnergy ? "" : "already-counted"}><b>{settlementAdjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{settlementAdjustmentEnergy}</em></span>}</div>
         <fieldset className="prompt-reflection"><legend>只给大人记一笔</legend><strong>和你们平时相比，今晚催促感怎么样？</strong><div>{(["less", "same", "more"] as PromptReflection[]).map(value => <button type="button" key={value} aria-pressed={promptReflection === value} className={promptReflection === value ? "selected" : ""} onClick={() => setPromptReflection(current => current === value ? null : value)}>{({ less: "少一些", same: "差不多", more: "多一些" })[value]}</button>)}</div><small>可选，不影响能量，也不评价孩子。</small></fieldset>
-        <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>保存记录并结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>{priorSettlementSessions.length ? "同一家庭夜晚，合作与调整能量只记录一次" : "未完成事项留到明天；不会扣掉已经获得的能量"}</small></div>
+        <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>保存记录并结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>{settlementFooter}</small></div>
       </div>}
 
       {screen === "night-saved" && lastSavedSession && <div className="screen night-saved-screen">
