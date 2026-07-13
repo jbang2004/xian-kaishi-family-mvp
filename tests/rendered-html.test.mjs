@@ -135,6 +135,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /这项的时间还没选好，已恢复刚才的安排/);
   assert.match(app, /const baseline = timeEditBaseline\(id, "end"\)/);
   assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
+  assert.match(app, /const \[clearedPlanUndo, setClearedPlanUndo\] = useState<ClearedPlanUndo \| null>\(null\)/);
+  assert.match(app, /setClearedPlanUndo\(\{ stages: snapshot, editingStageId, planStart: data\.planStart, planEnd: data\.planEnd \}\)/);
+  assert.match(app, /setTimeout\(\(\) => setClearedPlanUndo\(null\), 30000\)/);
+  assert.match(app, /aria-label="恢复刚才清空的整晚计划"/);
+  assert.match(app, /已清空 \{clearedPlanUndo\.stages\.length\} 个时间节点/);
+  assert.match(app, /setToast\(`已恢复 \$\{undo\.stages\.length\} 个时间节点`\)/);
   assert.match(app, /const updatePlanStart = \(start: string\) =>/);
   assert.match(app, /applyPlanTimes\(shiftTimedItemsFrom\(baselineTimes, 0, delta\)\)/);
   assert.match(app, /planStart: baselineStart/);
@@ -151,7 +157,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /swapTimedItemsPreservingGaps\(stages, pending\[0\]\.index, pending\[1\]\.index, data\.planStart\)/);
   assert.match(app, /后两项已调换，原来的休息空档还在/);
   assert.match(app, /今晚已经排满，先留出至少5分钟再增加/);
-  assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
+  assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+setClearedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
   assert.doesNotMatch(app, /className="draft-summary"/);
   assert.match(app, /const startAnotherPlan = \(\) => \{/);
   assert.match(app, /rebaseFollowUpPlan\(data\.planStart, data\.planEnd, stages, nowTime\)/);

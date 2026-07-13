@@ -67,6 +67,7 @@ type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type PlanWindow = { planStart: string; planEnd: string };
 type ShiftedPlanUndo = { times: Array<Pick<Stage, "id" | "start" | "end">>; message: string; planStart?: string; focusStageId?: string };
+type ClearedPlanUndo = { stages: Stage[]; editingStageId: string; planStart: string; planEnd: string };
 type StageAdvanceUndo = { stages: Stage[]; planEnd: string; activeIndex: number; activeEndsAt: number; stageDue: boolean; transitionReason: TransitionReason; nextTitle: string };
 type SessionDeleteUndo = { recordId: string; label: string; sessions: SessionRecord[]; energy: number; message: string };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
@@ -157,6 +158,10 @@ function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
 function createId(prefix: string) {
   const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
   return `${prefix}-${suffix}`;
+}
+
+function interactionTimestamp() {
+  return Date.now();
 }
 
 function localDateKey(date: string | Date) {
@@ -345,6 +350,7 @@ export function StartApp() {
   const [profileReturn, setProfileReturn] = useState<"welcome" | "settings">("welcome");
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [shiftedPlanUndo, setShiftedPlanUndo] = useState<ShiftedPlanUndo | null>(null);
+  const [clearedPlanUndo, setClearedPlanUndo] = useState<ClearedPlanUndo | null>(null);
   const [stageAdvanceUndo, setStageAdvanceUndo] = useState<StageAdvanceUndo | null>(null);
   const [sessionDeleteArmedId, setSessionDeleteArmedId] = useState("");
   const [sessionDeleteUndo, setSessionDeleteUndo] = useState<SessionDeleteUndo | null>(null);
@@ -481,8 +487,8 @@ export function StartApp() {
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
   const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
   const openAdjust = () => { setStageAdvanceUndo(null); setAdjustChoice(null); go("adjust"); };
-  const openConfirmPlan = () => { setConfirmPlanExpanded(false); setClockNow(Date.now()); go("confirm"); };
-  const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); setClockNow(Date.now()); go("dual-start"); };
+  const openConfirmPlan = () => { setConfirmPlanExpanded(false); setClockNow(interactionTimestamp()); go("confirm"); };
+  const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); setClockNow(interactionTimestamp()); go("dual-start"); };
   const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); back("confirm"); };
   const cancelDualLaunch = () => {
     setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(true);
@@ -779,6 +785,12 @@ export function StartApp() {
     return () => window.clearTimeout(timer);
   }, [shiftedPlanUndo]);
 
+  useEffect(() => {
+    if (!clearedPlanUndo) return;
+    const timer = window.setTimeout(() => setClearedPlanUndo(null), 30000);
+    return () => window.clearTimeout(timer);
+  }, [clearedPlanUndo]);
+
   const persist = (next: AppData, message?: string) => {
     if (deleteInProgressRef.current) return;
     const activeFamilyId = familyId || createId("family");
@@ -883,6 +895,7 @@ export function StartApp() {
     }
     setDeletedStage(null);
     setShiftedPlanUndo(null);
+    setClearedPlanUndo(null);
     const id = createId("stage");
     setStages(items => {
       const next = [...items];
@@ -1049,7 +1062,23 @@ export function StartApp() {
         }
       }, 3200); return;
     }
-    clearPlanArmedRef.current = false; clearPlanArmSequence.current += 1; setStages([]); setEditingStageId(""); setClearPlanArmed(false); setToast("今晚已从空白开始"); focusPlanTarget();
+    const snapshot = stages.map(stage => ({ ...stage }));
+    clearPlanArmedRef.current = false; clearPlanArmSequence.current += 1;
+    setDeletedStage(null); setShiftedPlanUndo(null);
+    setClearedPlanUndo({ stages: snapshot, editingStageId, planStart: data.planStart, planEnd: data.planEnd });
+    setStages([]); setEditingStageId(""); setClearPlanArmed(false); setToast("今晚已从空白开始"); focusPlanTarget();
+  };
+  const undoClearPlan = () => {
+    if (!clearedPlanUndo) return;
+    const undo = clearedPlanUndo;
+    const focusStageId = undo.stages.some(stage => stage.id === undo.editingStageId) ? undo.editingStageId : undo.stages[0]?.id;
+    setData(current => ({ ...current, planStart: undo.planStart, planEnd: undo.planEnd }));
+    setStages(undo.stages.map(stage => ({ ...stage })));
+    setEditingStageId(undo.editingStageId);
+    setClearedPlanUndo(null);
+    setToast(`已恢复 ${undo.stages.length} 个时间节点`);
+    if (screenRef.current !== "plan") go("plan");
+    focusPlanTarget(focusStageId);
   };
   const moveStage = (index: number, delta: -1 | 1) => {
     const target = index + delta; if (target < 0 || target >= stages.length) return;
@@ -1061,7 +1090,7 @@ export function StartApp() {
   };
 
   const startPlan = () => {
-    const startedAt = Date.now(); const actualStart = clockTimeFromDate(new Date(startedAt));
+    const startedAt = interactionTimestamp(); const actualStart = clockTimeFromDate(new Date(startedAt));
     sessionPlanWindowRef.current = { planStart: data.planStart, planEnd: data.planEnd };
     const cleanStages = stages.map(item => ({ ...item, title: cleanShortText(item.title, 24) }));
     const startedStages = shiftTimedPlanToStart(cleanStages, actualStart).map((item, index) => ({ ...item, status: index === 0 ? "active" as const : "pending" as const }));
@@ -1737,6 +1766,7 @@ export function StartApp() {
       {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
       {shiftedPlanUndo && <div className="undo-toast" role="status"><span>{shiftedPlanUndo.message}</span><button onClick={undoPlanShift}>撤销</button></div>}
+      {clearedPlanUndo && <div className="undo-toast" role="status"><span>已清空 {clearedPlanUndo.stages.length} 个时间节点</span><button aria-label="恢复刚才清空的整晚计划" onClick={undoClearPlan}>恢复</button></div>}
       {sessionDeleteUndo && <div className="undo-toast" role="status"><span>{sessionDeleteUndo.message}</span><button ref={sessionDeleteUndoRef} aria-label={`撤销删除${sessionDeleteUndo.label}的收尾记录`} onClick={undoDeleteSessionRecord}>撤销</button></div>}
       {toast && <div className="toast" role="status">{toast}</div>}
     </section>
