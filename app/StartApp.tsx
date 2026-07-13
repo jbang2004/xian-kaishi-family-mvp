@@ -352,10 +352,14 @@ export function StartApp() {
   const historyDepthRef = useRef(0);
   const stageTimeEditRef = useRef<{ id: string; field: "start" | "end"; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
   const dualStatusRef = useRef<HTMLDivElement>(null);
+  const rewardExitHandlerRef = useRef<() => void>(() => undefined);
 
   const showScreen = (next: Screen) => {
     if (screenRef.current === "dual-start" && next !== "dual-start") {
       setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false);
+    }
+    if (screenRef.current === "reward-achieved" && next !== "reward-achieved") {
+      rewardExitHandlerRef.current();
     }
     if (LIVE_SCREENS.includes(next as LiveScreen)) { setLiveResumeScreen(next as LiveScreen); setLiveSessionStartedAt(value => value || new Date().toISOString()); setLiveSessionAvailable(true); }
     screenRef.current = next;
@@ -683,6 +687,16 @@ export function StartApp() {
     void pendingWritesRef.current.track(syncPromise);
   };
 
+  useEffect(() => {
+    rewardExitHandlerRef.current = () => {
+      setRedeemArmed(false);
+      const current = familyDataRef.current;
+      if (redeemRewardLock.current || current.rewardGoal.acknowledged) return;
+      const nextGoal = { ...current.rewardGoal, acknowledged: true };
+      persist({ ...current, rewardGoal: nextGoal }, `能量会保留，计划到${current.rewardGoal.date}再一起看看`);
+    };
+  });
+
   const changeBackgroundReminder = async (enabled: boolean) => {
     if (!enabled) { localStorage.setItem(REMINDER_PREF_KEY, "false"); setBackgroundReminder(false); setToast("后台系统提醒已关闭"); return; }
     if (!("Notification" in window)) { setNotificationPermission("unsupported"); setToast("当前浏览器不支持系统提醒，前台提醒仍然有效"); return; }
@@ -991,15 +1005,12 @@ export function StartApp() {
   };
 
   const keepRewardForLater = () => {
-    const nextGoal = { ...data.rewardGoal, acknowledged: true };
-    setRedeemArmed(false);
-    persist({ ...data, rewardGoal: nextGoal }, `能量会保留，计划到${data.rewardGoal.date}再一起看看`);
     go("energy");
   };
 
   const saveRewardDraft = () => {
     const title = cleanShortText(rewardDraft.title, 24); const date = cleanShortText(rewardDraft.date, 16);
-    if (!title || !date) { setToast("先一起写下期待和计划兑现时间"); return; }
+    if (!title || !date) { setToast("先一起写下期待和计划实现时间"); return; }
     if (!rewardEnergyConfirmed) { setToast("再一起确认一次能量节奏"); return; }
     const nextGoal: RewardGoal = { ...rewardDraft, title, date, participants: [data.guardianAlias, data.childAlias], redeemed: false, acknowledged: false };
     persist({ ...data, rewardGoal: nextGoal }, "家庭期待已保存"); go("energy");
@@ -1178,7 +1189,7 @@ export function StartApp() {
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；凌晨可以接着昨晚，最迟到次日清晨5点自动失效。</p></section></div>
           <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
-          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与兑换记录</strong><p>通过随机家庭 ID 关联；设备与云端会比较版本，旧状态不会静默覆盖更新的本机记录。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过随机家庭 ID 关联；设备与云端会比较版本，旧状态不会静默覆盖更新的本机记录。</p></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
         <div className="privacy-transparency"><strong>测试版安全边界</strong><p>随机家庭 ID 不是正式账号鉴权。当前站点保持私有；公开测试前需要增加监护人登录与访问控制，或关闭云端同步。</p></div>
@@ -1295,8 +1306,8 @@ export function StartApp() {
         <Header title="家庭能量房间" /><div className="room-scene"><img className="room-art" src={`/assets/energy-room-v3.jpg?v=${ASSET_VERSION}`} width="960" height="720" loading="eager" decoding="async" fetchPriority="high" alt="温暖的家庭学习角" /><div className="room-light" /><Mascot mood={goalReady ? "celebrate" : "ready"} /></div>
         <div className="energy-panel"><span className="eyebrow">共同积累，不给孩子打分</span><h1>{data.energy} 点家庭能量</h1>{goalState !== "empty" ? <div className="energy-bar"><i style={{ width: `${Math.min(100, data.energy / data.rewardGoal.threshold * 100)}%` }} /></div> : <p className="energy-fresh-copy">上一份期待已经留在日历里，这里是新的开始。</p>}</div>
         {goalState === "empty" ? <div className="empty-goal-card"><AppIcon name="home-heart" /><div><small>还没有新的家庭期待</small><strong>先想一段真正想一起度过的时光</strong><p>不是给孩子定奖品；由大人和孩子一起商量。</p></div></div> : <div className={`goal-card goal-${goalState}`}><AppIcon name={data.rewardGoal.icon} /><div><small>{goalState === "ready" ? "已经达到共同门槛" : `计划在${data.rewardGoal.date}`}</small><strong>{data.rewardGoal.title}</strong><p>{progress ? `还差${progress}点，一起积累，不用赶` : "已经点亮，等真正实现后再记录"}</p></div></div>}
-        {goalState === "empty" ? <button className="primary-button" onClick={openRewardSetup}>一起定新的家庭期待</button> : goalState === "building" ? <button className="secondary-button" onClick={openRewardSetup}>一起调整这个期待</button> : <button className="primary-button" onClick={openRewardAchieved}>查看达成与兑现</button>}
-        <div className="gentle-note">未完成或暂停不会倒扣、过期；一起兑现期待后，能量会从0重新积累。</div>
+        {goalState === "empty" ? <button className="primary-button" onClick={openRewardSetup}>一起定新的家庭期待</button> : goalState === "building" ? <button className="secondary-button" onClick={openRewardSetup}>一起调整这个期待</button> : <button className="primary-button" onClick={openRewardAchieved}>查看达成与实现</button>}
+        <div className="gentle-note">未完成或暂停不会倒扣、过期；一起实现期待后，能量会从0重新积累。</div>
       </div>}
 
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
@@ -1315,27 +1326,27 @@ export function StartApp() {
         <div className="achievement-hero"><div><span className="eyebrow">家庭期待已点亮</span><h1>一起积累到了</h1><p><strong>{data.energy}</strong> 点家庭能量</p></div><Mascot mood="celebrate" compact /></div>
         <div className="achievement-scene"><img src={`/assets/energy-room-v3.jpg?v=${ASSET_VERSION}`} width="960" height="720" loading="eager" decoding="async" fetchPriority="high" alt="点亮的家庭房间" /><span className="achievement-glow" /><AppIcon name={data.rewardGoal.icon} /></div>
         <div className="achievement-card"><AppIcon name={data.rewardGoal.icon} /><div><small>计划在{data.rewardGoal.date}</small><strong>{data.rewardGoal.title}</strong><p>{data.guardianAlias}和{data.childAlias}一起参与</p></div></div>
-        <div className="achievement-boundary"><AppIcon name="home-heart" /><p><strong>达到门槛，不等于已经兑现</strong><span>这是一起期待的家庭时光，不是完成任务后必须支付的奖品。</span></p></div>
-        {!redeemArmed ? <div className="achievement-actions"><button className="primary-button" onClick={() => setRedeemArmed(true)}>已经一起兑现了</button><button className="secondary-button" onClick={keepRewardForLater}>先保留能量，稍后兑现</button></div> : <div className="redeem-confirm" role="alert"><strong>确认已经一起兑现？</strong><p>“{data.rewardGoal.title}”会记入今天的家庭日历。当前 {data.energy} 点家庭能量将全部归零，再开始新的期待。</p><button className="primary-button" onClick={redeemReward}>确认已兑现并从0开始</button><button className="text-button" onClick={() => setRedeemArmed(false)}>返回再看看</button></div>}
+        <div className="achievement-boundary"><AppIcon name="home-heart" /><p><strong>达到门槛，不等于已经实现</strong><span>这是一起期待的家庭时光，不是完成任务后必须支付的奖品。</span></p></div>
+        {!redeemArmed ? <div className="achievement-actions"><button className="primary-button" onClick={() => setRedeemArmed(true)}>已经一起实现了</button><button className="secondary-button" onClick={keepRewardForLater}>先保留能量，等实际实现</button></div> : <div className="redeem-confirm" role="alert"><strong>确认已经一起实现？</strong><p>“{data.rewardGoal.title}”会记入今天的家庭日历。当前 {data.energy} 点家庭能量将全部归零，再开始新的期待。</p><button className="primary-button" onClick={redeemReward}>确认已实现并从0开始</button><button className="text-button" onClick={() => setRedeemArmed(false)}>返回再看看</button></div>}
       </div>}
 
       {screen === "reward-saved" && lastRedeemedReward && <div className="screen reward-saved-screen">
         <div className="reward-saved-hero"><div><span className="eyebrow">已安全记入家庭日历</span><h1>这份共同期待，<br />已经实现了</h1><p>能量从0重新积累，过去的家庭时光不会消失。</p></div><Mascot mood="celebrate" compact /></div>
-        <div className="reward-saved-card"><AppIcon name={lastRedeemedReward.icon} /><div><small>{new Date(lastRedeemedReward.redeemedAt).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 已兑现</small><strong>{lastRedeemedReward.title}</strong><p>达到 {lastRedeemedReward.threshold} 点门槛 · 兑现时 {lastRedeemedReward.energyBeforeReset} 点归零</p></div></div>
-        <div className="reset-story" aria-label="能量重新开始"><span><b>{lastRedeemedReward.energyBeforeReset}</b><small>兑现前</small></span><i>→</i><span className="fresh-zero"><b>0</b><small>新的开始</small></span></div>
+        <div className="reward-saved-card"><AppIcon name={lastRedeemedReward.icon} /><div><small>{new Date(lastRedeemedReward.redeemedAt).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · 已实现</small><strong>{lastRedeemedReward.title}</strong><p>达到 {lastRedeemedReward.threshold} 点门槛 · 实现时 {lastRedeemedReward.energyBeforeReset} 点归零</p></div></div>
+        <div className="reset-story" aria-label="能量重新开始"><span><b>{lastRedeemedReward.energyBeforeReset}</b><small>实现前</small></span><i>→</i><span className="fresh-zero"><b>0</b><small>新的开始</small></span></div>
         <div className="reward-saved-note"><AppIcon name="moon" /><p><strong>记录留在日历里</strong><span>以后可以一起回看，不需要连续打卡。</span></p></div>
         <div className="saved-actions"><button className="primary-button" onClick={openRewardSetup}>设置新的家庭期待</button><button className="secondary-button" onClick={() => { const day = localDateKey(lastRedeemedReward.redeemedAt); setSelectedDay(day); setDayDetailsExpanded(false); const date = new Date(lastRedeemedReward.redeemedAt); setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1)); go("review"); }}>查看今天的记录</button></div>
       </div>}
 
       {screen === "review" && <div className="screen with-nav review-screen">
         <Header title="家庭日历" /><span className="eyebrow">每天收尾和家庭期待都会留在这里</span><div className="review-insight"><AppIcon name="quiet" /><div><small>本周复盘 · 不评价孩子</small><strong>{weeklyLessPromptNights ? `有${weeklyLessPromptNights}晚，催促感比平时少` : weeklyReflections.length ? `已记录${weeklyReflections.length}晚，先观察，不急着比较` : weeklyNights ? "收尾时可以给大人记一笔催促感" : "先从一个更容易开始的晚上观察"}</strong><p>{weeklyAdjustments ? `你们主动调整了${weeklyAdjustments}次，改变计划也算合作。` : "这里关注催促和合作，不用追求连续打卡。"}</p></div></div><div className="month-nav"><button onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button><h1>{calendarYear}年{calendarMonth + 1}月</h1><button onClick={() => shiftMonth(1)} aria-label="下个月">›</button></div>
-        <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待兑换</span></div>
-          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待兑换" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
+        <div className="calendar-legend"><span><i className="session-dot" />晚间记录</span><span><i className="reward-star">★</i>期待实现</span></div>
+          <div className="calendar-card"><div className="weekdays">{["日","一","二","三","四","五","六"].map(day => <b key={day}>{day}</b>)}</div><div className="calendar-grid">{Array.from({length:firstWeekday}).map((_,i) => <span className="blank-day" key={`blank-${i}`} />)}{Array.from({length:daysInMonth}).map((_,i) => { const day=i+1; const date=new Date(calendarYear,calendarMonth,day); const key=date.toLocaleDateString("en-CA"); const hasSession=data.sessions.some(item => item.nightKey===key); const hasReward=data.rewardHistory.some(item => localDateKey(item.redeemedAt)===key); return <button aria-pressed={selectedDay === key} aria-label={`${calendarMonth + 1}月${day}日${hasSession ? "，有晚间记录" : ""}${hasReward ? "，有期待实现" : ""}`} key={key} className={`${selectedDay===key ? "selected" : ""} ${hasSession ? "has-session" : ""} ${hasReward ? "has-reward" : ""}`} onClick={() => { setSelectedDay(key); setDayDetailsExpanded(false); }}><strong>{day}</strong><span>{hasSession && <i />} {hasReward && <b>★</b>}</span></button>; })}</div></div>
         <div className="day-detail">
           <div className="day-detail-header"><div><small>家庭夜晚</small><strong>{selectedDateLabel}</strong></div>{selectedSessionSummary && <span>{selectedSessionSummary.settlements} 次收尾</span>}</div>
           {!selectedSessions.length && !selectedRewards.length ? <div className="empty-day"><Mascot mood="breathe" compact /><span>这一天还没有记录</span></div> : <>
             {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
-            {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>达到 {item.threshold} 点门槛 · 兑现时 {item.energyBeforeReset} 点归零</p></div></div>)}
+            {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>达到 {item.threshold} 点门槛 · 实现时 {item.energyBeforeReset} 点归零</p></div></div>)}
             {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => setDayDetailsExpanded(value => !value)}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
             {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{new Date(item.date).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p></div></div>)}</div>}
           </>}
