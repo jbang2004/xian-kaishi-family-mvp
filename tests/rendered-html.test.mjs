@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -36,6 +36,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /if \(!Array\.isArray\(value\)\) return \[\]/);
   assert.match(app, /name="child-alias" aria-label="孩子化名" placeholder="例如：小橙"/);
   assert.match(app, /name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈"/);
+  assert.match(app, /familyDataRef\.current\.consent \? \{\} : suggestInitialEveningWindow\(new Date\(\)\)/);
   assert.match(app, /window\.addEventListener\("popstate", handlePopState\)/);
   assert.match(app, /familyDataRef\.current\.consent && \(target === "welcome" \|\| target === "profile"\)/);
   assert.match(app, /window\.history\.replaceState\(\{ xianKaishi: true, screen: "home", depth \}/);
@@ -757,6 +758,17 @@ test("keeps calendar context across months and clamps long month endings", () =>
 
   const fallback = shiftCalendarSelection(new Date(2026, 6, 1), "not-a-date", 1);
   assert.equal(fallback.selectedDay, "2026-08-01");
+});
+
+test("suggests a first planning window that still makes sense when the family arrives", () => {
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 9, 12)), { planStart: "18:00", planEnd: "20:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 15, 59)), { planStart: "18:00", planEnd: "20:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 16, 0)), { planStart: "16:00", planEnd: "18:00" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 18, 3)), { planStart: "18:10", planEnd: "20:10" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 21, 57)), { planStart: "22:00", planEnd: "23:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 23, 57)), { planStart: "00:00", planEnd: "01:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 4, 58)), { planStart: "05:00", planEnd: "06:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 5, 0)), { planStart: "18:00", planEnd: "20:30" });
 });
 
 test("never nests an adaptive rest inside an active rest stage", () => {

@@ -46,6 +46,18 @@ export function clockTimeFromDate(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+export function suggestInitialEveningWindow(now: Date) {
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  if (!Number.isFinite(now.getTime()) || (minutesNow >= 5 * 60 && minutesNow < 16 * 60)) {
+    return { planStart: "18:00", planEnd: "20:30" };
+  }
+
+  const roundedStartMinutes = Math.ceil(minutesNow / 10) * 10;
+  const planStart = `${String(Math.floor((roundedStartMinutes % 1440) / 60)).padStart(2, "0")}:${String(roundedStartMinutes % 60).padStart(2, "0")}`;
+  const lateWindow = minutesNow < 5 * 60 || roundedStartMinutes >= 22 * 60;
+  return { planStart, planEnd: addMinutes(planStart, lateWindow ? 90 : 120) };
+}
+
 export function remainingTimerMinutes(endsAt: number, now: number) {
   return endsAt > 0 ? Math.max(0, Math.ceil((endsAt - now) / 60_000)) : 0;
 }

@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, swapTimedItemsPreservingGaps } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "./plan-utils";
 import { foregroundCueStatus, ReminderPermission, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -846,7 +846,8 @@ export function StartApp() {
   const finishProfile = () => {
     const childAlias = cleanShortText(data.childAlias, 12);
     const guardianAlias = cleanShortText(data.guardianAlias, 12);
-    const next = { ...data, childAlias, guardianAlias, consent: true, rewardGoal: { ...data.rewardGoal, participants: [guardianAlias, childAlias] } };
+    const initialWindow = familyDataRef.current.consent ? {} : suggestInitialEveningWindow(new Date());
+    const next = { ...data, ...initialWindow, childAlias, guardianAlias, consent: true, rewardGoal: { ...data.rewardGoal, participants: [guardianAlias, childAlias] } };
     setPlanHydrated(true); persist(next, profileReturn === "settings" ? "家庭设置已更新" : "家庭称呼已保存，可以安排今晚了"); playTone("confirm");
     if (profileReturn === "settings") back("settings"); else go("plan", "replace");
   };
