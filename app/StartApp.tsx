@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "./plan-utils";
 import { ReminderPermission, shouldUseBackgroundReminder, shouldUseForegroundCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -65,7 +65,8 @@ type SessionRecord = {
 type RewardHistory = { id: string; title: string; icon: "game" | "book" | "move"; threshold: number; energyBeforeReset: number; redeemedAt: string };
 type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
-type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
+type PlanWindow = { planStart: string; planEnd: string };
+type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
   consent: boolean;
@@ -354,6 +355,7 @@ export function StartApp() {
   const stageTimeEditRef = useRef<{ id: string; field: "start" | "end"; times: Array<Pick<Stage, "id" | "start" | "end">> } | null>(null);
   const dualStatusRef = useRef<HTMLDivElement>(null);
   const rewardExitHandlerRef = useRef<() => void>(() => undefined);
+  const sessionPlanWindowRef = useRef<PlanWindow | null>(null);
 
   const showScreen = (next: Screen) => {
     if (screenRef.current === "dual-start" && next !== "dual-start") {
@@ -485,6 +487,12 @@ export function StartApp() {
           if (fresh && liveStages.length) {
             livePlanStart = /^\d{2}:\d{2}$/.test(String(live.planStart)) ? String(live.planStart) : liveStages[0].start;
             livePlanEnd = /^\d{2}:\d{2}$/.test(String(live.planEnd)) ? String(live.planEnd) : liveStages.at(-1)?.end ?? livePlanStart;
+            const draftPlanStart = /^\d{2}:\d{2}$/.test(String(parsedDraft?.planStart)) ? String(parsedDraft?.planStart) : livePlanStart;
+            const draftPlanEnd = /^\d{2}:\d{2}$/.test(String(parsedDraft?.planEnd)) ? String(parsedDraft?.planEnd) : livePlanEnd;
+            sessionPlanWindowRef.current = {
+              planStart: /^\d{2}:\d{2}$/.test(String(live.baselinePlanStart)) ? String(live.baselinePlanStart) : draftPlanStart,
+              planEnd: /^\d{2}:\d{2}$/.test(String(live.baselinePlanEnd)) ? String(live.baselinePlanEnd) : draftPlanEnd,
+            };
             setStages(liveStages); setActiveIndex(Math.max(0, Math.min(liveStages.length - 1, Number(live.activeIndex) || 0)));
             setAdjustments(Math.max(0, Number(live.adjustments) || 0)); setActiveEndsAt(Math.max(0, Number(live.activeEndsAt) || 0));
             setStageDue(Boolean(live.stageDue)); setTransitionReason(normalizeTransitionReason(live.transitionReason, Boolean(live.stageDue))); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionStartedAt(startedAt); setLiveSessionAvailable(true);
@@ -562,7 +570,8 @@ export function StartApp() {
     const updatedAt = new Date().toISOString();
     const liveScreen = screen as LiveScreen;
     const startedAt = liveSessionStartedAt || updatedAt;
-    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ startedAt, updatedAt, screen: liveScreen, planStart: data.planStart, planEnd: data.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } satisfies LiveSessionDraft));
+    const baseline = sessionPlanWindowRef.current ?? { planStart: data.planStart, planEnd: data.planEnd };
+    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({ startedAt, updatedAt, screen: liveScreen, planStart: data.planStart, planEnd: data.planEnd, baselinePlanStart: baseline.planStart, baselinePlanEnd: baseline.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } satisfies LiveSessionDraft));
   }, [activeEndsAt, activeIndex, adjustments, data.planEnd, data.planStart, liveSessionStartedAt, planHydrated, promptReflection, screen, stageDue, stages, transitionReason]);
 
   useEffect(() => {
@@ -836,6 +845,7 @@ export function StartApp() {
 
   const startPlan = () => {
     const startedAt = Date.now(); const actualStart = clockTimeFromDate(new Date(startedAt));
+    sessionPlanWindowRef.current = { planStart: data.planStart, planEnd: data.planEnd };
     const cleanStages = stages.map(item => ({ ...item, title: cleanShortText(item.title, 24) }));
     const startedStages = shiftTimedPlanToStart(cleanStages, actualStart).map((item, index) => ({ ...item, status: index === 0 ? "active" as const : "pending" as const }));
     const windowMinutes = Math.max(1, durationMinutes(data.planStart, data.planEnd));
@@ -988,9 +998,11 @@ export function StartApp() {
     const { cooperationEnergy, adjustmentEnergy } = calculateNightBonus(priorNightSessions, adjustments);
     const nextEnergy = data.energy + taskEnergy + cooperationEnergy + adjustmentEnergy;
     const record: SessionRecord = { id: createId("session"), date: recordDate, nightKey, stageCount: stages.length, completedCount, adjustments, taskEnergy, cooperationEnergy, adjustmentEnergy, energyEarned: taskEnergy + cooperationEnergy + adjustmentEnergy, stageTitles: completedStageTitles, promptReflection };
-    const next = { ...data, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
-    setLastSavedSession(record); setStages(prepareNextRoundPlan(stages, completedStageTitles));
+    const baseline = sessionPlanWindowRef.current ?? { planStart: data.planStart, planEnd: data.planEnd };
+    const next = { ...data, planStart: baseline.planStart, planEnd: baseline.planEnd, energy: nextEnergy, sessions: [record, ...data.sessions].slice(0, 60) };
+    setLastSavedSession(record); setStages(prepareNextRoundSchedule(stages, completedStageTitles, baseline.planStart));
     localStorage.removeItem(LIVE_SESSION_KEY); setLiveSessionAvailable(false); setLiveSessionStartedAt("");
+    sessionPlanWindowRef.current = null;
     persist(next, "今晚已经记入家庭日历"); playTone("complete");
     if (!next.rewardGoal.redeemed && !next.rewardGoal.acknowledged && nextEnergy >= next.rewardGoal.threshold) openRewardAchieved(); else go("night-saved");
   };
@@ -1022,7 +1034,8 @@ export function StartApp() {
 
   const exportData = () => {
     const planDraft: PlanDraft = { updatedAt: draftUpdatedAt || new Date().toISOString(), planStart: data.planStart, planEnd: data.planEnd, stages: stages.map(item => ({ ...item, status: "pending" })) };
-    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { startedAt: liveSessionStartedAt || new Date().toISOString(), updatedAt: new Date().toISOString(), screen: liveResumeScreen, planStart: data.planStart, planEnd: data.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } : null;
+    const baseline = sessionPlanWindowRef.current ?? { planStart: data.planStart, planEnd: data.planEnd };
+    const activeSession: LiveSessionDraft | null = liveSessionAvailable ? { startedAt: liveSessionStartedAt || new Date().toISOString(), updatedAt: new Date().toISOString(), screen: liveResumeScreen, planStart: data.planStart, planEnd: data.planEnd, baselinePlanStart: baseline.planStart, baselinePlanEnd: baseline.planEnd, stages, activeIndex, adjustments, activeEndsAt, stageDue, promptReflection, transitionReason } : null;
     const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), family: data, planDraft, activeSession }, null, 2)], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = "先开始-家庭数据.json"; a.click(); URL.revokeObjectURL(url); setToast("家庭数据已导出");
   };
@@ -1046,7 +1059,7 @@ export function StartApp() {
     await pendingWritesRef.current.drain();
     const cloudDeleted = await retryPendingCloudDeletion();
     setPendingCloudDeletion(!cloudDeleted);
-    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
+    localStorage.removeItem(STORAGE_KEY); localStorage.removeItem("xian-kaishi-family-v1"); localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY); localStorage.removeItem(REMINDER_PREF_KEY); localStorage.removeItem(FAMILY_REVISION_KEY); localStorage.removeItem(FAMILY_UPDATED_AT_KEY); localStorage.removeItem("xian-kaishi-family-id"); familyDataRef.current = DEFAULT_DATA; familyRevisionRef.current = 0; familyUpdatedAtRef.current = ""; sessionPlanWindowRef.current = null; setPlanHydrated(false); setFamilyId(""); setData(DEFAULT_DATA); setConsent(false); setStages(DEFAULT_STAGES); setDraftUpdatedAt(""); setPromptReflection(null); setBackgroundReminder(false); setLiveSessionAvailable(false); setLiveSessionStartedAt(""); setDeleteArmed(false); go("welcome", "replace");
     setToast(cloudDeleted ? "本机与云端家庭数据已经删除" : "本机数据已删除；联网后继续清理云端副本");
     deleteInProgressRef.current = false; setDeletingData(false);
   };

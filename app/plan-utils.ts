@@ -75,6 +75,10 @@ export function prepareNextRoundPlan<T extends TimedSessionItem & { id: string }
   });
 }
 
+export function prepareNextRoundSchedule<T extends TimedSessionItem & { id: string }>(items: T[], completedTitles: string[], nextStart: string): T[] {
+  return shiftTimedPlanToStart(prepareNextRoundPlan(items, completedTitles), nextStart);
+}
+
 export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
   return items.map((item, index) => index < startIndex ? item : {
     ...item,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
+import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockTimeFromDate, durationMinutes, formatPlanClock, gentleRemainingLabel, insertRestBreak, prepareNextRoundPlan, prepareNextRoundSchedule, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight } from "../app/plan-utils.ts";
 import { shouldUseBackgroundReminder, shouldUseForegroundCue } from "../app/reminder-utils.ts";
 import { rewardThresholdBounds } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -121,7 +121,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /if \(screen !== "adjust"\) return/);
   assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
   assert.match(app, /!planHydrated \|\| LIVE_SCREENS\.includes\(screen as LiveScreen\)/);
-  assert.match(app, /setStages\(prepareNextRoundPlan\(stages, completedStageTitles\)\)/);
+  assert.match(app, /sessionPlanWindowRef\.current = \{ planStart: data\.planStart, planEnd: data\.planEnd \}/);
+  assert.match(app, /baselinePlanStart: baseline\.planStart, baselinePlanEnd: baseline\.planEnd/);
+  assert.match(app, /planStart: baseline\.planStart, planEnd: baseline\.planEnd/);
+  assert.match(app, /setStages\(prepareNextRoundSchedule\(stages, completedStageTitles, baseline\.planStart\)\)/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
   assert.match(app, /可选，不影响能量，也不评价孩子/);
@@ -501,6 +504,19 @@ test("does not remove an unfinished duplicate after its completed twin", () => {
   ], ["数学练习"]);
 
   assert.deepEqual(next.map(item => [item.id, item.status]), [["math-b", "pending"]]);
+});
+
+test("restores the family planning window after a session starts at a different time", () => {
+  const next = prepareNextRoundSchedule([
+    { id: "snack", title: "吃点东西", start: "08:19", end: "08:39", status: "done" },
+    { id: "math", title: "数学练习", start: "08:39", end: "09:09", status: "tomorrow" },
+    { id: "book", title: "阅读", start: "09:19", end: "09:39", status: "pending" },
+  ], ["吃点东西"], "18:10");
+
+  assert.deepEqual(next.map(item => [item.id, item.start, item.end, item.status]), [
+    ["math", "18:10", "18:40", "pending"],
+    ["book", "18:50", "19:10", "pending"],
+  ]);
 });
 
 test("preserves planned gaps and the trailing buffer after a live rest", () => {
