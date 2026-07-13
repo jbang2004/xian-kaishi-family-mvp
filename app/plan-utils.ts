@@ -61,14 +61,16 @@ export function millisecondsUntilNextMinute(timestamp: number) {
 
 export function suggestInitialEveningWindow(now: Date) {
   const minutesNow = now.getHours() * 60 + now.getMinutes();
-  if (!Number.isFinite(now.getTime()) || (minutesNow >= 5 * 60 && minutesNow < 16 * 60)) {
+  // A first-run suggestion should never normalize overnight homework for a
+  // primary-school family. Outside the realistic after-school/evening window,
+  // offer a calm default that the family can still edit.
+  if (!Number.isFinite(now.getTime()) || minutesNow < 16 * 60 || minutesNow >= 21 * 60 + 30) {
     return { planStart: "18:00", planEnd: "20:30" };
   }
 
   const roundedStartMinutes = Math.ceil(minutesNow / 10) * 10;
   const planStart = `${String(Math.floor((roundedStartMinutes % 1440) / 60)).padStart(2, "0")}:${String(roundedStartMinutes % 60).padStart(2, "0")}`;
-  const lateWindow = minutesNow < 5 * 60 || roundedStartMinutes >= 22 * 60;
-  return { planStart, planEnd: addMinutes(planStart, lateWindow ? 90 : 120) };
+  return { planStart, planEnd: addMinutes(planStart, minutesNow >= 20 * 60 ? 60 : 120) };
 }
 
 export function remainingTimerMinutes(endsAt: number, now: number) {

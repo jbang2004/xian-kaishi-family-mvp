@@ -1251,6 +1251,8 @@ button.insight-card { cursor: pointer; }
   .stage-icon-button { grid-column: 1; grid-row: 1; min-height: 116px; }
   .stage-icon-button .app-icon { width: 48px; height: 48px; }
   .stage-main { grid-column: 2; grid-row: 1; }
+  .stage-meta { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .stage-meta .effort-pill { width: 100%; min-height: 34px; overflow: hidden; padding-inline: 7px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
   .stage-actions { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3,1fr); }
   .stage-actions button { width: 100%; }
   .reward-idea-grid button { min-height: 90px; }

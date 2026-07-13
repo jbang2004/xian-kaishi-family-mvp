@@ -303,6 +303,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /promptReflection \? settlementFooter : `催促感可以不填 · \$\{settlementFooter\}`/);
   assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
+  assert.match(app, /persist\(next, profileReturn === "settings" \? "家庭设置已更新" : undefined\)/);
+  assert.doesNotMatch(app, /家庭称呼已保存，可以安排今晚了/);
   assert.match(app, /今晚，怎么称呼彼此？/);
   assert.doesNotMatch(styles, /\.profile-preferences/);
   assert.match(app, /undoRemoveStage/);
@@ -556,6 +558,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /className="task-energy-range branded-range"/);
   assert.match(app, /type="range" min="0" max="5"/);
   assert.match(app, /aria-valuetext=\{stageEnergyLabel\(stage\.energy\)\}/);
+  assert.match(app, /aria-label=\{`调整\$\{stageName\}完成后的家庭能量：\$\{stageEnergyLabel\(stage\.energy\)\}`\}/);
   assert.match(app, /\[0,1,2,3,4,5\]/);
   assert.match(app, /这一项不计能量/);
   assert.match(app, /energy: 0[^\n]+kind: "rest"/);
@@ -576,6 +579,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);
   assert.match(styles, /\.availability-card \.mascot \{ display: none; \}/);
   assert.match(styles, /\.stage-actions \{ grid-column: 1 \/ -1; grid-row: 2; grid-template-columns: repeat\(3,1fr\); \}/);
+  assert.match(styles, /\.stage-meta \{ grid-template-columns: minmax\(0,1fr\) minmax\(0,1fr\); \}/);
+  assert.match(app, /`任务 · \$\{effortCopy\[stage\.effort\]\}`/);
   assert.match(styles, /\.reward-idea-grid small \{ display: none; \}/);
   assert.match(styles, /\.step-pill \{[^}]*white-space: nowrap/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 76px/);
@@ -1017,10 +1022,13 @@ test("suggests a first planning window that still makes sense when the family ar
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 15, 59)), { planStart: "18:00", planEnd: "20:30" });
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 16, 0)), { planStart: "16:00", planEnd: "18:00" });
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 18, 3)), { planStart: "18:10", planEnd: "20:10" });
-  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 21, 57)), { planStart: "22:00", planEnd: "23:30" });
-  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 23, 57)), { planStart: "00:00", planEnd: "01:30" });
-  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 4, 58)), { planStart: "05:00", planEnd: "06:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 20, 47)), { planStart: "20:50", planEnd: "21:50" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 21, 29)), { planStart: "21:30", planEnd: "22:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 21, 30)), { planStart: "18:00", planEnd: "20:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 23, 57)), { planStart: "18:00", planEnd: "20:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 4, 58)), { planStart: "18:00", planEnd: "20:30" });
   assert.deepEqual(suggestInitialEveningWindow(new Date(2026, 6, 13, 5, 0)), { planStart: "18:00", planEnd: "20:30" });
+  assert.deepEqual(suggestInitialEveningWindow(new Date(Number.NaN)), { planStart: "18:00", planEnd: "20:30" });
 });
 
 test("distinguishes a future planned start from a start time that has already passed", () => {
