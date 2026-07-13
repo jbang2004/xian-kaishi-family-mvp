@@ -239,6 +239,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-label=\{`删除\$\{sessionTimeLabel\(item\.date\)\}的收尾记录`\}/);
   assert.match(app, /只从日历移除，不改动当前这轮能量/);
   assert.match(app, /removeSessionAndReconcileEnergy\(data\.sessions, record\.id/);
+  assert.match(app, /type SessionDeleteUndo = \{ recordId:/);
+  assert.match(app, /setSessionDeleteUndo\(\{/);
+  assert.match(app, /setSessionDeleteUndo\(null\), 12000/);
+  assert.match(app, /const undoDeleteSessionRecord = \(\) =>/);
+  assert.match(app, /sessions: undo\.sessions, energy: undo\.energy/);
+  assert.match(app, /已恢复这次记录和删除前的能量/);
+  assert.match(app, /data-session-delete-id=\{item\.id\}/);
+  assert.match(app, /sessionDeleteUndoRef\.current\?\.focus\(\)/);
+  assert.match(app, /撤销删除\$\{sessionDeleteUndo\.label\}的收尾记录/);
   assert.match(styles, /\.record-delete-confirm \{[^}]*background: #fff6f3/);
   assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
   assert.match(app, /className="today-jump"/);

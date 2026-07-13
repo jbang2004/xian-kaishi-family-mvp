@@ -68,6 +68,7 @@ type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages
 type PlanWindow = { planStart: string; planEnd: string };
 type ShiftedPlanUndo = { times: Array<Pick<Stage, "id" | "start" | "end">>; message: string; planStart?: string; focusStageId?: string };
 type StageAdvanceUndo = { statuses: Array<Pick<Stage, "id" | "status">>; activeIndex: number; activeEndsAt: number; stageDue: boolean; transitionReason: TransitionReason; nextTitle: string };
+type SessionDeleteUndo = { recordId: string; label: string; sessions: SessionRecord[]; energy: number; message: string };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
@@ -354,6 +355,7 @@ export function StartApp() {
   const [shiftedPlanUndo, setShiftedPlanUndo] = useState<ShiftedPlanUndo | null>(null);
   const [stageAdvanceUndo, setStageAdvanceUndo] = useState<StageAdvanceUndo | null>(null);
   const [sessionDeleteArmedId, setSessionDeleteArmedId] = useState("");
+  const [sessionDeleteUndo, setSessionDeleteUndo] = useState<SessionDeleteUndo | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
@@ -379,6 +381,7 @@ export function StartApp() {
   const deleteInProgressRef = useRef(false);
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const deleteConfirmRef = useRef<HTMLButtonElement>(null);
+  const sessionDeleteUndoRef = useRef<HTMLButtonElement>(null);
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null);
   const screenRef = useRef<Screen>("welcome");
   const historyReadyRef = useRef(false);
@@ -617,6 +620,13 @@ export function StartApp() {
     const timer = window.setTimeout(() => setStageAdvanceUndo(null), 12000);
     return () => window.clearTimeout(timer);
   }, [stageAdvanceUndo]);
+
+  useEffect(() => {
+    if (!sessionDeleteUndo) return;
+    const timer = window.setTimeout(() => setSessionDeleteUndo(null), 12000);
+    const focusFrame = window.requestAnimationFrame(() => sessionDeleteUndoRef.current?.focus());
+    return () => { window.clearTimeout(timer); window.cancelAnimationFrame(focusFrame); };
+  }, [sessionDeleteUndo]);
 
   useEffect(() => {
     if (!("Notification" in window)) return;
@@ -1354,10 +1364,29 @@ export function StartApp() {
   };
   const deleteSessionRecord = (record: SessionRecord) => {
     const result = removeSessionAndReconcileEnergy(data.sessions, record.id, data.energy, data.rewardHistory.map(item => item.redeemedAt));
+    const label = sessionTimeLabel(record.date);
+    setDeletedStage(null); setShiftedPlanUndo(null); setSessionDeleteUndo({
+      recordId: record.id,
+      label,
+      sessions: data.sessions.map(item => ({ ...item, stageTitles: [...item.stageTitles] })),
+      energy: data.energy,
+      message: result.currentCycleAdjusted && result.removedEnergy
+        ? `已删除 ${label} 的记录，当前能量减少${result.removedEnergy}点`
+        : `已删除 ${label} 的日历记录`,
+    });
     setSessionDeleteArmedId("");
-    persist({ ...data, sessions: result.sessions, energy: result.energy }, result.currentCycleAdjusted
-      ? result.removedEnergy ? `已删除这次记录，当前能量同步调整${result.removedEnergy}点` : "已删除这次记录，同一晚的合作能量仍保留"
-      : "已删除日历记录，当前这轮能量没有回溯");
+    persist({ ...data, sessions: result.sessions, energy: result.energy });
+  };
+  const undoDeleteSessionRecord = () => {
+    if (!sessionDeleteUndo) return;
+    const undo = sessionDeleteUndo;
+    setSessionDeleteUndo(null); setDayDetailsExpanded(true);
+    persist({ ...data, sessions: undo.sessions, energy: undo.energy }, "已恢复这次记录和删除前的能量");
+    window.requestAnimationFrame(() => {
+      const button = Array.from(phoneShellRef.current?.querySelectorAll<HTMLButtonElement>("[data-session-delete-id]") ?? [])
+        .find(item => item.dataset.sessionDeleteId === undo.recordId);
+      button?.focus();
+    });
   };
   const startAnotherPlan = () => {
     setEditingStageId("");
@@ -1562,7 +1591,7 @@ export function StartApp() {
             {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
             {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>共同约定 {item.threshold} 点 · 这一轮积累到 {item.energyBeforeReset} 点</p></div></div>)}
             {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => { setSessionDeleteArmedId(""); setDayDetailsExpanded(value => !value); }}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
-            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button onClick={() => setSessionDeleteArmedId("")}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}
+            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button onClick={() => setSessionDeleteArmedId("")}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" data-session-delete-id={item.id} aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}
           </>}
         </div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}
@@ -1582,6 +1611,7 @@ export function StartApp() {
       {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
       {shiftedPlanUndo && <div className="undo-toast" role="status"><span>{shiftedPlanUndo.message}</span><button onClick={undoPlanShift}>撤销</button></div>}
+      {sessionDeleteUndo && <div className="undo-toast" role="status"><span>{sessionDeleteUndo.message}</span><button ref={sessionDeleteUndoRef} aria-label={`撤销删除${sessionDeleteUndo.label}的收尾记录`} onClick={undoDeleteSessionRecord}>撤销</button></div>}
       {toast && <div className="toast" role="status">{toast}</div>}
     </section>
     {deleteArmed && <div className="destructive-dialog-backdrop"><section className="destructive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><span className="destructive-dialog-icon"><AppIcon name="privacy" /></span><small>不可撤销的操作</small><h2 id="delete-dialog-title">删除这个家庭的全部数据？</h2><p id="delete-dialog-description">将清除家庭化名、今晚计划、日历记录、能量和期待；本机立即删除，云端副本会同步清理。</p><div className="destructive-dialog-actions"><button ref={deleteCancelRef} className="secondary-button" disabled={deletingData} onClick={cancelDeleteData}>取消，保留数据</button><button ref={deleteConfirmRef} className="danger-confirm-button" disabled={deletingData} onClick={() => void deleteData()}>{deletingData ? "正在删除…" : "确认永久删除"}</button></div></section></div>}
