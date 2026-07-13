@@ -119,7 +119,7 @@ export function prepareNextRoundSchedule<T extends TimedSessionItem & { id: stri
   return shiftTimedPlanToStart(prepareNextRoundPlan(items, completedTitles), nextStart);
 }
 
-export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIndex: number, amount: number): T[] {
+export function shiftTimedItemsFrom<T extends Pick<TimedPlanItem, "start" | "end">>(items: T[], startIndex: number, amount: number): T[] {
   return items.map((item, index) => index < startIndex ? item : {
     ...item,
     start: addMinutes(item.start, amount),
@@ -139,7 +139,7 @@ export function alignLiveStagesToStart<T extends TimedPlanItem & { status: strin
   });
 }
 
-export function shiftFollowingForEndChange<T extends TimedPlanItem>(items: T[], index: number, newEnd: string): T[] {
+export function shiftFollowingForEndChange<T extends Pick<TimedPlanItem, "start" | "end">>(items: T[], index: number, newEnd: string): T[] {
   const current = items[index];
   if (!current) return items;
   const delta = clockDeltaMinutes(current.end, newEnd);

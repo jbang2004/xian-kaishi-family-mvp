@@ -64,6 +64,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.doesNotMatch(layout, /兑换/);
   assert.match(page, /<StartApp \/>/);
   assert.match(page, /把每晚合作和共同期待留在家庭日历里/);
+  assert.match(app, /headers\.set\("x-family-token", familyToken\)/);
+  assert.doesNotMatch(app, /api\/state\?familyId/);
   assert.match(app, /今晚少催一次/);
   assert.match(app, /孩子只短暂看屏幕 · 大人掌控手机/);
   assert.match(app, /childAlias: ""/);
@@ -790,8 +792,11 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   assert.match(initialMigration, /`family_id` text PRIMARY KEY/);
   assert.match(revisionMigration, /ADD `revision` integer DEFAULT 0 NOT NULL/);
   assert.match(route, /excluded\.revision > family_state\.revision/);
-  assert.match(route, /status: 409/);
-  assert.match(route, /localOnly: true \}, \{ status: 503 \}/);
+  assert.match(route, /privateJson\(\{ conflict: true,[\s\S]*\}, 409\)/);
+  assert.match(route, /FAMILY_TOKEN_PATTERN/);
+  assert.match(route, /request\.headers\.get\("x-family-token"\)/);
+  assert.match(route, /"cache-control": "private, no-store"/);
+  assert.match(route, /privateJson\(\{ ok: false, localOnly: true \}, 503\)/);
 });
 
 test("validates the family plan before dual confirmation", () => {

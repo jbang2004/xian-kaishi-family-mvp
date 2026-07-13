@@ -225,14 +225,32 @@ async function retryPendingCloudDeletion() {
   const pendingFamilyId = localStorage.getItem(PENDING_DELETE_KEY) || "";
   if (!pendingFamilyId) return true;
   try {
-    const response = await fetch(`/api/state?familyId=${encodeURIComponent(pendingFamilyId)}`, { method: "DELETE" });
-    const result = await response.json();
+    const response = await familyStateRequest(pendingFamilyId, { method: "DELETE" });
+    const result = await readFamilyStateResponse(response);
     if (response.ok && result.ok && !result.localOnly) {
       localStorage.removeItem(PENDING_DELETE_KEY);
       return true;
     }
   } catch { /* retry after the browser reports that the network is back */ }
   return false;
+}
+
+function familyStateRequest(familyToken: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("x-family-token", familyToken);
+  return fetch("/api/state", { ...init, headers, cache: "no-store" });
+}
+
+type FamilyStateResponse = {
+  data?: unknown;
+  updatedAt?: string;
+  revision?: number;
+  ok?: boolean;
+  localOnly?: boolean;
+};
+
+function readFamilyStateResponse(response: Response) {
+  return response.json() as Promise<FamilyStateResponse>;
 }
 
 function AppIcon({ name, className = "", loading = "eager" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
@@ -608,7 +626,7 @@ export function StartApp() {
       }
       setPlanHydrated(true);
       if (validLocal) setAppReady(true);
-      fetch(`/api/state?familyId=${encodeURIComponent(id)}`).then(r => r.json()).then(result => {
+      familyStateRequest(id).then(readFamilyStateResponse).then(result => {
         const hasLocal = validLocal || familyRevisionRef.current > 0;
         if (result.data) {
           const remote = withDraftWindow(normalizeData(result.data));
@@ -625,16 +643,16 @@ export function StartApp() {
           } else if (winner === "local") {
             const localRevision = familyRevisionRef.current <= remoteRevision ? remoteRevision + 1 : familyRevisionRef.current;
             familyRevisionRef.current = localRevision; localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
-            const initialSync = fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
-              .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
+            const initialSync = familyStateRequest(id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+              .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
               .catch(() => setSyncLabel("仅保存在本机"));
             void pendingWritesRef.current.track(initialSync);
           } else setSyncLabel("云端已同步");
         } else if (hasLocal) {
           const localRevision = Math.max(1, familyRevisionRef.current); familyRevisionRef.current = localRevision;
           localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
-          const initialSync = fetch(`/api/state?familyId=${encodeURIComponent(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
-            .then(response => response.json()).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
+          const initialSync = familyStateRequest(id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
+            .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "本机更新已补同步" : "已保留本机更新"))
             .catch(() => setSyncLabel("仅保存在本机"));
           void pendingWritesRef.current.track(initialSync);
         }
@@ -774,8 +792,8 @@ export function StartApp() {
       setSyncLabel("网络已恢复，正在同步…");
       const syncPromise = (async () => {
         try {
-          const response = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
-          const result = await response.json();
+          const response = await familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
+          const result = await readFamilyStateResponse(response);
           if (revision !== familyRevisionRef.current || deleteInProgressRef.current) return;
           if (response.status === 409 && result.data) {
             const merged = mergeFamilyData(familyDataRef.current, normalizeData(result.data));
@@ -783,8 +801,8 @@ export function StartApp() {
             const retryUpdatedAt = new Date().toISOString();
             familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
             setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt);
-            const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
-            const retryResult = await retry.json();
+            const retry = await familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
+            const retryResult = await readFamilyStateResponse(retry);
             if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
             if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
             setSyncLabel(retry.ok ? "网络已恢复 · 已合并并同步" : "网络已恢复 · 已保留本机更新"); return;
@@ -847,9 +865,9 @@ export function StartApp() {
     familyDataRef.current = next; familyRevisionRef.current = revision; familyUpdatedAtRef.current = updatedAt;
     setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("本机已保存 · 正在同步…");
     if (message) setToast(message);
-    const syncPromise = fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
+    const syncPromise = familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
       .then(async response => {
-        const result = await response.json();
+        const result = await readFamilyStateResponse(response);
         if (revision !== familyRevisionRef.current || deleteInProgressRef.current) return;
         if (response.status === 409 && result.data) {
           const merged = mergeFamilyData(next, normalizeData(result.data));
@@ -857,8 +875,8 @@ export function StartApp() {
           const retryUpdatedAt = new Date().toISOString();
           familyDataRef.current = merged; familyRevisionRef.current = retryRevision; familyUpdatedAtRef.current = retryUpdatedAt;
           setData(merged); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); localStorage.setItem(FAMILY_REVISION_KEY, String(retryRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryUpdatedAt); setSyncLabel("正在合并另一处更新…");
-          const retry = await fetch(`/api/state?familyId=${encodeURIComponent(activeFamilyId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
-          const retryResult = await retry.json();
+          const retry = await familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: merged, revision: retryRevision }) });
+          const retryResult = await readFamilyStateResponse(retry);
           if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
           if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
           setSyncLabel(retry.ok ? "已合并并同步" : "已保留本机更新"); return;
@@ -904,7 +922,6 @@ export function StartApp() {
       icon: `/assets/icons/alarm.png?v=${ASSET_VERSION}`,
       badge: `/assets/icons/alarm.png?v=${ASSET_VERSION}`,
       tag: "xian-kaishi-stage-due",
-      renotify: false,
       data: { url: "/" },
     };
     try {
@@ -1296,7 +1313,7 @@ export function StartApp() {
     setStageAdvanceUndo(null);
     if (!canStartRest) { extendCurrent(); return; }
     const startedAt = Date.now();
-    const result = insertRestBreak(
+    const result = insertRestBreak<Stage>(
       stages,
       activeIndex,
       { id: createId("rest"), title: "安静休息", icon: "quiet", start: "", end: "", effort: 1, energy: 0, status: "active", kind: "rest" },

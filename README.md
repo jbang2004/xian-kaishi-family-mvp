@@ -23,10 +23,21 @@
 npm install
 npm run dev
 npm test
+npm run verify
 ```
 
 界面参考图和设计依据位于 `outputs/ui-reference/`，不参与部署。
 
+## 公开测试部署
+
+- Sites 内部版本用于设计迭代与回退。
+- Cloudflare Worker 公开版本无需 OpenAI 登录：<https://xian-kaishi-family-mvp.jbang20042004.workers.dev>
+- 公开部署使用独立 D1 `xian-kaishi-family-mvp`，不复用账号内其他项目数据库。
+- 执行 `npm run deploy:public:check` 可做 Worker 干跑，执行 `npm run deploy:public` 发布。
+- `workers.dev` 在部分中国大陆网络可能访问较慢或超时；正式家庭测试应绑定已备案、国内可达的自有域名，或迁移到合规的国内托管环境，不应把 `workers.dev` 当最终生产入口。
+
 ## 数据与隐私说明
 
-当前 MVP 会在浏览器本地保存家庭状态，并通过匿名 `familyId` 同步到 Cloudflare D1。它尚未实现适合公开生产环境的监护人账号鉴权，因此公开试用前应选择“仅本机保存”，或补充正式的监护人登录与访问控制。
+当前 MVP 优先在浏览器本地保存家庭状态，并通过高熵随机家庭令牌同步到独立 Cloudflare D1。令牌只保存在当前浏览器、通过同源请求头传输，不进入 URL；家庭接口拒绝无令牌访问且禁止缓存。设置页支持数据导出以及本机与云端删除，离线删除会在恢复联网后重试。
+
+随机家庭令牌适合小规模匿名 MVP，不等同于正式监护人账号体系，也不提供跨设备找回。进入生产和规模化招募前，仍需增加监护人身份验证、令牌轮换、滥用限流与中国大陆合规托管评估。
