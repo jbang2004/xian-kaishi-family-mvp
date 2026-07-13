@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapTimedItemsPreservingGaps } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -211,12 +211,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
   assert.match(app, /className=\{`transition-result/);
-  assert.match(app, /type StageAdvanceUndo = \{ statuses:/);
-  assert.match(app, /setStageAdvanceUndo\(\{ statuses: stages\.map/);
+  assert.match(app, /type StageAdvanceUndo = \{ stages: Stage\[\]; planEnd: string/);
+  assert.match(app, /setStageAdvanceUndo\(\{ stages: stages\.map/);
   assert.match(app, /const undoContinueToNext = \(\) =>/);
   assert.match(app, /setStageAdvanceUndo\(null\), 12000/);
   assert.match(app, /const openAdjust = \(\) => \{ setStageAdvanceUndo\(null\)/);
   assert.match(app, /setActiveEndsAt\(stageAdvanceUndo\.activeEndsAt\)/);
+  assert.match(app, /planEnd: stageAdvanceUndo\.planEnd/);
   assert.match(app, /已进入“\{stageAdvanceUndo\.nextTitle\}”/);
   assert.match(styles, /\.live-undo-toast \{ bottom: calc\(210px/);
   assert.match(styles, /max-height: 700px[\s\S]*?\.live-undo-toast \{ bottom: calc\(76px/);
@@ -230,7 +231,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /onChange=\{e => updatePlanStart\(e\.target\.value\)\}/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: e\.target\.value \}\)\)/);
   assert.match(app, /canStartRest && <button className="soft-button" onClick=\{startRestNow\}>先休息 10 分钟<\/button>/);
-  assert.match(app, /title: canStartRest \? "延长当前阶段" : "再休息10分钟"/);
+  assert.match(app, /!activeStageCompleted \? \[\{ id: "extend" as const/);
+  assert.match(app, /下一项前休息10分钟/);
+  assert.match(app, /收尾保存后 \+\$\{activeStage\.energy\} 家庭能量/);
+  assert.match(app, /disabled=\{!effectiveAdjustChoice\}/);
   assert.match(app, /if \(screen !== "adjust"\) return/);
   assert.match(app, /remainingTimerMinutes\(activeEndsAt, startedAt\)/);
   assert.match(app, /!planHydrated \|\| LIVE_SCREENS\.includes\(screen as LiveScreen\)/);
@@ -629,6 +633,22 @@ test("moves the whole schedule with a cross-midnight availability start", () => 
   ], 0, delta);
   assert.equal(delta, 30);
   assert.deepEqual(shifted.map(item => [item.start, item.end]), [["00:20", "00:40"], ["00:50", "01:05"]]);
+});
+
+test("aligns the next live stage to the real start while preserving gaps and tomorrow", () => {
+  const aligned = alignLiveStagesToStart([
+    { title: "阅读", start: "18:00", end: "18:20", status: "done" },
+    { title: "整理", start: "18:20", end: "18:40", status: "pending" },
+    { title: "洗漱", start: "18:50", end: "19:05", status: "pending" },
+    { title: "背诵", start: "19:10", end: "19:30", status: "tomorrow" },
+  ], 1, "18:08");
+
+  assert.deepEqual(aligned.map(item => [item.start, item.end]), [
+    ["18:00", "18:20"],
+    ["18:08", "18:28"],
+    ["18:38", "18:53"],
+    ["19:10", "19:30"],
+  ]);
 });
 
 test("inserts a new node into the earliest full gap without moving the family boundary", () => {

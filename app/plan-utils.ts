@@ -107,6 +107,18 @@ export function shiftTimedItemsFrom<T extends TimedPlanItem>(items: T[], startIn
   });
 }
 
+export function alignLiveStagesToStart<T extends TimedPlanItem & { status: string }>(items: T[], startIndex: number, actualStart: string): T[] {
+  const next = items[startIndex];
+  if (!next || timeToMinutes(actualStart) < 0) return items;
+  const delta = clockDeltaMinutes(next.start, actualStart);
+  if (!delta) return items;
+  return items.map((item, index) => index < startIndex || item.status === "tomorrow" ? item : {
+    ...item,
+    start: addMinutes(item.start, delta),
+    end: addMinutes(item.end, delta),
+  });
+}
+
 export function shiftFollowingForEndChange<T extends TimedPlanItem>(items: T[], index: number, newEnd: string): T[] {
   const current = items[index];
   if (!current) return items;

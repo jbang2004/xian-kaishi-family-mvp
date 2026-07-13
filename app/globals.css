@@ -802,6 +802,8 @@ button.insight-card { cursor: pointer; }
 .adjust-grid .finish-choice .app-icon { width: 62px; height: 62px; }
 .change-preview { border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.78); padding: 16px; display: grid; gap: 6px; }
 .change-preview small { color: var(--muted); }
+.change-preview.is-waiting { border-style: dashed; background: rgba(255,255,255,.48); }
+.change-preview.is-waiting strong { color: #68736e; font-weight: 700; }
 
 .wrap-screen { text-align: center; background: radial-gradient(circle at 84% 13%, rgba(245,184,75,.24), transparent 25%); display: flex; flex-direction: column; }
 .wrap-screen .app-header { margin-bottom: 8px; }
@@ -1177,6 +1179,14 @@ button.insight-card { cursor: pointer; }
     font-size: 13px;
   }
   .live-undo-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .adjust-screen .title-with-mascot h1 { font-size: 27px; }
+  .adjust-screen .title-with-mascot .mascot { width: 82px; height: 82px; }
+  .adjust-grid { gap: 8px; margin: 10px 0; }
+  .adjust-grid button { min-height: 108px; padding: 9px; }
+  .adjust-grid .app-icon { width: 48px; height: 48px; }
+  .adjust-grid .finish-choice { min-height: 80px; grid-template-columns: 54px 1fr; padding-inline: 16px; }
+  .adjust-grid .finish-choice .app-icon { width: 48px; height: 48px; }
+  .change-preview { padding: 12px 14px; }
 }
 
 /* Tall decision docks should never cover the information they summarize. */
