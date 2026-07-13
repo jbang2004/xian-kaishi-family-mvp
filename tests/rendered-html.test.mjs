@@ -508,6 +508,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.energy-detail-toggle\[aria-expanded="true"\]/);
   assert.match(styles, /\.active-energy\.is-zero/);
   assert.match(app, /rewardThresholdBounds\(data\.energy\)/);
+  assert.match(app, /const reviseRewardDraft = \(patch: Partial<RewardGoal>\)/);
+  assert.match(app, /setRewardEnergyConfirmed\(false\)/);
+  assert.match(app, /约定有变化，请两个人再确认一次/);
+  assert.match(app, /ref=\{rewardDateInputRef\} name="reward-date"/);
+  assert.match(app, /rewardEnergyConfirmRef\.current\?\.focus\(\)/);
+  assert.match(app, /ref=\{rewardEnergyConfirmRef\} type="checkbox"/);
+  assert.match(app, /不用为了更快达成临时加码/);
   assert.match(app, /max=\{rewardMaximumThreshold\}/);
   assert.match(styles, /\.branded-range::-webkit-slider-runnable-track/);
   assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);
