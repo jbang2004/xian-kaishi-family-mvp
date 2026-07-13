@@ -233,6 +233,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /30秒内可以恢复原来的家庭期待和/);
   assert.match(app, /恢复这一轮/);
   assert.match(styles, /\.reward-undo-panel \{/);
+  assert.match(app, /rewardRedeemCancelRef\.current\?\.focus\(\)/);
+  assert.match(app, /ref=\{rewardRedeemTriggerRef\}/);
+  assert.match(app, /const cancelRedeemConfirmation = \(\) =>/);
+  assert.match(app, /ref=\{rewardRedeemCancelRef\}/);
   assert.match(app, /!next\.rewardGoal\.acknowledged/);
   assert.match(app, /先保留能量，等实际实现/);
   assert.match(app, /screenRef\.current === "reward-achieved" && next !== "reward-achieved"/);
@@ -258,6 +262,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /data-session-delete-id=\{item\.id\}/);
   assert.match(app, /sessionDeleteUndoRef\.current\?\.focus\(\)/);
   assert.match(app, /撤销删除\$\{sessionDeleteUndo\.label\}的收尾记录/);
+  assert.match(app, /sessionDeleteCancelRef\.current\?\.focus\(\)/);
+  assert.match(app, /const cancelSessionDelete = \(recordId: string\) =>/);
+  assert.match(app, /focusSessionDeleteTrigger\(recordId\)/);
+  assert.match(app, /ref=\{sessionDeleteCancelRef\}/);
   assert.match(styles, /\.record-delete-confirm \{[^}]*background: #fff6f3/);
   assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
   assert.match(app, /className="today-jump"/);

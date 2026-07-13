@@ -383,7 +383,10 @@ export function StartApp() {
   const deleteInProgressRef = useRef(false);
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const deleteConfirmRef = useRef<HTMLButtonElement>(null);
+  const sessionDeleteCancelRef = useRef<HTMLButtonElement>(null);
   const sessionDeleteUndoRef = useRef<HTMLButtonElement>(null);
+  const rewardRedeemTriggerRef = useRef<HTMLButtonElement>(null);
+  const rewardRedeemCancelRef = useRef<HTMLButtonElement>(null);
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null);
   const screenRef = useRef<Screen>("welcome");
   const historyReadyRef = useRef(false);
@@ -393,6 +396,14 @@ export function StartApp() {
   const dualStatusRef = useRef<HTMLDivElement>(null);
   const rewardExitHandlerRef = useRef<() => void>(() => undefined);
   const sessionPlanWindowRef = useRef<PlanWindow | null>(null);
+
+  const focusSessionDeleteTrigger = (recordId: string) => {
+    window.requestAnimationFrame(() => {
+      const button = Array.from(phoneShellRef.current?.querySelectorAll<HTMLButtonElement>("[data-session-delete-id]") ?? [])
+        .find(item => item.dataset.sessionDeleteId === recordId);
+      button?.focus();
+    });
+  };
 
   const showScreen = (next: Screen) => {
     if (screenRef.current === "dual-start" && next !== "dual-start") {
@@ -635,6 +646,30 @@ export function StartApp() {
     const timer = window.setTimeout(() => setRewardRedeemUndo(null), 30000);
     return () => window.clearTimeout(timer);
   }, [rewardRedeemUndo]);
+
+  useEffect(() => {
+    if (!sessionDeleteArmedId) return;
+    const recordId = sessionDeleteArmedId;
+    const focusFrame = window.requestAnimationFrame(() => sessionDeleteCancelRef.current?.focus());
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); setSessionDeleteArmedId(""); focusSessionDeleteTrigger(recordId);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => { window.cancelAnimationFrame(focusFrame); window.removeEventListener("keydown", handleEscape); };
+  }, [sessionDeleteArmedId]);
+
+  useEffect(() => {
+    if (!redeemArmed) return;
+    const focusFrame = window.requestAnimationFrame(() => rewardRedeemCancelRef.current?.focus());
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); setRedeemArmed(false);
+      window.requestAnimationFrame(() => rewardRedeemTriggerRef.current?.focus());
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => { window.cancelAnimationFrame(focusFrame); window.removeEventListener("keydown", handleEscape); };
+  }, [redeemArmed]);
 
   useEffect(() => {
     if (!("Notification" in window)) return;
@@ -1219,6 +1254,11 @@ export function StartApp() {
     go("energy");
   };
 
+  const cancelRedeemConfirmation = () => {
+    setRedeemArmed(false);
+    window.requestAnimationFrame(() => rewardRedeemTriggerRef.current?.focus());
+  };
+
   const saveRewardDraft = () => {
     const title = cleanShortText(rewardDraft.title, 24); const date = cleanShortText(rewardDraft.date, 16);
     if (!title || !date) { setToast("先一起写下期待和计划实现时间"); return; }
@@ -1406,16 +1446,15 @@ export function StartApp() {
     setSessionDeleteArmedId("");
     persist({ ...data, sessions: result.sessions, energy: result.energy });
   };
+  const cancelSessionDelete = (recordId: string) => {
+    setSessionDeleteArmedId(""); focusSessionDeleteTrigger(recordId);
+  };
   const undoDeleteSessionRecord = () => {
     if (!sessionDeleteUndo) return;
     const undo = sessionDeleteUndo;
     setSessionDeleteUndo(null); setDayDetailsExpanded(true);
     persist({ ...data, sessions: undo.sessions, energy: undo.energy }, "已恢复这次记录和删除前的能量");
-    window.requestAnimationFrame(() => {
-      const button = Array.from(phoneShellRef.current?.querySelectorAll<HTMLButtonElement>("[data-session-delete-id]") ?? [])
-        .find(item => item.dataset.sessionDeleteId === undo.recordId);
-      button?.focus();
-    });
+    focusSessionDeleteTrigger(undo.recordId);
   };
   const startAnotherPlan = () => {
     setEditingStageId("");
@@ -1599,7 +1638,7 @@ export function StartApp() {
         <div className="achievement-scene"><img src={`/assets/energy-room-v3.jpg?v=${ASSET_VERSION}`} width="960" height="720" loading="eager" decoding="async" fetchPriority="high" alt="点亮的家庭房间" /><span className="achievement-glow" /><AppIcon name={data.rewardGoal.icon} /></div>
         <div className="achievement-card"><AppIcon name={data.rewardGoal.icon} /><div><small>计划在{data.rewardGoal.date}</small><strong>{data.rewardGoal.title}</strong><p>{data.guardianAlias}和{data.childAlias}一起参与</p></div></div>
         <div className="achievement-boundary"><AppIcon name="home-heart" /><p><strong>积累到约定点数，不等于已经实现</strong><span>这是一起期待的家庭时光，不是孩子完成任务后必须获得的奖品。</span></p></div>
-        {!redeemArmed ? <div className="achievement-actions"><button className="primary-button" onClick={() => setRedeemArmed(true)}>已经一起实现了</button><button className="secondary-button" onClick={keepRewardForLater}>先保留能量，等实际实现</button></div> : <div className="redeem-confirm" role="alert"><strong>确认已经一起实现？</strong><p>“{data.rewardGoal.title}”会保存在今天的家庭日历。当前 {data.energy} 点会完成这一轮积累；记录保存后，下一份期待从0开始。</p><button className="primary-button" onClick={redeemReward}>确认已实现，开启新一轮</button><button className="text-button" onClick={() => setRedeemArmed(false)}>返回再看看</button></div>}
+        {!redeemArmed ? <div className="achievement-actions"><button ref={rewardRedeemTriggerRef} className="primary-button" onClick={() => setRedeemArmed(true)}>已经一起实现了</button><button className="secondary-button" onClick={keepRewardForLater}>先保留能量，等实际实现</button></div> : <div className="redeem-confirm" role="alert"><strong>确认已经一起实现？</strong><p>“{data.rewardGoal.title}”会保存在今天的家庭日历。当前 {data.energy} 点会完成这一轮积累；记录保存后，下一份期待从0开始。</p><button className="primary-button" onClick={redeemReward}>确认已实现，开启新一轮</button><button ref={rewardRedeemCancelRef} className="text-button" onClick={cancelRedeemConfirmation}>返回再看看</button></div>}
       </div>}
 
       {screen === "reward-saved" && lastRedeemedReward && <div className="screen reward-saved-screen">
@@ -1621,7 +1660,7 @@ export function StartApp() {
             {selectedSessionSummary && <section className="daily-summary"><div className="daily-summary-title"><AppIcon name="moon" /><div><strong>{selectedSessionSummary.settlements > 1 ? `这一晚分${selectedSessionSummary.settlements}次留下记录` : selectedSessionSummary.completed ? `这一晚完成了${selectedSessionSummary.completed}个阶段` : "这一晚选择了温和收尾"}</strong><small>先看整体，不用逐条比较每一次。</small></div></div><div className="daily-summary-stats"><span><b>{selectedSessionSummary.completed}</b><small>完成阶段</small></span><span><b>{selectedSessionSummary.adjustments}</b><small>主动调整</small></span><span><b>+{selectedSessionSummary.energy}</b><small>家庭能量</small></span></div><div className="daily-summary-note"><strong>{selectedSessionSummary.reflection ? promptReflectionCopy[selectedSessionSummary.reflection] : "催促感还没有记录"}</strong><span>{selectedSessionSummary.stageTitles.length ? `这一晚做过：${selectedSessionSummary.stageTitles.join("、")}` : "没有完成事项也可以收尾；记录不会评价孩子。"}</span></div></section>}
             {selectedRewards.map(item => <div className="history-row reward-history reward-highlight" key={item.id}><AppIcon name={item.icon} /><div><small>共同期待已经实现</small><strong>{item.title}</strong><p>共同约定 {item.threshold} 点 · 这一轮积累到 {item.energyBeforeReset} 点</p></div></div>)}
             {selectedSessions.length > 0 && <button className="day-details-toggle" aria-expanded={dayDetailsExpanded} aria-controls="day-session-details" onClick={() => { setSessionDeleteArmedId(""); setDayDetailsExpanded(value => !value); }}><span>{dayDetailsExpanded ? "收起单次明细" : `查看${selectedSessions.length}次收尾明细`}</span><b>{dayDetailsExpanded ? "⌃" : "⌄"}</b></button>}
-            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button onClick={() => setSessionDeleteArmedId("")}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" data-session-delete-id={item.id} aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}
+            {dayDetailsExpanded && <div id="day-session-details" className="day-session-details">{selectedSessions.map(item => <div className="history-row" key={item.id}><AppIcon name="check" /><div><strong>{sessionTimeLabel(item.date)} · {item.completedCount ? `完成${item.completedCount}个阶段` : "温和收尾"}</strong><small>家庭能量 +{item.energyEarned}{item.promptReflection ? ` · ${promptReflectionCopy[item.promptReflection]}` : ""}</small><div className="history-energy"><span>事项 +{item.taskEnergy}</span><span>合作 +{item.cooperationEnergy}</span>{item.adjustmentEnergy > 0 && <span>调整 +{item.adjustmentEnergy}</span>}</div><p>{item.stageTitles.join("、") || "未完成事项已留到明天"}</p>{sessionDeleteArmedId === item.id ? <div className="record-delete-confirm" role="alert"><p>{hasRewardResetAfter(item) ? "这条记录早于一次已实现的期待。只从日历移除，不改动当前这轮能量。" : "删除后会同步调整当前家庭能量；同一晚仍会保留一次合作奖励。"}</p><div><button ref={sessionDeleteCancelRef} onClick={() => cancelSessionDelete(item.id)}>保留记录</button><button className="confirm" aria-label={`确认删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => deleteSessionRecord(item)}>确认删除</button></div></div> : <button className="record-delete-button" data-session-delete-id={item.id} aria-label={`删除${sessionTimeLabel(item.date)}的收尾记录`} onClick={() => setSessionDeleteArmedId(item.id)}>删除这次记录</button>}</div></div>)}</div>}
           </>}
         </div>
         {metrics && <div className="metric-grid compact-metrics"><div><AppIcon name="moon" /><small>本月记录</small><strong>{metrics.nights}晚</strong></div><div><AppIcon name="speech" /><small>主动调整</small><strong>{metrics.adjustments}次</strong></div><div><AppIcon name="quiet" /><small>少催反馈</small><strong>{metrics.lessPromptNights}晚</strong></div></div>}
