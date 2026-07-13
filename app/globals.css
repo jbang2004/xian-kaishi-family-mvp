@@ -1022,6 +1022,7 @@ button.insight-card { cursor: pointer; }
 .undo-toast { z-index: 51; bottom: calc(24px + env(safe-area-inset-bottom)); min-height: 56px; padding: 10px 10px 10px 16px; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(35,50,74,.96); color: white; box-shadow: 0 14px 30px rgba(35,50,74,.25); animation: toast-in .25s ease both; }
 .undo-toast span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 800; }
 .undo-toast button { min-width: 64px; min-height: 40px; border: 0; border-radius: 12px; background: #fff2cb; color: #80550f; font-weight: 900; cursor: pointer; }
+.live-undo-toast { bottom: calc(210px + env(safe-area-inset-bottom)); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 .desktop-note { width: 390px; position: relative; z-index: 1; }
@@ -1125,6 +1126,7 @@ button.insight-card { cursor: pointer; }
     border-radius: 17px;
     font-size: 13px;
   }
+  .live-undo-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 
 /* Tall decision docks should never cover the information they summarize. */

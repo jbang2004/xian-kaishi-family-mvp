@@ -67,6 +67,7 @@ type WeeklyFocus = { weekKey: string; text: string; createdAt: string };
 type PlanDraft = { updatedAt: string; planStart: string; planEnd: string; stages: Stage[] };
 type PlanWindow = { planStart: string; planEnd: string };
 type ShiftedPlanUndo = { times: Array<Pick<Stage, "id" | "start" | "end">>; message: string; planStart?: string; focusStageId?: string };
+type StageAdvanceUndo = { statuses: Array<Pick<Stage, "id" | "status">>; activeIndex: number; activeEndsAt: number; stageDue: boolean; transitionReason: TransitionReason; nextTitle: string };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
@@ -328,6 +329,7 @@ export function StartApp() {
   const [profileReturn, setProfileReturn] = useState<"welcome" | "settings">("welcome");
   const [deletedStage, setDeletedStage] = useState<{ stage: Stage; index: number } | null>(null);
   const [shiftedPlanUndo, setShiftedPlanUndo] = useState<ShiftedPlanUndo | null>(null);
+  const [stageAdvanceUndo, setStageAdvanceUndo] = useState<StageAdvanceUndo | null>(null);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
@@ -437,7 +439,7 @@ export function StartApp() {
 
   const openPrivacy = (from: "welcome" | "settings") => { setPrivacyReturn(from); go("privacy"); };
   const openProfile = (from: "welcome" | "settings") => { setProfileReturn(from); go("profile"); };
-  const openAdjust = () => { setAdjustChoice("extend"); go("adjust"); };
+  const openAdjust = () => { setStageAdvanceUndo(null); setAdjustChoice("extend"); go("adjust"); };
   const enterDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); setClockNow(Date.now()); go("dual-start"); };
   const leaveDualStart = () => { setGuardianConfirmed(false); setChildConfirmed(false); setDualStartPaused(false); back("confirm"); };
   const cancelDualLaunch = () => {
@@ -585,6 +587,12 @@ export function StartApp() {
     const timer = window.setTimeout(() => setToast(""), 2400);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!stageAdvanceUndo) return;
+    const timer = window.setTimeout(() => setStageAdvanceUndo(null), 12000);
+    return () => window.clearTimeout(timer);
+  }, [stageAdvanceUndo]);
 
   useEffect(() => {
     if (!deleteArmed) return;
@@ -1004,6 +1012,7 @@ export function StartApp() {
   }, [activeEndsAt, activeStage.title, backgroundReminder, notificationPermission, screen]);
 
   const stageFinished = () => {
+    setStageAdvanceUndo(null);
     setTransitionReason("completed");
     setStages(items => items.map((item, index) => index === activeIndex ? { ...item, status: "done" } : item));
     playTone("confirm"); gentleVibrate(20); go("transition");
@@ -1020,13 +1029,24 @@ export function StartApp() {
   const continueToNext = () => {
     const nextIndex = nextPendingIndex(activeIndex);
     if (nextIndex < 0) { go("wrap"); return; }
-    setStages(items => items.map((item, index) => index === nextIndex ? { ...item, status: "active" } : item));
     const nextStage = stages[nextIndex];
+    setStageAdvanceUndo({ statuses: stages.map(({ id, status }) => ({ id, status })), activeIndex, activeEndsAt, stageDue, transitionReason, nextTitle: nextStage.title });
+    setStages(items => items.map((item, index) => index === nextIndex ? { ...item, status: "active" } : item));
     setActiveEndsAt(Date.now() + Math.max(1, durationMinutes(nextStage.start, nextStage.end)) * 60_000); setClockNow(Date.now()); setStageDue(false); dueReminderPlayed.current = false;
     setActiveIndex(nextIndex); go("running");
   };
 
+  const undoContinueToNext = () => {
+    if (!stageAdvanceUndo) return;
+    const statusById = new Map(stageAdvanceUndo.statuses.map(({ id, status }) => [id, status]));
+    setStages(items => items.map(item => ({ ...item, status: statusById.get(item.id) ?? item.status })));
+    setActiveIndex(stageAdvanceUndo.activeIndex); setActiveEndsAt(stageAdvanceUndo.activeEndsAt); setClockNow(Date.now());
+    setStageDue(stageAdvanceUndo.stageDue); dueReminderPlayed.current = stageAdvanceUndo.stageDue; setTransitionReason(stageAdvanceUndo.transitionReason);
+    setStageAdvanceUndo(null); setToast("已返回上一段的选择"); go("transition");
+  };
+
   const extendCurrent = () => {
+    setStageAdvanceUndo(null);
     const restartFromNow = activeStage.status === "done";
     const nextPlanEnd = addMinutes(data.planEnd, 10);
     setStages(items => shiftTimedItemsFrom(items, activeIndex + 1, 10).map((item, index) => index === activeIndex ? { ...item, end: addMinutes(item.end, 10), status: "active" } : item));
@@ -1036,6 +1056,7 @@ export function StartApp() {
   };
 
   const startRestNow = () => {
+    setStageAdvanceUndo(null);
     if (!canStartRest) { extendCurrent(); return; }
     const startedAt = Date.now();
     const result = insertRestBreak(
@@ -1501,6 +1522,7 @@ export function StartApp() {
       {screen === "risk" && <div className="screen risk-screen"><Header back={() => back("settings")} /><span className="eyebrow">风险边界</span><h1>有些情况，需要更多支持</h1><p className="lead">这个工具不做诊断，也不能替代专业评估。</p><div className="risk-list"><div><AppIcon name="home-heart" /><strong>困难长期存在于家庭和学校多个场景</strong></div><div><AppIcon name="moon" /><strong>持续拒学或明显躯体不适</strong></div><div><AppIcon name="privacy" /><strong>严重情绪变化或自伤表达</strong></div></div><div className="next-actions"><h2>接下来可以</h2><button onClick={() => setToast("今晚流程已暂停")}>1　先暂停今晚流程</button><button onClick={() => setToast("建议记录事实后联系老师")}>2　联系学校老师</button><button onClick={() => setToast("请选择正规医疗机构")}>3　寻找正规医疗机构</button></div><div className="urgent-note"><strong>存在立即安全风险时</strong><p>请优先联系当地急救或警方，并让可信任的成年人陪在孩子身边。</p></div></div>}
 
       {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} />}
+      {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}
       {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
       {shiftedPlanUndo && <div className="undo-toast" role="status"><span>{shiftedPlanUndo.message}</span><button onClick={undoPlanShift}>撤销</button></div>}
       {toast && <div className="toast" role="status">{toast}</div>}

@@ -135,7 +135,6 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
   assert.match(app, /className="profile-preferences"/);
-  assert.match(app, /const openAdjust = \(\) => \{ setAdjustChoice\("extend"\)/);
   assert.match(app, /undoRemoveStage/);
   assert.match(app, /setDeletedStage\(null\), 8000/);
   assert.match(app, /data-screen-heading/);
@@ -146,6 +145,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /先休息 10 分钟/);
   assert.match(app, /setTransitionReason\("completed"\)/);
   assert.match(app, /className="transition-result"/);
+  assert.match(app, /type StageAdvanceUndo = \{ statuses:/);
+  assert.match(app, /setStageAdvanceUndo\(\{ statuses: stages\.map/);
+  assert.match(app, /const undoContinueToNext = \(\) =>/);
+  assert.match(app, /setStageAdvanceUndo\(null\), 12000/);
+  assert.match(app, /const openAdjust = \(\) => \{ setStageAdvanceUndo\(null\)/);
+  assert.match(app, /setActiveEndsAt\(stageAdvanceUndo\.activeEndsAt\)/);
+  assert.match(app, /已进入“\{stageAdvanceUndo\.nextTitle\}”/);
+  assert.match(styles, /\.live-undo-toast \{ bottom: calc\(210px/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.live-undo-toast \{ bottom: calc\(76px/);
   assert.match(app, /现在休息10分钟，最晚\$\{result\.planEnd\}收尾/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
   assert.match(app, /最晚\$\{nextPlanEnd\}收尾/);
