@@ -234,9 +234,9 @@ async function retryPendingCloudDeletion() {
 }
 
 function AppIcon({ name, className = "", loading = "eager" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
-  return <picture className="optimized-picture">
+  return <picture className={`app-icon ${className}`}>
     <source srcSet={`/assets/optimized/icons/${name}.webp?v=${ASSET_VERSION}`} type="image/webp" />
-    <img className={`app-icon ${className}`} src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" alt="" aria-hidden="true" />
+    <img className="app-icon-image" src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" alt="" aria-hidden="true" />
   </picture>;
 }
 

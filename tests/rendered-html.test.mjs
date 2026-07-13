@@ -123,6 +123,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /loading\?: "eager" \| "lazy"/);
   assert.match(app, /\/assets\/optimized\/icons\/\$\{name\}\.webp/);
   assert.match(app, /\/assets\/optimized\/mascot\/\$\{mood\}\.webp/);
+  assert.match(app, /<picture className=\{`app-icon \$\{className\}`\}>/);
+  assert.match(app, /className="app-icon-image"/);
+  assert.match(styles, /\.app-icon-image \{ display: block; width: 100%; height: 100%; object-fit: contain; \}/);
   assert.match(styles, /\.optimized-picture \{ display: contents; \}/);
   assert.match(layout, /images: \[\{ url: `\$\{origin\}\/og\.jpg`/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
