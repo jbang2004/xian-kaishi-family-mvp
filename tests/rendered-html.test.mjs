@@ -139,6 +139,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /id="plan-node-guidance"/);
   assert.match(app, /当前 \$\{stages\.length\}\/\$\{MAX_PLAN_STAGES\} 个节点/);
   assert.match(styles, /\.add-node-button:disabled/);
+  assert.match(app, /className=\{`plan-next-dock \$\{planHasErrors \? "needs-fix" : "is-ready"\}`\}/);
+  assert.match(app, /aria-label="安排进度与下一步"/);
+  assert.match(app, /时间表已经可以确认/);
+  assert.match(app, /还差一点就能确认/);
+  assert.match(styles, /\.plan-next-dock \{ position: sticky;[^}]*top: max\(8px, env\(safe-area-inset-top\)\)/);
+  assert.match(styles, /\.phone-shell\.is-offline \.plan-next-dock \{ top: calc\(max\(8px, env\(safe-area-inset-top\)\) \+ 52px\)/);
+  assert.doesNotMatch(app, /下一步：一起确认/);
   assert.match(app, /!e\.nativeEvent\.isComposing/);
   assert.doesNotMatch(app, /e\.currentTarget\.blur\(\); setEditingStageId\(""\)/);
   assert.match(app, /本项延长 \$\{delta\} 分钟，后续时间已顺延/);

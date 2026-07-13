@@ -516,6 +516,17 @@ button.insight-card { cursor: pointer; }
 .plan-tools span { color: var(--muted); font-size: var(--type-caption); }
 .plan-tools button { min-height: 44px; border: 0; border-radius: 99px; background: transparent; color: #4a8069; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
 .plan-tools button.armed { background: #fff0ec; color: #a94f45; }
+.plan-next-dock { position: sticky; z-index: 9; top: max(8px, env(safe-area-inset-top)); min-height: 62px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; margin: 5px -6px 12px; padding: 8px 8px 8px 13px; border: 1px solid rgba(117,184,155,.38); border-radius: 21px; background: rgba(250,253,248,.94); box-shadow: 0 12px 28px rgba(59,103,79,.13), inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(16px); }
+.phone-shell.is-offline .plan-next-dock { top: calc(max(8px, env(safe-area-inset-top)) + 52px); }
+.plan-next-dock > span { min-width: 0; }
+.plan-next-dock small, .plan-next-dock strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-next-dock small { color: #4a8069; font-size: var(--type-micro); font-weight: 800; }
+.plan-next-dock strong { margin-top: 3px; font-size: var(--type-caption); }
+.plan-next-dock button { min-width: 108px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 15px; background: linear-gradient(135deg,#ffc74f,var(--amber)); color: var(--navy); box-shadow: 0 7px 16px rgba(229,156,30,.2), inset 0 1px 0 rgba(255,255,255,.72); font-size: 13px; font-weight: 900; cursor: pointer; }
+.plan-next-dock button b { font-size: 19px; font-weight: 700; line-height: 1; }
+.plan-next-dock.needs-fix { border-color: rgba(245,184,75,.46); background: rgba(255,250,235,.96); box-shadow: 0 12px 28px rgba(132,93,27,.1), inset 0 1px 0 rgba(255,255,255,.8); }
+.plan-next-dock.needs-fix small { color: #8c651d; }
+.plan-next-dock button:disabled { background: #eee8dc; color: #777267; box-shadow: none; cursor: not-allowed; }
 .plan-list { display: grid; gap: 10px; margin: 16px 0; position: relative; }
 .plan-list::before { content: ""; position: absolute; left: 29px; top: 20px; bottom: 20px; width: 2px; background: #edd8af; }
 .plan-list.is-empty::before { display: none; }
@@ -1176,6 +1187,8 @@ button.insight-card { cursor: pointer; }
   .home-plan-icon .app-icon { width: 43px; height: 43px; }
   .availability-card { grid-template-columns: 46px minmax(0,1fr); padding-right: 16px; }
   .availability-card .mascot { display: none; }
+  .plan-next-dock { margin-inline: -4px; padding-left: 11px; }
+  .plan-next-dock button { min-width: 100px; padding-inline: 11px; }
   .stage-summary { grid-template-columns: 46px minmax(0,1fr) 38px 12px; gap: 8px; padding: 9px 10px 9px 9px; }
   .stage-summary-icon { width: 46px; height: 46px; }
   .stage-summary-icon .app-icon { width: 42px; height: 42px; }
