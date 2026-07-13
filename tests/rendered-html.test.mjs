@@ -12,6 +12,27 @@ import { cleanShortText } from "../app/text-utils.ts";
 import { resolveHistoryTarget } from "../app/navigation-utils.ts";
 import { shiftCalendarSelection } from "../app/calendar-utils.ts";
 
+function relativeLuminance(hex) {
+  const channels = hex.match(/[\da-f]{2}/gi).map(value => Number.parseInt(value, 16) / 255);
+  const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
+function contrastRatio(foreground, background) {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+}
+
+test("keeps supporting text readable across the warm card palette", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const muted = styles.match(/--muted:\s*(#[\da-f]{6})/i)?.[1];
+  assert.ok(muted, "the supporting-text token should be defined");
+  for (const background of ["#fffdf8", "#fff8ec", "#edf6ef", "#edf4fb", "#fff2cb"]) {
+    assert.ok(contrastRatio(muted, background) >= 4.5, `${muted} should remain readable on ${background}`);
+  }
+});
+
 test("contains the complete 先开始 product shell", async () => {
   const [page, layout, app, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
