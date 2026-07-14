@@ -218,7 +218,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /backLabel=\{privacyReturn === "welcome" \? "返回监护人授权页" : "返回设置页"\}/);
   assert.match(app, /backLabel=\{profileReturn === "settings" \? "返回设置页" : "返回监护人授权页"\}/);
   assert.match(app, /backLabel = "返回上一页"/);
-  assert.match(app, /<Header back=\{\(\) => back\("home"\)\} title="一起安排今晚"/);
+  assert.match(app, /<Header home=\{\(\) => go\("home"\)\} title="一起安排今晚"/);
+  assert.match(app, /aria-label="返回首页"><HomeMark \/>/);
+  assert.match(app, /title="常用模板"/);
+  assert.match(app, /保存当前时间表/);
+  assert.match(app, /系统推荐/);
+  assert.match(app, /套用后可逐项修改/);
+  assert.match(app, /用当前安排覆盖/);
+  assert.match(app, /templates: normalizePlanTemplates\(old\.templates\)/);
+  assert.match(styles, /\.template-row \{[\s\S]*?border-radius: 18px/);
+  assert.match(styles, /\.template-icon-group \{[\s\S]*?display: flex/);
   assert.match(app, /<Header back=\{\(\) => back\("plan"\)\} title="共同确认"/);
   assert.match(app, /backLabel="返回共同确认" title="一起确认"/);
   assert.match(app, /backLabel="返回今晚进行中" title="调整今晚"/);

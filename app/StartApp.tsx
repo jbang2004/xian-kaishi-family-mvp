@@ -18,7 +18,7 @@ type StageStatus = "pending" | "active" | "done" | "tomorrow";
 type PromptReflection = "less" | "same" | "more";
 type TransitionReason = "completed" | "due";
 type AdjustmentChoice = "extend" | "rest" | "defer" | "swap" | "tomorrow" | "finish";
-type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "night-saved" | "energy" | "reward-setup" | "reward-achieved" | "reward-saved" | "review" | "settings" | "risk";
+type Screen = "welcome" | "privacy" | "profile" | "home" | "plan" | "templates" | "icon-picker" | "effort" | "confirm" | "dual-start" | "running" | "transition" | "adjust" | "wrap" | "night-saved" | "energy" | "reward-setup" | "reward-achieved" | "reward-saved" | "review" | "settings" | "risk";
 type LiveScreen = "running" | "transition" | "adjust" | "wrap";
 type NavigationMode = "push" | "replace";
 type AppHistoryState = { xianKaishi: true; screen: Screen; depth: number };
@@ -34,6 +34,9 @@ type Stage = {
   status: StageStatus;
   kind: "task" | "rest";
 };
+
+type TemplateStage = Pick<Stage, "title" | "icon" | "effort" | "energy" | "kind"> & { duration: number };
+type PlanTemplate = { id: string; title: string; stages: TemplateStage[]; createdAt: string; updatedAt: string };
 
 type RewardGoal = {
   threshold: number;
@@ -86,6 +89,7 @@ type AppData = {
   rewardHistory: RewardHistory[];
   sessions: SessionRecord[];
   weeklyFocus: WeeklyFocus | null;
+  templates: PlanTemplate[];
 };
 
 const STORAGE_KEY = "xian-kaishi-family-v2";
@@ -96,11 +100,12 @@ const FAMILY_REVISION_KEY = "xian-kaishi-family-revision-v1";
 const FAMILY_UPDATED_AT_KEY = "xian-kaishi-family-updated-at-v1";
 const PENDING_DELETE_KEY = "xian-kaishi-pending-cloud-delete-v1";
 const LIVE_SCREENS: LiveScreen[] = ["running", "transition", "adjust", "wrap"];
-const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
+const SCREEN_NAMES: Screen[] = ["welcome", "privacy", "profile", "home", "plan", "templates", "icon-picker", "effort", "confirm", "dual-start", "running", "transition", "adjust", "wrap", "night-saved", "energy", "reward-setup", "reward-achieved", "reward-saved", "review", "settings", "risk"];
 const DUAL_START_DELAY_MS = 3200;
 const MAX_PLAN_STAGES = 20;
 const MAX_SESSION_RECORDS = 730;
 const MAX_REWARD_HISTORY = 120;
+const MAX_PLAN_TEMPLATES = 20;
 
 const DEFAULT_DATA: AppData = {
   consent: false,
@@ -115,6 +120,7 @@ const DEFAULT_DATA: AppData = {
   rewardHistory: [],
   sessions: [],
   weeklyFocus: null,
+  templates: [],
 };
 
 const FALLBACK_STAGE: Stage = { id: "fallback", title: "当前阶段", icon: "custom", start: "18:10", end: "18:20", effort: 1, energy: 0, status: "pending", kind: "task" };
@@ -127,6 +133,36 @@ const ICON_LIBRARY = [
   ["backpack","整理书包"],["chores","家务"],["watering","浇水"],["pet","照顾宠物"],["dishes","洗碗"],["family-talk","家庭交流"],["family","亲子一起"],["plant","照顾植物"],
 ] as const;
 const COMMON_ICON_NAMES = new Set<string>(["custom", "book", "chinese", "english", "abacus", "handwriting", "move", "walk", "quiet", "free-play", "snack", "dinner", "shower", "bedtime", "backpack", "family-talk"]);
+
+const SYSTEM_PLAN_TEMPLATES: PlanTemplate[] = [
+  {
+    id: "system-homework-finish", title: "作业与收尾", createdAt: "system", updatedAt: "system",
+    stages: [
+      { title: "语文作业", icon: "chinese", duration: 25, effort: 2, energy: 2, kind: "task" },
+      { title: "口算练习", icon: "abacus", duration: 15, effort: 2, energy: 1, kind: "task" },
+      { title: "眼睛休息", icon: "eye-rest", duration: 10, effort: 1, energy: 0, kind: "rest" },
+      { title: "整理书包", icon: "backpack", duration: 10, effort: 1, energy: 1, kind: "task" },
+    ],
+  },
+  {
+    id: "system-reading-evening", title: "阅读型晚间", createdAt: "system", updatedAt: "system",
+    stages: [
+      { title: "晚餐", icon: "dinner", duration: 20, effort: 1, energy: 0, kind: "rest" },
+      { title: "自主阅读", icon: "book", duration: 25, effort: 1, energy: 2, kind: "task" },
+      { title: "洗漱", icon: "shower", duration: 15, effort: 1, energy: 0, kind: "rest" },
+      { title: "睡前准备", icon: "bedtime", duration: 10, effort: 1, energy: 1, kind: "task" },
+    ],
+  },
+  {
+    id: "system-move-study", title: "活动后学习", createdAt: "system", updatedAt: "system",
+    stages: [
+      { title: "跳绳", icon: "rope", duration: 15, effort: 1, energy: 1, kind: "task" },
+      { title: "加餐和休息", icon: "snack", duration: 10, effort: 1, energy: 0, kind: "rest" },
+      { title: "英语练习", icon: "english", duration: 20, effort: 2, energy: 2, kind: "task" },
+      { title: "书写练习", icon: "handwriting", duration: 20, effort: 2, energy: 2, kind: "task" },
+    ],
+  },
+];
 
 const REWARD_IDEAS: Array<{ icon: RewardGoal["icon"]; label: string; title: string }> = [
   { icon: "game", label: "一起玩", title: "周末一起玩桌游" },
@@ -153,6 +189,61 @@ function normalizeStages(value: unknown, preserveStatus = false): Stage[] {
       icon, start, end, effort, energy, kind,
       status: preserveStatus && (item.status === "active" || item.status === "done" || item.status === "tomorrow") ? item.status : "pending" as const,
     }];
+  });
+}
+
+function normalizePlanTemplates(value: unknown): PlanTemplate[] {
+  if (!Array.isArray(value)) return [];
+  const allowedIcons = new Set<string>(ICON_LIBRARY.map(([icon]) => icon));
+  const seen = new Set<string>();
+  return value.slice(0, MAX_PLAN_TEMPLATES).flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as Partial<PlanTemplate>;
+    const id = String(item.id || `template-${index}`);
+    if (seen.has(id) || id.startsWith("system-")) return [];
+    seen.add(id);
+    const stages = Array.isArray(item.stages) ? item.stages.slice(0, MAX_PLAN_STAGES).flatMap(stageEntry => {
+      if (!stageEntry || typeof stageEntry !== "object") return [];
+      const stage = stageEntry as Partial<TemplateStage>;
+      const kind = stage.kind === "rest" ? "rest" as const : "task" as const;
+      const effort: Effort = stage.effort === 2 || stage.effort === 3 ? stage.effort : 1;
+      return [{
+        title: cleanShortText(String(stage.title ?? ""), 24) || "未命名事项",
+        icon: allowedIcons.has(String(stage.icon)) ? String(stage.icon) : "custom",
+        duration: Math.max(1, Math.min(180, Math.round(Number(stage.duration) || 20))),
+        effort,
+        energy: normalizeStageEnergy(stage.energy, kind === "rest" ? 0 : 1),
+        kind,
+      }];
+    }) : [];
+    if (!stages.length) return [];
+    const createdAt = String(item.createdAt || new Date().toISOString());
+    return [{ id, title: cleanShortText(String(item.title ?? ""), 24) || "我的晚间安排", stages, createdAt, updatedAt: String(item.updatedAt || createdAt) }];
+  });
+}
+
+function templateStagesFromPlan(stages: Stage[]): TemplateStage[] {
+  return stages.slice(0, MAX_PLAN_STAGES).map(stage => ({
+    title: cleanShortText(stage.title, 24) || "未命名事项",
+    icon: stage.icon,
+    duration: Math.max(1, durationMinutes(stage.start, stage.end)),
+    effort: stage.effort,
+    energy: stage.energy,
+    kind: stage.kind,
+  }));
+}
+
+function templateSignature(stages: TemplateStage[]) {
+  return stages.map(stage => `${stage.title}|${stage.icon}|${stage.duration}|${stage.effort}|${stage.energy}|${stage.kind}`).join("::");
+}
+
+function scheduleTemplate(template: PlanTemplate, planStart: string): Stage[] {
+  let cursor = planStart;
+  return template.stages.slice(0, MAX_PLAN_STAGES).map(stage => {
+    const start = cursor;
+    const end = addMinutes(start, stage.duration);
+    cursor = end;
+    return { id: createId("stage"), title: stage.title, icon: stage.icon, start, end, effort: stage.effort, energy: stage.energy, status: "pending", kind: stage.kind };
   });
 }
 
@@ -279,12 +370,21 @@ function Chevron({ direction = "down", className = "" }: { direction?: "down" | 
   return <i className={`ui-chevron ${direction}-chevron ${className}`} aria-hidden="true" />;
 }
 
-function Header({ title, back, backLabel = "返回上一页", step }: { title?: string; back?: () => void; backLabel?: string; step?: string }) {
+function HomeMark() {
+  return <svg className="home-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.75 10.4 12 3.8l8.25 6.6v8.45a1.4 1.4 0 0 1-1.4 1.4H5.15a1.4 1.4 0 0 1-1.4-1.4V10.4Z" /><path d="M9.1 20.25v-5.8h5.8v5.8" /></svg>;
+}
+
+function Header({ title, back, home, backLabel = "返回上一页", step }: { title?: string; back?: () => void; home?: () => void; backLabel?: string; step?: string }) {
   return <header className="app-header">
-    {back ? <button className="icon-button" onClick={back} aria-label={backLabel}><Chevron direction="left" /></button> : <span className="header-spacer" />}
+    {home ? <button className="icon-button home-header-button" onClick={home} aria-label="返回首页"><HomeMark /></button> : back ? <button className="icon-button" onClick={back} aria-label={backLabel}><Chevron direction="left" /></button> : <span className="header-spacer" />}
     <strong data-screen-heading={title ? "true" : undefined} tabIndex={title ? -1 : undefined}>{title}</strong>
     {step ? <span className="step-pill">{step}</span> : <span className="header-spacer" />}
   </header>;
+}
+
+function TemplateIconGroup({ stages }: { stages: TemplateStage[] }) {
+  const visible = stages.slice(0, 4);
+  return <span className="template-icon-group" aria-hidden="true">{visible.map((stage, index) => <span key={`${stage.icon}-${index}`}><AppIcon name={stage.icon} loading="lazy" /></span>)}{stages.length > visible.length && <b>+{stages.length - visible.length}</b>}</span>;
 }
 
 function BottomNav({ screen, go, openCalendar }: { screen: Screen; go: (screen: Screen) => void; openCalendar: () => void }) {
@@ -333,6 +433,7 @@ function normalizeData(value: unknown): AppData {
       return [{ id: String(record.id || `reward-${index}`), title: String(record.title || "家庭期待").slice(0, 24), icon, threshold, energyBeforeReset: Math.max(threshold, Number(record.energyBeforeReset) || threshold), redeemedAt: String(record.redeemedAt || new Date().toISOString()) }];
     }), item => item.redeemedAt, MAX_REWARD_HISTORY) : [], sessions,
     weeklyFocus: focus && /^\d{4}-\d{2}-\d{2}$/.test(String(focus.weekKey)) && String(focus.text).trim() ? { weekKey: String(focus.weekKey), text: String(focus.text).slice(0, 80), createdAt: String(focus.createdAt || new Date().toISOString()) } : null,
+    templates: normalizePlanTemplates(old.templates),
   };
 }
 
@@ -356,6 +457,9 @@ export function StartApp() {
   const [editingDurationStageId, setEditingDurationStageId] = useState("");
   const [editingEnergyStageId, setEditingEnergyStageId] = useState("");
   const [showAllIcons, setShowAllIcons] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState("");
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [templateDeleteArmedId, setTemplateDeleteArmedId] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
   const [adjustChoice, setAdjustChoice] = useState<AdjustmentChoice | null>(null);
@@ -1077,6 +1181,62 @@ export function StartApp() {
   const updateStage = (id: string, patch: Partial<Stage>) => {
     setFollowUpPlanMessage("");
     setStages(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
+  };
+  const openTemplates = () => {
+    setEditingTemplateId(""); setTemplateNameDraft(""); setTemplateDeleteArmedId(""); go("templates");
+  };
+  const saveCurrentPlanTemplate = () => {
+    if (!stages.length) { setToast("先安排至少一项，再保存模板"); return; }
+    if (analyzePlan(data.planStart, data.planEnd, stages).hasErrors) { setToast("先补齐名称和时间，再保存模板"); return; }
+    const templateStages = templateStagesFromPlan(stages);
+    const signature = templateSignature(templateStages);
+    const existing = data.templates.find(item => templateSignature(item.stages) === signature);
+    const now = new Date().toISOString();
+    if (existing) {
+      persist({ ...data, templates: data.templates.map(item => item.id === existing.id ? { ...item, updatedAt: now } : item) }, `“${existing.title}”模板已更新`);
+      return;
+    }
+    if (data.templates.length >= MAX_PLAN_TEMPLATES) { setToast(`最多保存 ${MAX_PLAN_TEMPLATES} 个模板，可以先删除一个旧模板`); return; }
+    const titleParts = templateStages.slice(0, 2).map(item => item.title);
+    const title = cleanShortText(titleParts.join(" · "), 24) || "我的晚间安排";
+    const template: PlanTemplate = { id: createId("template"), title, stages: templateStages, createdAt: now, updatedAt: now };
+    persist({ ...data, templates: [template, ...data.templates] }, `已存为“${title}”模板`);
+  };
+  const applyPlanTemplate = (template: PlanTemplate) => {
+    const nextStages = scheduleTemplate(template, data.planStart);
+    const totalMinutes = template.stages.reduce((sum, item) => sum + item.duration, 0);
+    const available = Math.max(0, durationMinutes(data.planStart, data.planEnd));
+    const planEnd = totalMinutes > available ? addMinutes(data.planStart, totalMinutes) : data.planEnd;
+    setDeletedStage(null); setShiftedPlanUndo(null); setClearedPlanUndo(null); setFollowUpPlanMessage("");
+    setStages(nextStages); setData(current => ({ ...current, planEnd }));
+    setEditingStageId(""); setEditingDurationStageId(""); setEditingEnergyStageId("");
+    setEditingTemplateId(""); setTemplateNameDraft(""); setTemplateDeleteArmedId("");
+    setToast(totalMinutes > available ? `已套用“${template.title}”，今晚结束时间已顺延` : `已套用“${template.title}”，可以继续微调`);
+    back("plan");
+  };
+  const beginTemplateEdit = (template: PlanTemplate) => {
+    const opening = editingTemplateId !== template.id;
+    setEditingTemplateId(opening ? template.id : "");
+    setTemplateNameDraft(opening ? template.title : "");
+    setTemplateDeleteArmedId("");
+  };
+  const renameTemplate = (templateId: string) => {
+    const title = cleanShortText(templateNameDraft, 24);
+    if (!title) { setToast("给这个模板写一个容易认出的名称"); return; }
+    const now = new Date().toISOString();
+    persist({ ...data, templates: data.templates.map(item => item.id === templateId ? { ...item, title, updatedAt: now } : item) }, "模板名称已保存");
+    setEditingTemplateId(""); setTemplateNameDraft("");
+  };
+  const overwriteTemplate = (templateId: string) => {
+    if (!stages.length || analyzePlan(data.planStart, data.planEnd, stages).hasErrors) { setToast("当前时间表还没安排完整，暂时不能覆盖模板"); return; }
+    const now = new Date().toISOString();
+    persist({ ...data, templates: data.templates.map(item => item.id === templateId ? { ...item, stages: templateStagesFromPlan(stages), updatedAt: now } : item) }, "已用当前时间表更新模板");
+    setEditingTemplateId(""); setTemplateNameDraft("");
+  };
+  const deleteTemplate = (template: PlanTemplate) => {
+    if (templateDeleteArmedId !== template.id) { setTemplateDeleteArmedId(template.id); setToast("再点一次确认删除这个模板"); return; }
+    persist({ ...data, templates: data.templates.filter(item => item.id !== template.id) }, `已删除“${template.title}”模板`);
+    setEditingTemplateId(""); setTemplateNameDraft(""); setTemplateDeleteArmedId("");
   };
   const focusPlanTarget = (stageId?: string) => {
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
@@ -1941,11 +2101,12 @@ export function StartApp() {
       </div>}
 
       {screen === "plan" && <div className="screen plan-screen">
-        <Header back={() => back("home")} title="一起安排今晚" step="1/3" />
+        <Header home={() => go("home")} title="一起安排今晚" step="1/3" />
         <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚时间</small><div className="window-inputs"><input ref={planStartInputRef} aria-label="今晚开始时间" type="time" value={data.planStart} onFocus={() => beginPlanWindowEdit("start")} onBlur={e => endPlanWindowEdit("start", e.currentTarget.value)} onChange={e => updatePlanStart(e.target.value)} /><span>至</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onFocus={() => beginPlanWindowEdit("end")} onBlur={e => endPlanWindowEdit("end", e.currentTarget.value)} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planEnd: e.target.value })); }} /></div><span className="window-shift-note">修改开始时间，后续节点会保持间隔一起移动</span>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
         {followUpPlanMessage && <div className="follow-up-plan-note" role="status"><AppIcon name="check" /><span><strong>已按当前时间续排</strong><small>{followUpPlanMessage}</small></span></div>}
         <div className={`plan-balance ${planNeedsTime ? "has-error" : ""}`} role="status"><div><span>{planNeedsTime ? "时间需要调整" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planNeedsTime ? planTimeIssue : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "清空时间表"}</button>}</div>
+        <div className="plan-template-shortcuts"><button className="plan-template-entry" onClick={openTemplates}><TemplateIconGroup stages={(data.templates[0] ?? SYSTEM_PLAN_TEMPLATES[0]).stages} /><span><small>常用安排</small><strong>{data.templates.length ? `${data.templates.length} 个我的模板` : "从推荐模板开始"}</strong></span><Chevron direction="right" /></button><button className="plan-template-save" aria-disabled={!stages.length} onClick={saveCurrentPlanTemplate}>存为模板</button></div>
         <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <button ref={addNodeButtonRef} type="button" className="empty-plan empty-plan-action" onClick={addStage} aria-label="增加第一个时间节点"><Mascot mood="breathe" compact /><strong>添加今晚第一项</strong><span className="empty-plan-cta"><b aria-hidden="true">＋</b>添加任务或休息</span><small>先定名称、时间和完成能量</small></button>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = Boolean(planItemErrors[index]?.title); const timeInvalid = Boolean(planItemErrors[index]?.time); const stageName = stage.title.trim() || "未命名事项"; return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${timeInvalid ? "has-stage-issue" : titleInvalid ? "needs-title" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
           <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stageName}`} onClick={() => { setEditingStageId(expanded ? "" : stage.id); setEditingDurationStageId(""); setEditingEnergyStageId(""); }}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stageName}</strong><small>{titleInvalid ? "还没写下这件事" : timeInvalid ? "需要调整时间" : `${formatPlanClock(stage.start, data.planStart, data.planEnd)}—${formatPlanClock(stage.end, data.planStart, data.planEnd)} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className={`stage-summary-energy ${stage.energy ? "" : "is-zero"}`}><b>{stage.energy || "—"}</b><small>{stage.energy ? "能量" : "不计"}</small></span><Chevron /></button>
           {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body">
@@ -1969,6 +2130,17 @@ export function StartApp() {
         {stages.length > 0 && <button ref={addNodeButtonRef} className="add-node-button" onClick={addStage} disabled={stages.length >= MAX_PLAN_STAGES} aria-describedby="plan-node-guidance" aria-label={stages.length >= MAX_PLAN_STAGES ? `今晚已到${MAX_PLAN_STAGES}个时间节点上限` : "增加一个时间节点"}><span>{stages.length >= MAX_PLAN_STAGES ? "✓" : "＋"}</span><strong>{stages.length >= MAX_PLAN_STAGES ? "今晚事项已满" : "添加下一项"}</strong></button>}
         <div id="plan-node-guidance" className="gentle-note">{stages.length >= MAX_PLAN_STAGES ? "可以合并相近事项，或删掉暂时不做的一项。" : stages.length ? "继续添加今晚要做的事；时间和顺序随时可改。" : "先添加今晚的第一项。"}</div>
         {stages.length > 0 && <div className={`plan-next-dock ${planHasErrors ? "needs-fix" : "is-ready"}`} role="region" aria-label="安排进度与下一步"><span><small>{planHasErrors ? "完成必要信息后即可确认" : "今晚时间表"}</small><strong>{planHasErrors ? planErrorPrompt : `${stages.length} 项 · ${scheduledMinutes} 分钟`}</strong></span><button type="button" aria-label={planHasErrors ? `${planErrorPrompt}，定位到需要补充的位置` : "一起确认今晚时间表"} onClick={planHasErrors ? focusFirstPlanIssue : openConfirmPlan}>{planHasErrors ? planNeedsTitle ? "去填写" : "去调整" : "共同确认"}<Chevron direction="right" /></button></div>}
+      </div>}
+
+      {screen === "templates" && <div className="screen templates-screen">
+        <Header back={() => back("plan")} backLabel="返回今晚时间表" title="常用模板" />
+        <div className="templates-intro"><span className="eyebrow">每天相似，也可以留一点变化</span><h1>一键带入，<br />今晚再微调</h1><p>模板只保留事项、时长和能量；套用时会从今晚的开始时间自动接着排。</p></div>
+        <button className="save-template-callout" aria-disabled={!stages.length} onClick={saveCurrentPlanTemplate}><span><strong>保存当前时间表</strong><small>{stages.length ? `${stages.length} 项会保存为一个模板` : "先回到时间表安排至少一项"}</small></span><b>存为模板</b></button>
+
+        <section className="template-section" aria-labelledby="system-template-heading"><div className="template-section-heading"><h2 id="system-template-heading">系统推荐</h2><span>套用后可逐项修改</span></div><div className="template-list">{SYSTEM_PLAN_TEMPLATES.map(template => { const total = template.stages.reduce((sum, item) => sum + item.duration, 0); const energy = template.stages.reduce((sum, item) => sum + item.energy, 0); return <article className="template-row is-system" key={template.id}><button className="template-row-main" onClick={() => applyPlanTemplate(template)} aria-label={`套用系统推荐模板${template.title}，共${template.stages.length}项`}><TemplateIconGroup stages={template.stages} /><span className="template-row-copy"><strong>{template.title}</strong><small>{template.stages.length} 项 · {total} 分钟 · {energy} 点能量</small></span><span className="template-use-label">套用</span><Chevron direction="right" /></button></article>; })}</div></section>
+
+        <section className="template-section personal-template-section" aria-labelledby="personal-template-heading"><div className="template-section-heading"><h2 id="personal-template-heading">我的模板</h2><span>{data.templates.length ? `${data.templates.length}/${MAX_PLAN_TEMPLATES}` : "保存后会出现在这里"}</span></div>{data.templates.length ? <div className="template-list">{data.templates.map(template => { const total = template.stages.reduce((sum, item) => sum + item.duration, 0); const energy = template.stages.reduce((sum, item) => sum + item.energy, 0); const editing = editingTemplateId === template.id; return <article className={`template-row personal-template-row ${editing ? "is-editing" : ""}`} key={template.id}><button className="template-row-main" onClick={() => applyPlanTemplate(template)} aria-label={`套用我的模板${template.title}，共${template.stages.length}项`}><TemplateIconGroup stages={template.stages} /><span className="template-row-copy"><strong>{template.title}</strong><small>{template.stages.length} 项 · {total} 分钟 · {energy} 点能量</small></span><span className="template-use-label">套用</span><Chevron direction="right" /></button><button className="template-edit-button" aria-expanded={editing} aria-controls={`template-edit-${template.id}`} onClick={() => beginTemplateEdit(template)}>{editing ? "收起" : "编辑"}</button>{editing && <div className="template-inline-editor" id={`template-edit-${template.id}`}><label><span>模板名称</span><input value={templateNameDraft} maxLength={24} autoComplete="off" onFocus={e => revealFormControl(e.currentTarget)} onChange={e => setTemplateNameDraft(e.target.value)} /></label><div><button className="template-save-name" onClick={() => renameTemplate(template.id)}>保存名称</button><button onClick={() => overwriteTemplate(template.id)} aria-disabled={!stages.length}>用当前安排覆盖</button><button className={templateDeleteArmedId === template.id ? "template-delete is-armed" : "template-delete"} onClick={() => deleteTemplate(template)}>{templateDeleteArmedId === template.id ? "确认删除" : "删除"}</button></div></div>}</article>; })}</div> : <div className="template-empty-state"><TemplateIconGroup stages={SYSTEM_PLAN_TEMPLATES[0].stages} /><strong>还没有自己的模板</strong><p>先套用一个推荐模板并微调，满意后再回来保存。</p></div>}</section>
+        <p className="template-storage-note">个人模板随家庭数据保存；删除家庭数据时会一起删除。</p>
       </div>}
 
       {screen === "icon-picker" && <div className="screen icon-picker-screen">
