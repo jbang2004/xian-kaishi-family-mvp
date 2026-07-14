@@ -973,7 +973,9 @@ export function StartApp() {
     const childAlias = cleanShortText(data.childAlias, 12);
     const guardianAlias = cleanShortText(data.guardianAlias, 12);
     if (!childAlias || !guardianAlias) {
-      (childAlias ? guardianAliasInputRef : childAliasInputRef).current?.focus();
+      const target = (childAlias ? guardianAliasInputRef : childAliasInputRef).current;
+      target?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      target?.focus({ preventScroll: true });
       return;
     }
     const initialWindow = familyDataRef.current.consent ? {} : suggestInitialEveningWindow(new Date());
@@ -1572,6 +1574,14 @@ export function StartApp() {
   const draftStart = stages[0]?.start ?? data.planStart;
   const draftEnd = stages.at(-1)?.end ?? data.planEnd;
   const draftReady = stages.length > 0 && !planHasErrors;
+  const profileHasChildAlias = Boolean(data.childAlias.trim());
+  const profileHasGuardianAlias = Boolean(data.guardianAlias.trim());
+  const profileReady = profileHasChildAlias && profileHasGuardianAlias;
+  const profileActionLabel = profileReady
+    ? profileReturn === "settings" ? "保存修改" : "保存并安排今晚"
+    : !profileHasChildAlias && !profileHasGuardianAlias
+      ? "去填写两个家庭称呼"
+      : profileHasChildAlias ? "再填写大人称呼" : "再填写孩子化名";
   const editingStage = stages.find(item => item.id === editingStageId);
   const editingStageDuration = editingStage ? durationMinutes(editingStage.start, editingStage.end) : 0;
   const restDurationChoices = Array.from(new Set([5, 10, 15, editingStageDuration].filter(minutes => minutes > 0))).sort((a, b) => a - b);
@@ -1761,7 +1771,7 @@ export function StartApp() {
         <div className="welcome-hero"><div><span className="eyebrow">孩子只短暂看屏幕 · 大人掌控手机</span><h1>今晚少催一次，<br />先一起商量</h1><p className="lead">不讲题、不监控、不比较。只帮你们把“开始—完成—收尾”变得更容易。</p></div><Mascot mood="ready" compact /></div>
         <div className="welcome-flow" aria-label="三步使用方式"><div><b>1</b><span><strong>排今晚</strong><small>商量任务与休息</small></span></div><div><b>2</b><span><strong>一起点亮</strong><small>两人确认再开始</small></span></div><div><b>3</b><span><strong>柔和提醒</strong><small>每阶段只提醒一次</small></span></div></div>
         <div className="privacy-card welcome-boundary"><div><span className="big-icon"><AppIcon name="privacy" /></span><span><strong>孩子不会被监控或公开比较</strong><small>仅使用家庭化名；不收集学校、年级、位置、录音或社交平台数据。</small></span></div><button type="button" onClick={() => openPrivacy("welcome")}>查看数据保存与删除说明 <span>›</span></button></div>
-        <div className="welcome-action-dock"><div className="consent-row"><input id="guardian-consent" type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><label htmlFor="guardian-consent">我是监护人，已了解并同意监护人授权与儿童隐私说明</label></div><button className="primary-button" disabled={!consent} onClick={() => openProfile("welcome")}>{consent ? "设置家庭称呼" : "请先确认监护人授权"}</button><small>约 1 分钟完成设置 · 数据可随时导出或删除</small></div>
+        <div className="welcome-action-dock"><label className={`consent-row ${consent ? "is-checked" : ""}`} htmlFor="guardian-consent"><input id="guardian-consent" type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><span><strong>我已确认自己是监护人</strong><small>了解并同意监护人授权与儿童隐私说明</small></span></label><button className={`primary-button welcome-continue-button ${consent ? "is-ready" : ""}`} disabled={!consent} onClick={() => openProfile("welcome")}>{consent ? "继续设置家庭称呼" : "确认后继续"}</button><small>约 1 分钟完成设置 · 数据可随时导出或删除</small></div>
       </div>}
 
       {appReady && screen === "privacy" && <div className="screen privacy-screen">
@@ -1783,7 +1793,7 @@ export function StartApp() {
         <Header back={() => back(profileReturn)} backLabel={profileReturn === "settings" ? "返回设置页" : "返回监护人授权页"} title="家庭设置" />
         <div className="title-with-mascot"><div><span className="eyebrow">只填写今晚真正会用到的信息</span><h1>今晚，怎么称呼彼此？</h1></div><Mascot compact /></div>
         <div className="form-card family-form profile-essential"><label>孩子希望怎么被称呼<span>用化名就好</span><input ref={childAliasInputRef} name="child-alias" aria-label="孩子化名" placeholder="例如：小橙" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={data.childAlias} onChange={e => setData({ ...data, childAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); guardianAliasInputRef.current?.focus(); } }} /></label><label>大人怎么称呼<span>会显示在共同启动的手指上</span><input ref={guardianAliasInputRef} name="guardian-alias" aria-label="大人称呼" placeholder="例如：妈妈" maxLength={12} autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={data.guardianAlias} onChange={e => setData({ ...data, guardianAlias: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); finishProfile(); } }} /></label></div>
-        <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className="primary-button" disabled={!data.childAlias.trim() || !data.guardianAlias.trim()} onClick={finishProfile}>{profileReturn === "settings" ? "保存修改" : "保存并安排今晚"}</button>{profileReturn !== "settings" && <small>下一步直接商量今晚的任务与休息</small>}</div>
+        <div className="profile-action-dock"><p className="microcopy">不需要填写年级、学校、班级或真实姓名。</p><button className={`primary-button profile-continue-button ${profileReady ? "is-ready" : "needs-input"}`} aria-label={profileActionLabel} onClick={finishProfile}>{profileActionLabel}</button>{profileReturn !== "settings" && <small>{profileReady ? "下一步直接商量今晚的任务与休息" : "点击按钮会带你到还需要填写的位置"}</small>}</div>
       </div>}
 
       {screen === "home" && <div className="screen with-nav home-screen">

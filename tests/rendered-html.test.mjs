@@ -363,6 +363,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /promptReflection \? settlementFooter : `催促感可以不填 · \$\{settlementFooter\}`/);
   assert.match(app, /if \(profileReturn === "settings"\) back\("settings"\); else go\("plan", "replace"\)/);
   assert.match(app, /保存并安排今晚/);
+  assert.match(app, /className=\{`consent-row \$\{consent \? "is-checked" : ""\}`\}/);
+  assert.match(app, /我已确认自己是监护人/);
+  assert.match(app, /继续设置家庭称呼/);
+  assert.match(app, /const profileActionLabel = profileReady/);
+  assert.match(app, /profile-continue-button \$\{profileReady \? "is-ready" : "needs-input"\}/);
+  assert.doesNotMatch(app, /disabled=\{!data\.childAlias\.trim\(\) \|\| !data\.guardianAlias\.trim\(\)\}/);
+  assert.match(app, /target\?\.scrollIntoView\(\{ block: "center", behavior: motionReduced \? "auto" : "smooth" \}\)/);
   assert.match(app, /persist\(next, profileReturn === "settings" \? "家庭设置已更新" : undefined\)/);
   assert.doesNotMatch(app, /家庭称呼已保存，可以安排今晚了/);
   assert.match(app, /今晚，怎么称呼彼此？/);
@@ -597,6 +604,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(pointer: coarse\)/);
   assert.match(styles, /summary:focus-visible/);
   assert.match(styles, /\.phone-shell button \{ min-height: 44px; \}/);
+  assert.match(styles, /\.phone-shell \.primary-button, \.phone-shell \.secondary-button \{ min-height: 56px; \}/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /transition-duration: \.001ms !important/);
   assert.match(app, /也会跟随系统设置/);
@@ -685,7 +693,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.effort-screen \.effort-options \{ grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.effort-screen \.rest-duration > div\.has-custom-duration \{ grid-template-columns: repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.effort-screen > \.primary-button \{ position: sticky; bottom: 0/);
-  assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.profile-action-dock \{ position: static; margin-top: 10px; \}/);
+  assert.match(styles, /\.welcome-action-dock \{ position: sticky; bottom: 0; margin: auto -4px -22px;/);
+  assert.match(styles, /\.welcome-flow small \{ display: none; \}/);
+  assert.match(styles, /\.welcome-action-dock > small \{ display: none; \}/);
+  assert.match(styles, /\.consent-row\.is-checked/);
+  assert.match(styles, /@keyframes consent-ready/);
   assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);
   assert.match(styles, /\.welcome-boundary > button \{ min-height: 44px;[^}]*padding-top: 5px; \}/);
