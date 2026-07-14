@@ -33,7 +33,7 @@ html { min-height: 100%; background: #f5ead8; color: var(--navy); }
 body { margin: 0; min-height: 100vh; min-height: 100svh; min-height: 100dvh; overflow: hidden; background: radial-gradient(circle at 10% 10%, #fffaf1 0, transparent 30%), linear-gradient(135deg, #f9eedf, #edf3e9); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
 button, input, select, textarea { font: inherit; }
 input { scroll-margin-block: 120px; }
-button { color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: rgba(117,184,155,.2); }
+button, summary { color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: rgba(117,184,155,.2); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; box-shadow: 0 0 0 3px var(--focus-halo); }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
@@ -236,11 +236,13 @@ p { line-height: 1.65; }
 .live-resume-card strong { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 17px; line-height: 1.3; }
 .live-resume-card em { color: var(--muted); font-size: var(--type-micro); font-style: normal; margin-top: 5px; }
 .live-resume-card b { color: #397259; font-size: 12px; white-space: nowrap; }
-.live-pulse { width: 50px; height: 50px; border-radius: 17px; display: grid; place-items: center; background: rgba(255,255,255,.86); box-shadow: 0 0 0 0 rgba(117,184,155,.2); animation: live-soft-pulse 2.8s ease-in-out var(--attention-cycles); }
+.live-pulse { width: 50px; height: 50px; border-radius: 17px; display: grid; place-items: center; position: relative; isolation: isolate; background: rgba(255,255,255,.86); }
+.live-pulse::after { content: ""; position: absolute; inset: -1px; z-index: -1; border: 2px solid rgba(117,184,155,.2); border-radius: 19px; opacity: 0; pointer-events: none; animation: live-soft-pulse 2.8s ease-in-out var(--attention-cycles); }
 .live-pulse .app-icon { width: 44px; height: 44px; }
 .live-session-panel:not([data-state="running"]) .live-pulse { animation: live-state-arrive .38s cubic-bezier(.2,.85,.25,1.12) both; }
-.live-session-panel[data-state="due"] .live-pulse { animation: live-soft-pulse 2.8s ease-in-out var(--attention-cycles); }
-@keyframes live-soft-pulse { 50% { box-shadow: 0 0 0 8px rgba(117,184,155,.08); transform: translateY(-1px); } }
+.live-session-panel:not([data-state="running"]):not([data-state="due"]) .live-pulse::after { animation: none; }
+.live-session-panel[data-state="due"] .live-pulse::after { border-color: rgba(104,149,185,.24); animation: live-soft-pulse 2.8s ease-in-out var(--attention-cycles); }
+@keyframes live-soft-pulse { 0%, 100% { opacity: 0; transform: scale(.9); } 42% { opacity: .68; transform: scale(1.16); } 68% { opacity: 0; transform: scale(1.22); } }
 @keyframes live-state-arrive { from { opacity: .4; transform: scale(.82) rotate(-4deg); } to { opacity: 1; transform: none; } }
 .soft-end-button { min-height: 44px; justify-self: center; border: 0; background: transparent; color: #587365; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; }
 .insight-card { display: grid; grid-template-columns: 50px 1fr auto; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 16px; margin-top: 14px; border: 1px solid var(--border); color: var(--navy); cursor: default; }
@@ -801,8 +803,9 @@ button.insight-card { cursor: pointer; }
 
 .running-hero { display: flex; justify-content: space-between; align-items: center; }
 .running-hero .mascot { width: 80px; height: 80px; margin: -18px 0 0; }
-.active-stage-card { min-height: 184px; border: 1px solid rgba(245,184,75,.45); border-radius: 28px; padding: 22px; display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 16px; background: linear-gradient(145deg,#fff8df,#fffdf8); box-shadow: var(--shadow); transition: border-color .3s ease, box-shadow .3s ease; }
-.active-stage-card.is-landing { border-color: rgba(117,184,155,.54); background: linear-gradient(145deg,#fff8df,#f2f8ef 88%); box-shadow: 0 16px 38px rgba(81,130,103,.13), inset 0 0 0 1px rgba(255,255,255,.64); animation: soft-landing-arrive 1.8s var(--ease-out-soft) 2; }
+.active-stage-card { min-height: 184px; border: 1px solid rgba(245,184,75,.45); border-radius: 28px; padding: 22px; display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 16px; position: relative; isolation: isolate; background: linear-gradient(145deg,#fff8df,#fffdf8); box-shadow: var(--shadow); transition: border-color .3s ease, box-shadow .3s ease; }
+.active-stage-card.is-landing { border-color: rgba(117,184,155,.54); background: linear-gradient(145deg,#fff8df,#f2f8ef 88%); box-shadow: 0 16px 38px rgba(81,130,103,.13), inset 0 0 0 1px rgba(255,255,255,.64); }
+.active-stage-card.is-landing::after { content: ""; position: absolute; inset: -1px; z-index: 2; border: 2px solid rgba(117,184,155,.26); border-radius: inherit; opacity: 0; pointer-events: none; animation: soft-landing-arrive 1.8s var(--ease-out-soft) 2; }
 .active-stage-card.is-due { border-color: rgba(117,184,155,.72); box-shadow: 0 16px 40px rgba(81,130,103,.16), inset 0 0 0 2px rgba(117,184,155,.09); }
 .active-stage-card > .app-icon { width: 92px; height: 92px; }
 .active-stage-card small { color: var(--muted); }
@@ -817,7 +820,7 @@ button.insight-card { cursor: pointer; }
 .is-landing .stage-timer small, .is-landing .stage-timer strong { color: #397259; }
 .is-due .stage-timer strong { animation: due-gentle 1.8s ease-in-out var(--attention-cycles); }
 @keyframes due-gentle { 50% { opacity: .58; } }
-@keyframes soft-landing-arrive { 50% { box-shadow: 0 18px 42px rgba(81,130,103,.18), inset 0 0 0 2px rgba(117,184,155,.12); } }
+@keyframes soft-landing-arrive { 0%, 100% { opacity: 0; transform: scale(.994); } 48% { opacity: .82; transform: scale(1.006); } }
 .running-support-strip { display: grid; grid-template-columns: 38px 1fr; align-items: center; gap: 11px; margin: 14px 0 10px; padding: 11px 13px; border: 1px solid rgba(117,184,155,.22); border-radius: 18px; background: rgba(237,246,239,.72); }
 .running-support-strip .app-icon { width: 36px; height: 36px; }
 .running-support-strip strong, .running-support-strip small { display: block; }
@@ -1209,6 +1212,13 @@ button.insight-card { cursor: pointer; }
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
 .reduce-motion .launch-progress { display: none; }
 
+/* These controls live inside rounded, clipped cards. Keep keyboard focus
+   visible without letting the outer container cut off the focus ring. */
+.stage-summary:focus-visible,
+.energy-summary summary:focus-visible,
+.saved-breakdown summary:focus-visible,
+.timeline-disclosure summary:focus-visible { outline-offset: -4px; border-radius: 18px; }
+
 /* Family screens are read at arm's length and often shared by two people.
    Prefer legibility and forgiving touch targets over fitting everything above the fold. */
 .screen small,
@@ -1258,6 +1268,7 @@ button.insight-card { cursor: pointer; }
 }
 
 @media (pointer: coarse) {
+  .phone-shell button:not(:disabled):not(.press-zone):active { filter: brightness(.975) saturate(.98); transform: translateY(1px) scale(.985); }
   .primary-button:not(:disabled):active,
   .secondary-button:not(:disabled):active,
   .soft-button:not(:disabled):active,

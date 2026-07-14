@@ -40,6 +40,9 @@ test("keeps supporting text readable across the warm card palette", async () => 
   }
   assert.ok(contrastRatio(focusHalo, "#bd4f46") >= 3, `${focusHalo} should separate focus from destructive controls`);
   assert.match(styles, /outline: 3px solid var\(--focus-ring\); outline-offset: 3px; box-shadow: 0 0 0 3px var\(--focus-halo\)/);
+  assert.match(styles, /\.stage-summary:focus-visible,[\s\S]*?\.timeline-disclosure summary:focus-visible \{ outline-offset: -4px/);
+  assert.match(styles, /button, summary \{[^}]*touch-action: manipulation/);
+  assert.match(styles, /\.phone-shell button:not\(:disabled\):not\(\.press-zone\):active \{[^}]*filter: brightness\(\.975\)[^}]*transform: translateY\(1px\) scale\(\.985\)/);
   assert.match(styles, /@media \(prefers-contrast: more\)/);
   assert.match(styles, /@media \(forced-colors: active\)/);
   assert.match(styles, /outline: 3px solid Highlight; box-shadow: none/);
@@ -112,6 +115,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /deleteConfirmRef\.current/);
   assert.match(app, /aria-hidden=\{deleteArmed \|\| undefined\}/);
   assert.match(app, /inert=\{deleteArmed \|\| undefined\}/);
+  assert.match(app, /aria-controls="calendar-day-detail"/);
+  assert.match(app, /id="calendar-day-detail" ref=\{calendarDetailRef\}/);
+  assert.match(app, /className="toast" role="status" aria-live="polite" aria-atomic="true"/);
   assert.match(app, /event\.key !== "Tab"/);
   assert.match(app, /maxLength=\{24\} autoComplete="off" spellCheck=\{false\} enterKeyHint="done"/);
   assert.match(app, /const focusStageDetails = \(stageId: string\)/);
@@ -160,6 +166,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /className="app-icon-image"/);
   assert.match(styles, /\.app-icon-image \{ display: block; width: 100%; height: 100%; object-fit: contain; \}/);
   assert.match(styles, /\.optimized-picture \{ display: contents; \}/);
+  assert.match(styles, /\.live-pulse::after \{[^}]*animation: live-soft-pulse/);
+  assert.match(styles, /@keyframes live-soft-pulse \{ 0%, 100% \{ opacity: 0; transform: scale\(\.9\); \} 42% \{ opacity: \.68; transform: scale\(1\.16\); \}/);
+  assert.match(styles, /\.active-stage-card\.is-landing::after \{[^}]*animation: soft-landing-arrive/);
+  assert.match(styles, /@keyframes soft-landing-arrive \{ 0%, 100% \{ opacity: 0; transform: scale\(\.994\); \} 48% \{ opacity: \.82; transform: scale\(1\.006\); \}/);
   assert.match(app, /现在开始，整晚将比原定 \$\{plannedStartLabel\} 前移/);
   assert.match(app, /计划可以随时改；休息、换顺序或明天继续，都不算失败/);
   assert.match(styles, /\.confirm-hero \{ grid-template-columns: minmax\(0,1fr\) 74px/);
