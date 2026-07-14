@@ -814,8 +814,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /pendingAfterActiveCount >= 1 \? \[\{ id: "tomorrow" as const/);
   assert.match(app, /当前阶段 · \{activeTonightOrdinal\}\/\{tonightStageCount\}/);
   assert.match(app, /这里只记录一次点击，不读取或保存指纹/);
-  assert.match(app, /className="fingerprint-ridges"/);
-  assert.match(styles, /\.fingerprint-ridges i:nth-child\(5\)/);
+  assert.match(app, /className="touch-emblem" src=\{`\/assets\/generated\/touch-emblem-v1\.png\?v=\$\{ASSET_VERSION\}`\}/);
+  assert.match(styles, /\.touch-emblem \{[\s\S]*?object-fit: contain;[\s\S]*?opacity: \.7;/);
   assert.match(styles, /\.dual-start-hero h1 \{[\s\S]*?font-size: 34px/);
   assert.match(styles, /\.press-zone \{[\s\S]*?min-height: 206px/);
   assert.match(app, /可以同时点，也可以轮流点/);
@@ -856,7 +856,14 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const softLanding = shouldShowSoftLanding\(remainingSeconds, stageDue\)/);
   assert.match(app, /完成今晚计划/);
   assert.match(app, /下一步先看一眼/);
-  assert.match(app, /role="progressbar" aria-label=\{`\$\{activeStage\.title\}剩余时间`\}/);
+  assert.match(app, /className="time-progress" role="progressbar" aria-label=\{`\$\{activeStage\.title\}剩余时间`\}/);
+  assert.match(styles, /\.stage-timer > \.time-progress i \{[\s\S]*?background: #49675a;/);
+  assert.match(styles, /\.stage-timer > \.time-progress i::after/);
+  assert.match(app, /className="plan-editor-backdrop" aria-label="收起事项编辑"/);
+  assert.match(styles, /\.stage-editor\.is-expanded \{[\s\S]*?position: fixed;[\s\S]*?max-height: calc\(100dvh/);
+  assert.match(styles, /\.timeline-disclosure\[open\] \.mini-timeline \{[\s\S]*?grid-auto-flow: column;/);
+  assert.match(styles, /\.confirm-plan-list \{[\s\S]*?display: flex;[\s\S]*?overflow-x: auto;/);
+  assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
   assert.match(styles, /\.next-stage-preview\.is-landing/);
