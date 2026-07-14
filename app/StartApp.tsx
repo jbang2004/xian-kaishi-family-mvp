@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ASSET_VERSION } from "./asset-version";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, titleAfterIconChoice } from "./plan-utils";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundSchedule, rebaseFollowUpPlan, remainingTimerMinutes, runningTimerUpdateDelay, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, titleAfterIconChoice } from "./plan-utils";
 import { foregroundCueStatus, ReminderPermission, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "./reminder-utils";
 import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
@@ -344,10 +344,10 @@ function readFamilyStateResponse(response: Response) {
   return response.json() as Promise<FamilyStateResponse>;
 }
 
-function AppIcon({ name, className = "", loading = "eager" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
+function AppIcon({ name, className = "", loading = "lazy" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
   return <picture className={`app-icon ${className}`}>
     <source srcSet={`/assets/optimized/icons/${name}.webp?v=${ASSET_VERSION}`} type="image/webp" />
-    <img className="app-icon-image" src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" alt="" aria-hidden="true" />
+    <img className="app-icon-image" src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" fetchPriority={loading === "eager" ? "auto" : "low"} alt="" aria-hidden="true" />
   </picture>;
 }
 
@@ -356,7 +356,7 @@ function Mascot({ mood = "ready", compact = false }: { mood?: "ready" | "confirm
     <div className="mascot-halo" />
     <picture className="optimized-picture">
       <source srcSet={`/assets/optimized/mascot/${mood}.webp?v=${ASSET_VERSION}`} type="image/webp" />
-      <img className="mascot-pose" src={`/assets/mascot/${mood}.png?v=${ASSET_VERSION}`} width="640" height="640" decoding="async" alt="" />
+      <img className="mascot-pose" src={`/assets/mascot/${mood}.png?v=${ASSET_VERSION}`} width="640" height="640" loading="eager" decoding="async" fetchPriority="high" alt="" />
     </picture>
     {mood === "ready" && <picture className="optimized-picture">
       <source srcSet={`/assets/optimized/mascot/blink.webp?v=${ASSET_VERSION}`} type="image/webp" />
@@ -371,7 +371,7 @@ function Chevron({ direction = "down", className = "" }: { direction?: "down" | 
 }
 
 function HomeMark() {
-  return <AppIcon name="home-heart" className="home-mark" />;
+  return <AppIcon name="home-heart" className="home-mark" loading="eager" />;
 }
 
 function Header({ title, home, step }: { title?: string; home?: () => void; step?: string }) {
@@ -1471,20 +1471,25 @@ export function StartApp() {
 
   useEffect(() => {
     if (screen !== "running" || !activeEndsAt) return;
+    let timer = 0;
     const tick = () => {
-      const now = Date.now(); setClockNow(now);
+      const now = Date.now();
+      setClockNow(now);
       if (now >= activeEndsAt && !dueReminderPlayed.current) {
         dueReminderPlayed.current = true; setStageDue(true);
         const visibility = document.visibilityState;
         if (shouldUseBackgroundReminder(backgroundReminder, visibility, notificationPermission)) {
           void showBackgroundSystemReminder();
         } else if (shouldUseForegroundCue(visibility)) { playTone("transition"); gentleVibrate([25, 35, 25]); }
+        return;
       }
+      timer = window.setTimeout(tick, runningTimerUpdateDelay(activeEndsAt - now));
     };
-    tick(); const timer = window.setInterval(tick, 1000);
-    document.addEventListener("visibilitychange", tick);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
-    // playTone uses the latest experience preference; the interval is recreated for each stage.
+    const syncAfterVisibilityChange = () => { window.clearTimeout(timer); tick(); };
+    tick();
+    document.addEventListener("visibilitychange", syncAfterVisibilityChange);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", syncAfterVisibilityChange); };
+    // playTone uses the latest experience preference; the adaptive timer is recreated for each stage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEndsAt, activeStage.title, backgroundReminder, notificationPermission, screen]);
 

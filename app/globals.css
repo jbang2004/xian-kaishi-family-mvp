@@ -4459,3 +4459,15 @@ p { line-height: 1.58; }
   .plan-template-entry > .template-icon-group { width: 70px; min-width: 70px; }
   .stage-kind-picker button { grid-template-columns: 42px minmax(0,1fr); column-gap: 10px; }
 }
+
+/* v19 — defer layout and paint for long off-screen collections without
+   changing their accessible structure or scroll order. */
+@supports (content-visibility: auto) {
+  .icon-library,
+  .template-list,
+  .plan-list,
+  .day-session-details {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 520px;
+  }
+}

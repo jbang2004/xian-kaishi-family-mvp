@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
-import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "../app/plan-utils.ts";
+import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, clockDeltaMinutes, clockMinutesUntil, clockTimeFromDate, countCompletedTasks, deferNextPendingItem, durationMinutes, findPlanInsertionSlot, formatPlanClock, gentleRemainingLabel, insertRestBreak, millisecondsUntilNextMinute, moveTimedItemPreservingGaps, prepareNextRoundPlan, prepareNextRoundSchedule, rebaseFollowUpPlan, reflowTimedItemsFrom, remainingTimerMinutes, runningTimerUpdateDelay, scheduledEndTime, shiftFollowingForEndChange, shiftTimedItemsFrom, shiftTimedPlanToStart, spansMidnight, suggestInitialEveningWindow, swapNextPendingItems, swapTimedItemsPreservingGaps, titleAfterIconChoice } from "../app/plan-utils.ts";
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
@@ -60,6 +60,11 @@ test("aligns calm decision-screen updates to minute boundaries", () => {
   assert.equal(millisecondsUntilNextMinute(59_999), 1);
   assert.equal(millisecondsUntilNextMinute(60_000), 60_000);
   assert.equal(millisecondsUntilNextMinute(Number.NaN), 60_000);
+  assert.equal(runningTimerUpdateDelay(20 * 60_000), 60_000);
+  assert.equal(runningTimerUpdateDelay(20 * 60_000 + 23_000), 23_000);
+  assert.equal(runningTimerUpdateDelay(60_001), 250);
+  assert.equal(runningTimerUpdateDelay(59_000), 59_000);
+  assert.equal(runningTimerUpdateDelay(0), 0);
 });
 
 test("uses an icon label only to help name an empty stage", () => {
@@ -81,9 +86,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
   assert.match(layout, /appleWebApp: \{ capable: true/);
   assert.match(layout, /themeColor: "#fff8ec"/);
+  assert.match(layout, /export const metadata: Metadata/);
+  assert.match(layout, /Keep the app shell static and edge-cacheable/);
+  assert.doesNotMatch(layout, /next\/headers|generateMetadata/);
   assert.match(layout, /亲子共同安排任务、休息和奖励/);
   assert.doesNotMatch(layout, /兑换/);
   assert.match(page, /<StartApp \/>/);
+  assert.match(page, /export const dynamic = "force-static"/);
   assert.match(page, /亲子共同安排任务、休息和奖励/);
   assert.match(app, /headers\.set\("x-family-token", familyToken\)/);
   assert.doesNotMatch(app, /api\/state\?familyId/);
@@ -155,11 +164,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
   assert.match(app, /screen !== "confirm" && screen !== "dual-start" && screen !== "adjust"/);
   assert.match(app, /minuteTimer = window\.setInterval\(tick, 60_000\)/);
-  assert.equal((app.match(/window\.setInterval\([^;\n]*1000\)/g) ?? []).length, 1);
-  assert.match(app, /document\.addEventListener\("visibilitychange", tick\)/);
+  assert.equal((app.match(/window\.setInterval\([^;\n]*1000\)/g) ?? []).length, 0);
+  assert.match(app, /document\.addEventListener\("visibilitychange", syncAfterVisibilityChange\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
   assert.match(app, /className="undo-shelf" role="status" aria-live="polite" aria-atomic="true"/);
-  assert.equal(ASSET_VERSION, "2026-07-13-2");
+  assert.equal(ASSET_VERSION, "2026-07-15-1");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(app, /loading\?: "eager" \| "lazy"/);
@@ -179,7 +188,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.confirm-timing-note \{ min-height: 0; grid-template-columns: 32px minmax\(0,1fr\)/);
   assert.match(styles, /\.family-agreement > div \{ min-height: 54px; grid-template-columns: 32px minmax\(0,1fr\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.confirm-action-dock \{[\s\S]*?grid-template-columns: minmax\(0,1fr\) 106px/);
-  assert.match(layout, /images: \[\{ url: `\$\{origin\}\/og\.jpg`/);
+  assert.match(layout, /metadataBase: new URL\("https:\/\/xian-kaishi-family-mvp\.jbang20042004\.workers\.dev"\)/);
+  assert.match(layout, /images: \[\{ url: "\/og\.jpg"/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
   assert.match(app, /当前图标 \+ \$\{commonIconLibrary\.length\} 个家庭高频图标/);
   assert.match(app, /const COMMON_ICON_NAMES = new Set<string>/);
@@ -220,7 +230,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const goHome = \(\) => go\(data\.consent \? "home" : "welcome"\)/);
   assert.match(app, /<Header home=\{goHome\} title="一起安排今晚"/);
   assert.match(app, /aria-label="返回首页"><HomeMark \/>/);
-  assert.match(app, /return <AppIcon name="home-heart" className="home-mark" \/>/);
+  assert.match(app, /return <AppIcon name="home-heart" className="home-mark" loading="eager" \/>/);
   assert.match(app, /title="常用模板"/);
   assert.match(app, /保存当前安排为模板/);
   assert.match(app, /系统推荐/);
@@ -918,6 +928,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.template-row-main > \.template-icon-group > b \{ display: none; \}/);
   assert.match(styles, /\.home-screen \.insight-card,[\s\S]*?grid-template-columns: 52px minmax\(0,1fr\) auto;\s*column-gap: 16px;/);
   assert.match(styles, /\.history-row \{ grid-template-columns: 52px minmax\(0,1fr\); column-gap: 14px; \}/);
+  assert.match(styles, /v19 — defer layout and paint/);
+  assert.match(styles, /content-visibility: auto;/);
+  assert.match(app, /function AppIcon\(\{ name, className = "", loading = "lazy"/);
+  assert.match(app, /runningTimerUpdateDelay\(activeEndsAt - now\)/);
+  assert.doesNotMatch(app, /setInterval\(tick, 1000\)/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
@@ -947,7 +962,9 @@ test("ships an installable, privacy-preserving app manifest", async () => {
   assert.equal(versionedAsset("/assets/icons/home-heart.png"), `/assets/icons/home-heart.png?v=${ASSET_VERSION}`);
   assert.match(manifestSource, /src: versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(serviceWorker, /clients\.claim\(\)/);
-  assert.match(serviceWorker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v3`/);
+  assert.match(serviceWorker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v4`/);
+  assert.match(serviceWorker, /function immutableStaticKey/);
+  assert.match(serviceWorker, /const cached = await cache\.match\(immutableKey\);/);
   assert.match(serviceWorker, /async function pruneOldBuildAssets/);
   assert.match(serviceWorker, /currentBuildReady\.some\(response => !response\)/);
   assert.match(serviceWorker, /await pruneOldBuildAssets\(cache, shellAssets\)/);
@@ -982,6 +999,7 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   const optimizedIconDirectory = new URL("../public/assets/optimized/icons/", import.meta.url);
   const optimizedMascotDirectory = new URL("../public/assets/optimized/mascot/", import.meta.url);
   const optimizedRoomAsset = new URL("../public/assets/optimized/energy-room-v3.webp", import.meta.url);
+  const touchEmblemAsset = new URL("../public/assets/generated/touch-emblem-v1.png", import.meta.url);
   const socialPreview = new URL("../public/og.jpg", import.meta.url);
   await access(roomAsset);
   assert.ok((await stat(roomAsset)).size < 200_000, "energy room should stay below 200KB");
@@ -1003,7 +1021,8 @@ test("ships optimized visual assets and persistent-state migration", async () =>
     ...optimizedIconNames.map(name => stat(new URL(`${name}.webp`, optimizedIconDirectory))),
     ...optimizedMascotNames.map(name => stat(new URL(`${name}.webp`, optimizedMascotDirectory))),
   ]);
-  assert.ok(optimizedAssets.reduce((total, file) => total + file.size, 0) < 600_000, "modern icon and mascot delivery should stay below 600KB combined");
+  assert.ok(optimizedAssets.reduce((total, file) => total + file.size, 0) < 420_000, "modern icon and mascot delivery should stay below 420KB combined");
+  assert.ok((await stat(touchEmblemAsset)).size < 20_000, "the dual-confirmation emblem should stay below 20KB");
   assert.ok((await stat(socialPreview)).size < 200_000, "the social preview should stay below 200KB");
   assert.match(app, /assets\/optimized\/energy-room-v3\.webp/);
   assert.match(app, /className="achievement-room-art"/);

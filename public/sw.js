@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "xian-kaishi-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const OFFLINE_ASSET_MANIFEST = "/offline-assets.json";
 
 function safeStaticUrl(input) {
@@ -41,6 +41,14 @@ function buildAssetKey(input) {
   const url = safeStaticUrl(input);
   if (!url || !/\.(?:css|js)$/.test(url.pathname)) return null;
   return `${url.pathname}${url.search}`;
+}
+
+function immutableStaticKey(input) {
+  const url = safeStaticUrl(input);
+  if (!url || !url.pathname.startsWith("/assets/")) return null;
+  const isVersionedPublicAsset = url.searchParams.has("v");
+  const isHashedBuildAsset = /-[A-Za-z0-9_-]{8,}\.(?:css|js)$/.test(url.pathname);
+  return isVersionedPublicAsset || isHashedBuildAsset ? `${url.pathname}${url.search}` : null;
 }
 
 async function pruneOldBuildAssets(cache, currentShellAssets) {
@@ -121,6 +129,11 @@ self.addEventListener("fetch", event => {
   if (!safeStaticUrl(request)) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
+    const immutableKey = immutableStaticKey(request);
+    if (immutableKey) {
+      const cached = await cache.match(immutableKey);
+      if (cached) return cached;
+    }
     try {
       const response = await fetch(request);
       if (response.ok) {
