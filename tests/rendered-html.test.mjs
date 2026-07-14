@@ -220,7 +220,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /placeholder="例如：阅读、吃饭或休息"/);
   assert.match(app, /先写下这件事，再继续安排/);
   assert.match(app, /const planNeedsTitle = planItemErrors\.some/);
-  assert.match(app, /planNeedsTime \? "has-error" : "needs-input"/);
+  assert.match(app, /planNeedsTime \? "has-error" : ""/);
   assert.match(app, /draftReady \? openConfirmPlan\(\) : startAnotherPlan\(\)/);
   assert.match(app, /保存时间表，稍后开始/);
   assert.match(app, /const plannedStartPassed = plannedStartOffset < 0/);
@@ -235,7 +235,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 640px\) \{[\s\S]*?\.confirm-action-dock \{ position: sticky; bottom: 0;[^}]*grid-template-columns: minmax\(0,1fr\) 106px/);
   assert.match(styles, /\.confirm-action-dock \.confirm-secondary-action \{[^}]*min-height: 50px[^}]*font-size: 11px/);
   assert.doesNotMatch(styles, /\.confirm-action-dock, \.reward-save-dock \{ position: static/);
-  assert.match(styles, /\.plan-balance\.needs-input/);
+  assert.doesNotMatch(styles, /\.plan-balance\.needs-input/);
   assert.match(styles, /\.stage-editor\.needs-title/);
   assert.match(styles, /\.confirm-secondary-action/);
   assert.match(app, /stages\.length >= MAX_PLAN_STAGES/);
@@ -247,6 +247,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /aria-label="安排进度与下一步"/);
   assert.match(app, /时间表已经可以确认/);
   assert.match(app, /还差一点就能确认/);
+  assert.match(app, /onClick=\{planHasErrors \? focusFirstPlanIssue : openConfirmPlan\}/);
+  assert.match(app, /定位到需要补充的位置/);
+  assert.doesNotMatch(app, /disabled=\{planHasErrors\}/);
+  assert.match(app, /const planTimeIssue = availableMinutes <= 0/);
+  assert.match(app, /className=\{`plan-balance \$\{planNeedsTime \? "has-error" : ""\}`\}/);
+  assert.match(app, /querySelector<HTMLInputElement>\("\[data-stage-title\]"\)/);
+  assert.match(app, /querySelector<HTMLInputElement>\('input\[type="time"\]\[aria-invalid="true"\]'\)/);
   assert.match(styles, /\.plan-next-dock \{ position: sticky;[^}]*top: max\(8px, env\(safe-area-inset-top\)\)/);
   assert.match(styles, /\.phone-shell\.is-offline \.plan-next-dock \{ top: calc\(max\(8px, env\(safe-area-inset-top\)\) \+ 52px\)/);
   assert.doesNotMatch(app, /下一步：一起确认/);
@@ -293,11 +300,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /这一段结束后即可温和收尾/);
   assert.match(app, /一起确认调整/);
   assert.match(app, /今晚已经排满，先留出至少5分钟再增加/);
-  assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+setClearedPlanUndo\(null\);\s+const id = createId\("stage"\)/);
+  assert.match(app, /setDeletedStage\(null\);\s+setShiftedPlanUndo\(null\);\s+setClearedPlanUndo\(null\);\s+setFollowUpPlanMessage\(""\);\s+const id = createId\("stage"\)/);
   assert.doesNotMatch(app, /className="draft-summary"/);
   assert.match(app, /const startAnotherPlan = \(\) => \{/);
   assert.match(app, /rebaseFollowUpPlan\(data\.planStart, data\.planEnd, stages, nowTime\)/);
   assert.match(app, /className="follow-up-plan-note" role="status"/);
+  assert.match(app, /setFollowUpPlanMessage\(followUp\.items\.length/);
   assert.match(app, /剩余事项保留原时长和顺序，收尾仍是 \$\{followUp\.planEnd\}/);
   assert.match(styles, /\.follow-up-plan-note \{[^}]*min-height: 58px/);
   assert.match(styles, /\.home-plan-cta \{[^}]*min-height: 92px/);

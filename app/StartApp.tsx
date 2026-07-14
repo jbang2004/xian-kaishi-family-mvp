@@ -992,6 +992,7 @@ export function StartApp() {
     setDeletedStage(null);
     setShiftedPlanUndo(null);
     setClearedPlanUndo(null);
+    setFollowUpPlanMessage("");
     const id = createId("stage");
     setStages(items => {
       const next = [...items];
@@ -1009,7 +1010,10 @@ export function StartApp() {
     }));
   };
 
-  const updateStage = (id: string, patch: Partial<Stage>) => setStages(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
+  const updateStage = (id: string, patch: Partial<Stage>) => {
+    setFollowUpPlanMessage("");
+    setStages(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
+  };
   const focusPlanTarget = (stageId?: string) => {
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       const stageContainer = stageId
@@ -1523,12 +1527,39 @@ export function StartApp() {
   const reviewSuggestion = suggestWeeklyFocus({ nights: weeklyNights, morePromptNights: weeklyMorePromptNights, lessPromptNights: weeklyLessPromptNights, adjustments: weeklyAdjustments, recentCompletedFirstStep });
   const currentWeekFocus = data.weeklyFocus?.weekKey === weekStartKey ? data.weeklyFocus : null;
   const planAnalysis = analyzePlan(data.planStart, data.planEnd, stages);
-  const { availableMinutes, scheduledMinutes, itemErrors: planItemErrors, issues: planIssues, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
+  const { availableMinutes, scheduledMinutes, itemErrors: planItemErrors, hasErrors: planHasErrors, balanceMinutes: planBalance } = planAnalysis;
   const planNeedsTitle = planItemErrors.some(item => item.title);
   const planNeedsTime = availableMinutes <= 0 || planItemErrors.some(item => item.time);
   const planErrorPrompt = planNeedsTitle && planNeedsTime ? "名称和时间还需要确认" : planNeedsTitle ? "先写下事项名称" : "先调整一下时间";
+  const planTimeIssue = availableMinutes <= 0
+    ? "今晚开始和结束时间不能相同"
+    : planItemErrors.find(item => item.time)?.messages.find(message => !message.includes("还没有名称")) ?? "先调整标出的时间";
   const stageIssueById = new Map<string, string>(stages.flatMap((stage, index): Array<[string, string]> => planItemErrors[index]?.messages.length ? [[stage.id, planItemErrors[index].messages.join("；")]] : []));
   const planStageIssueIds = new Set(stageIssueById.keys());
+  const focusFirstPlanIssue = () => {
+    if (availableMinutes <= 0) {
+      planStartInputRef.current?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      planStartInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    const titleIssueIndex = planItemErrors.findIndex(item => item.title);
+    const timeIssueIndex = planItemErrors.findIndex(item => item.time);
+    const issueIndex = titleIssueIndex >= 0 ? titleIssueIndex : timeIssueIndex;
+    const issueStage = stages[issueIndex];
+    if (!issueStage) { addNodeButtonRef.current?.focus(); return; }
+    setEditingStageId(issueStage.id);
+    setEditingDurationStageId("");
+    setEditingEnergyStageId("");
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const stageContainer = Array.from(phoneShellRef.current?.querySelectorAll<HTMLElement>("[data-stage-id]") ?? []).find(element => element.dataset.stageId === issueStage.id);
+      const target = titleIssueIndex === issueIndex
+        ? stageContainer?.querySelector<HTMLInputElement>("[data-stage-title]")
+        : stageContainer?.querySelector<HTMLInputElement>('input[type="time"][aria-invalid="true"]');
+      target?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      target?.focus({ preventScroll: true });
+      if (target instanceof HTMLInputElement && target.type === "text") target.select();
+    }));
+  };
   const planCrossesMidnight = spansMidnight(data.planStart, data.planEnd);
   const draftEnergy = stages.reduce((sum, item) => sum + item.energy, 0);
   const activeSettlementNightKey = familyNightKey(liveSessionStartedAt || new Date());
@@ -1697,9 +1728,11 @@ export function StartApp() {
       const followUp = rebaseFollowUpPlan(data.planStart, data.planEnd, stages, nowTime);
       setStages(followUp.items);
       setData(current => ({ ...current, planStart: followUp.planStart, planEnd: followUp.planEnd }));
-      setFollowUpPlanMessage(followUp.keptPlanEnd
-        ? `剩余事项保留原时长和顺序，收尾仍是 ${followUp.planEnd}。`
-        : `剩余事项保留原时长和顺序，收尾更新为 ${followUp.planEnd}。`);
+      setFollowUpPlanMessage(followUp.items.length
+        ? followUp.keptPlanEnd
+          ? `剩余事项保留原时长和顺序，收尾仍是 ${followUp.planEnd}。`
+          : `剩余事项保留原时长和顺序，收尾更新为 ${followUp.planEnd}。`
+        : "");
     } else {
       setFollowUpPlanMessage("");
     }
@@ -1767,9 +1800,9 @@ export function StartApp() {
         <Header back={() => back("home")} title="一起安排今晚" step="1/3" />
         <div className="availability-card custom-window"><AppIcon name="moon" /><div><small>今晚可用时间 · 可以自定义</small><div className="window-inputs"><input ref={planStartInputRef} aria-label="今晚开始时间" type="time" value={data.planStart} onFocus={() => beginPlanWindowEdit("start")} onBlur={e => endPlanWindowEdit("start", e.currentTarget.value)} onChange={e => updatePlanStart(e.target.value)} /><span>—</span><input aria-label="今晚结束时间" type="time" value={data.planEnd} onFocus={() => beginPlanWindowEdit("end")} onBlur={e => endPlanWindowEdit("end", e.currentTarget.value)} onChange={e => { setFollowUpPlanMessage(""); setData(current => ({ ...current, planEnd: e.target.value })); }} /></div><span className="window-shift-note">改开始时间，下面节点会保留间隔一起移动</span>{planCrossesMidnight && <span className="overnight-note">跨到次日 · 结束时间按第二天计算</span>}</div><Mascot compact /></div>
         {followUpPlanMessage && <div className="follow-up-plan-note" role="status"><AppIcon name="check" /><span><strong>已从现在续排</strong><small>{followUpPlanMessage}</small></span></div>}
-        <div className={`plan-balance ${planHasErrors ? planNeedsTime ? "has-error" : "needs-input" : ""}`} role="status"><div><span>{planHasErrors ? planErrorPrompt : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planHasErrors ? planIssues[0] : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
+        <div className={`plan-balance ${planNeedsTime ? "has-error" : ""}`} role="status"><div><span>{planNeedsTime ? "时间需要调整" : `已安排 ${scheduledMinutes} 分钟`}</span><strong>{planNeedsTime ? planTimeIssue : planBalance ? `还留有 ${planBalance} 分钟空白` : "刚好装下今晚"}</strong></div><div className="balance-track"><i style={{ width: `${availableMinutes ? Math.min(100, scheduledMinutes / availableMinutes * 100) : 100}%` }} /></div></div>
         <div className="plan-tools"><span>草稿会自动保存在本机</span>{stages.length > 0 && <button className={clearPlanArmed ? "armed" : ""} onClick={clearPlan}>{clearPlanArmed ? "确认清空" : "清空时间表"}</button>}</div>
-        {stages.length > 0 && <div className={`plan-next-dock ${planHasErrors ? "needs-fix" : "is-ready"}`} role="region" aria-label="安排进度与下一步"><span><small>{planHasErrors ? "还差一点就能确认" : "时间表已经可以确认"}</small><strong>{planHasErrors ? planErrorPrompt : `${stages.length} 个节点 · ${scheduledMinutes} 分钟`}</strong></span><button type="button" disabled={planHasErrors} onClick={openConfirmPlan}>{planHasErrors ? "先补完整" : "一起确认"}<b aria-hidden="true">›</b></button></div>}
+        {stages.length > 0 && <div className={`plan-next-dock ${planHasErrors ? "needs-fix" : "is-ready"}`} role="region" aria-label="安排进度与下一步"><span><small>{planHasErrors ? "还差一点就能确认" : "时间表已经可以确认"}</small><strong>{planHasErrors ? planErrorPrompt : `${stages.length} 个节点 · ${scheduledMinutes} 分钟`}</strong></span><button type="button" aria-label={planHasErrors ? `${planErrorPrompt}，定位到需要补充的位置` : "一起确认今晚时间表"} onClick={planHasErrors ? focusFirstPlanIssue : openConfirmPlan}>{planHasErrors ? planNeedsTitle ? "去填写" : "去调整" : "一起确认"}<b aria-hidden="true">›</b></button></div>}
         <div className={`plan-list ${!stages.length ? "is-empty" : ""}`}>{!stages.length && <button ref={addNodeButtonRef} type="button" className="empty-plan empty-plan-action" onClick={addStage} aria-label="增加第一个时间节点"><Mascot mood="breathe" compact /><strong>先加一件容易开始的小事</strong><span className="empty-plan-cta"><b aria-hidden="true">＋</b>增加第一个节点</span><small>任务、休息和家庭活动都可以</small></button>}{stages.map((stage, index) => { const expanded = editingStageId === stage.id; const hasIssue = planStageIssueIds.has(stage.id); const issueText = stageIssueById.get(stage.id); const titleInvalid = Boolean(planItemErrors[index]?.title); const timeInvalid = Boolean(planItemErrors[index]?.time); const stageName = stage.title.trim() || "未命名事项"; return <div data-stage-id={stage.id} className={`stage-editor ${expanded ? "is-expanded" : "is-collapsed"} ${timeInvalid ? "has-stage-issue" : titleInvalid ? "needs-title" : ""} ${stage.status === "tomorrow" ? "muted-stage" : ""}`} key={stage.id}>
           <button className="stage-summary" aria-expanded={expanded} aria-controls={`stage-editor-${stage.id}`} aria-label={`${expanded ? "收起" : "编辑"}第${index + 1}项${stageName}`} onClick={() => { setEditingStageId(expanded ? "" : stage.id); setEditingDurationStageId(""); setEditingEnergyStageId(""); }}><span className="stage-summary-icon"><AppIcon name={stage.icon} /></span><span className="stage-summary-copy"><strong>{stageName}</strong><small>{titleInvalid ? "还没写下这件事" : timeInvalid ? "需要调整时间" : `${formatPlanClock(stage.start, data.planStart, data.planEnd)}—${formatPlanClock(stage.end, data.planStart, data.planEnd)} · ${stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}`}</small></span><span className={`stage-summary-energy ${stage.energy ? "" : "is-zero"}`}><b>{stage.energy || "—"}</b><small>{stage.energy ? "能量" : "不计"}</small></span><i aria-hidden="true">⌄</i></button>
           {expanded && <div id={`stage-editor-${stage.id}`} className="stage-editor-body">

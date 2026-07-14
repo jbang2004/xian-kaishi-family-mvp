@@ -531,10 +531,6 @@ button.insight-card { cursor: pointer; }
 .plan-balance.has-error span, .plan-balance.has-error strong { color: #a94f45; }
 .plan-balance.has-error .balance-track { background: rgba(242,140,126,.15); }
 .plan-balance.has-error .balance-track i { background: var(--coral); }
-.plan-balance.needs-input { border-color: rgba(245,184,75,.48); background: #fff9e8; }
-.plan-balance.needs-input span, .plan-balance.needs-input strong { color: #8c651d; }
-.plan-balance.needs-input .balance-track { background: rgba(245,184,75,.16); }
-.plan-balance.needs-input .balance-track i { background: linear-gradient(90deg,var(--amber),#f6cf76); }
 .plan-tools { min-height: 36px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 2px 0; }
 .plan-tools span { color: var(--muted); font-size: var(--type-caption); }
 .plan-tools button { min-height: 44px; border: 0; border-radius: 99px; background: transparent; color: #4a8069; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
