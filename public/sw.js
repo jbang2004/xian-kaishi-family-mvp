@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "xian-kaishi-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const OFFLINE_ASSET_MANIFEST = "/offline-assets.json";
 
 function safeStaticUrl(input) {
@@ -37,6 +37,24 @@ async function fetchAndCacheStatic(cache, input) {
   } catch { /* one missing optional image must not block the offline shell */ }
 }
 
+function buildAssetKey(input) {
+  const url = safeStaticUrl(input);
+  if (!url || !/\.(?:css|js)$/.test(url.pathname)) return null;
+  return `${url.pathname}${url.search}`;
+}
+
+async function pruneOldBuildAssets(cache, currentShellAssets) {
+  const currentBuildAssets = new Set(currentShellAssets.map(buildAssetKey).filter(Boolean));
+  if (!currentBuildAssets.size) return;
+  const currentBuildReady = await Promise.all([...currentBuildAssets].map(asset => cache.match(asset)));
+  if (currentBuildReady.some(response => !response)) return;
+  const cachedRequests = await cache.keys();
+  await Promise.all(cachedRequests.map(request => {
+    const key = buildAssetKey(request);
+    return key && !currentBuildAssets.has(key) ? cache.delete(request) : undefined;
+  }));
+}
+
 async function refreshShell() {
   const cache = await caches.open(CACHE_NAME);
   let criticalAssets = [];
@@ -62,6 +80,7 @@ async function refreshShell() {
     "/manifest.webmanifest",
     ...new Set([...criticalAssets, ...shellAssets]),
   ].map(asset => fetchAndCacheStatic(cache, asset)));
+  await pruneOldBuildAssets(cache, shellAssets);
 }
 
 self.addEventListener("install", event => {

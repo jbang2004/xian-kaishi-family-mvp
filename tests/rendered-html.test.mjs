@@ -621,6 +621,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.reduce-motion \.launch-progress \{ display: none; \}/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.launch-progress \{ display: none; \}/);
   assert.match(app, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(app, /requestIdleCallback\(registerServiceWorker, \{ timeout: 2500 \}\)/);
+  assert.match(app, /window\.setTimeout\(registerServiceWorker, 1200\)/);
+  assert.match(app, /document\.readyState === "complete"/);
   assert.match(app, /useSyncExternalStore\(subscribeToNetworkStatus/);
   assert.match(app, /useSyncExternalStore\(subscribeToReducedMotion/);
   assert.match(app, /query\.addEventListener\("change", onChange\)/);
@@ -799,6 +802,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /window\.addEventListener\("focus", refreshNotificationPermission\)/);
   assert.match(app, /document\.addEventListener\("visibilitychange", refreshNotificationPermission\)/);
   assert.match(app, /setNotificationPermission\(Notification\.permission\)/);
+  assert.match(app, /dueReminderPlayed\.current = restoredStageDue/);
   assert.match(app, /正在等待浏览器授权/);
   assert.match(app, /没有确认前不会开启/);
   assert.match(app, /aria-busy=\{requestingNotificationPermission \|\| undefined\}/);
@@ -837,6 +841,10 @@ test("ships an installable, privacy-preserving app manifest", async () => {
   assert.equal(versionedAsset("/assets/icons/home-heart.png"), `/assets/icons/home-heart.png?v=${ASSET_VERSION}`);
   assert.match(manifestSource, /src: versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(serviceWorker, /clients\.claim\(\)/);
+  assert.match(serviceWorker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v3`/);
+  assert.match(serviceWorker, /async function pruneOldBuildAssets/);
+  assert.match(serviceWorker, /currentBuildReady\.some\(response => !response\)/);
+  assert.match(serviceWorker, /await pruneOldBuildAssets\(cache, shellAssets\)/);
   assert.match(serviceWorker, /addEventListener\("fetch"/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)\) return/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);

@@ -602,7 +602,9 @@ export function StartApp() {
             };
             setStages(liveStages); setActiveIndex(Math.max(0, Math.min(liveStages.length - 1, Number(live.activeIndex) || 0)));
             setAdjustments(Math.max(0, Number(live.adjustments) || 0)); setActiveEndsAt(Math.max(0, Number(live.activeEndsAt) || 0));
-            setStageDue(Boolean(live.stageDue)); setTransitionReason(normalizeTransitionReason(live.transitionReason, Boolean(live.stageDue))); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionStartedAt(startedAt); setLiveSessionAvailable(true);
+            const restoredStageDue = Boolean(live.stageDue);
+            dueReminderPlayed.current = restoredStageDue;
+            setStageDue(restoredStageDue); setTransitionReason(normalizeTransitionReason(live.transitionReason, restoredStageDue)); setPromptReflection(normalizePromptReflection(live.promptReflection)); setLiveResumeScreen(savedScreen); setLiveSessionStartedAt(startedAt); setLiveSessionAvailable(true);
           } else localStorage.removeItem(LIVE_SESSION_KEY);
         } catch { localStorage.removeItem(LIVE_SESSION_KEY); }
       }
@@ -772,9 +774,21 @@ export function StartApp() {
   }, [deleteArmed, deletingData]);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator && window.isSecureContext) {
-      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    }
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    let workerIdleHandle = 0;
+    let workerTimer = 0;
+    const registerServiceWorker = () => {
+      if ("serviceWorker" in navigator && window.isSecureContext) void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    };
+    const scheduleServiceWorker = () => {
+      if (idleWindow.requestIdleCallback) workerIdleHandle = idleWindow.requestIdleCallback(registerServiceWorker, { timeout: 2500 });
+      else workerTimer = window.setTimeout(registerServiceWorker, 1200);
+    };
+    if (document.readyState === "complete") scheduleServiceWorker();
+    else window.addEventListener("load", scheduleServiceWorker, { once: true });
     const handleOffline = () => {
       setSyncLabel("离线 · 已保存在本机");
       setToast("网络暂时不可用，今晚仍会保存在本机");
@@ -817,7 +831,12 @@ export function StartApp() {
     };
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
-    return () => { window.removeEventListener("offline", handleOffline); window.removeEventListener("online", handleOnline); };
+    return () => {
+      window.removeEventListener("load", scheduleServiceWorker);
+      if (workerIdleHandle) idleWindow.cancelIdleCallback?.(workerIdleHandle);
+      if (workerTimer) window.clearTimeout(workerTimer);
+      window.removeEventListener("offline", handleOffline); window.removeEventListener("online", handleOnline);
+    };
   }, []);
 
   useEffect(() => {
