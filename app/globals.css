@@ -3461,3 +3461,108 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
   .plan-template-entry > .template-icon-group .app-icon { width: 27px; height: 27px; }
   .plan-template-save { min-width: 76px; padding-left: 8px; }
 }
+
+/* v13 — inset rhythm for secondary information. Full cards are reserved for
+   the current task and controls; supporting rows breathe inside the page. */
+.welcome-boundary {
+  margin: 18px 6px 20px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.welcome-boundary > div {
+  grid-template-columns: 40px minmax(0,1fr);
+  gap: 12px;
+  padding: 16px 4px 15px;
+}
+.welcome-boundary > button {
+  min-height: 48px;
+  margin: 0;
+  padding: 12px 4px 13px;
+  align-items: center;
+  border-top-color: rgba(60,60,67,.09);
+}
+
+.next-stage-preview,
+.transition-next {
+  min-height: 70px;
+  margin: 14px 6px 3px;
+  padding: 14px 4px 15px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.next-stage-preview.is-landing {
+  border-color: rgba(117,184,155,.38);
+  background: transparent;
+  box-shadow: none;
+}
+.next-stage-preview small,
+.transition-next small { margin-bottom: 5px; }
+
+.timeline-disclosure {
+  width: auto;
+  margin-inline: 6px;
+}
+.timeline-disclosure summary { padding: 12px 4px; }
+
+.home-screen .insight-card,
+.confirm-reminder-card,
+.effort-screen .support-suggestion,
+.reward-boundary-note,
+.achievement-boundary,
+.reward-saved-note {
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.home-screen .insight-card {
+  width: auto;
+  margin: 16px 6px 0;
+  padding: 16px 4px;
+}
+.confirm-reminder-card {
+  margin: 14px 6px;
+  padding: 14px 4px;
+}
+.effort-screen .support-suggestion {
+  margin: 18px 6px;
+  padding: 16px 4px;
+}
+.reward-boundary-note,
+.achievement-boundary,
+.reward-saved-note {
+  margin: 12px 6px;
+  padding: 14px 4px;
+}
+.reward-saved-note { margin-bottom: 12px; }
+
+.energy-summary summary,
+.saved-breakdown summary { padding-inline: 6px; }
+.risk-entry,
+.urgent-note { padding-inline: 6px; }
+
+@media (max-width: 380px) {
+  .welcome-boundary { margin: 14px 4px 16px; }
+  .welcome-boundary > div { grid-template-columns: 34px minmax(0,1fr); gap: 10px; padding-block: 14px; }
+  .welcome-boundary .big-icon,
+  .welcome-boundary .big-icon .app-icon { width: 34px; height: 34px; }
+  .next-stage-preview,
+  .transition-next { margin-inline: 4px; }
+  .home-screen .insight-card,
+  .confirm-reminder-card,
+  .effort-screen .support-suggestion,
+  .reward-boundary-note,
+  .achievement-boundary,
+  .reward-saved-note { margin-inline: 4px; }
+}
