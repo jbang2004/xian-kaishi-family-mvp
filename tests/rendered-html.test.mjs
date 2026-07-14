@@ -786,17 +786,30 @@ test("contains the complete 先开始 product shell", async () => {
 });
 
 test("ships an installable, privacy-preserving app manifest", async () => {
-  const [manifestSource, serviceWorker] = await Promise.all([
+  const [manifestSource, serviceWorker, offlineAssetSource] = await Promise.all([
     readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/offline-assets.json", import.meta.url), "utf8"),
   ]);
+  const offlineAssetManifest = JSON.parse(offlineAssetSource);
   assert.match(manifestSource, /display: "standalone"/);
   assert.match(manifestSource, /lang: "zh-CN"/);
   assert.match(manifestSource, /sizes: "320x320"/);
   assert.equal(versionedAsset("/assets/icons/home-heart.png"), `/assets/icons/home-heart.png?v=${ASSET_VERSION}`);
   assert.match(manifestSource, /src: versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
   assert.match(serviceWorker, /clients\.claim\(\)/);
-  assert.doesNotMatch(serviceWorker, /caches\.|addEventListener\("fetch"/);
+  assert.match(serviceWorker, /addEventListener\("fetch"/);
+  assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)\) return/);
+  assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.match(serviceWorker, /caches\.match\("\/"\)/);
+  assert.match(serviceWorker, /cache\.match\(request, \{ ignoreSearch: true \}\)/);
+  assert.match(serviceWorker, /Only the public app/);
+  assert.ok(Array.isArray(offlineAssetManifest.assets));
+  assert.ok(offlineAssetManifest.assets.length > 100, "the complete public icon and mascot library should be available offline");
+  assert.deepEqual([...offlineAssetManifest.assets].sort((left, right) => left.localeCompare(right, "en")), offlineAssetManifest.assets);
+  assert.ok(offlineAssetManifest.assets.every(asset => asset.startsWith("/assets/")));
+  assert.ok(offlineAssetManifest.assets.every(asset => !asset.startsWith("/api/")));
+  await Promise.all(offlineAssetManifest.assets.map(asset => access(new URL(`../public${asset}`, import.meta.url))));
 });
 
 test("ships optimized visual assets and persistent-state migration", async () => {
