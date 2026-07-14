@@ -641,20 +641,20 @@ export function StartApp() {
           if (winner === "remote") {
             familyDataRef.current = remote; familyRevisionRef.current = remoteRevision; familyUpdatedAtRef.current = remoteUpdatedAt;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(remote)); localStorage.setItem(FAMILY_REVISION_KEY, String(remoteRevision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, remoteUpdatedAt);
-            setData(remote); setConsent(remote.consent); setScreen(remote.consent ? "home" : "welcome"); setSyncLabel("云端已同步");
+            setData(remote); setConsent(remote.consent); setScreen(remote.consent ? "home" : "welcome"); setSyncLabel("云端副本已更新");
           } else if (winner === "local") {
             const localRevision = familyRevisionRef.current <= remoteRevision ? remoteRevision + 1 : familyRevisionRef.current;
-            familyRevisionRef.current = localRevision; localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
+            familyRevisionRef.current = localRevision; localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补传本机更新…");
             const initialSync = familyStateRequest(id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
-              .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "云端已同步" : "已保留本机更新"))
+              .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "云端副本已更新" : "已保留本机更新"))
               .catch(() => setSyncLabel("仅保存在本机"));
             void pendingWritesRef.current.track(initialSync);
-          } else setSyncLabel("云端已同步");
+          } else setSyncLabel("云端副本已更新");
         } else if (hasLocal) {
           const localRevision = Math.max(1, familyRevisionRef.current); familyRevisionRef.current = localRevision;
-          localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补同步本机更新…");
+          localStorage.setItem(FAMILY_REVISION_KEY, String(localRevision)); setSyncLabel("正在补传本机更新…");
           const initialSync = familyStateRequest(id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision: localRevision }) })
-            .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "云端已同步" : "已保留本机更新"))
+            .then(readFamilyStateResponse).then(sync => setSyncLabel(sync.ok ? "云端副本已更新" : "已保留本机更新"))
             .catch(() => setSyncLabel("仅保存在本机"));
           void pendingWritesRef.current.track(initialSync);
         }
@@ -803,7 +803,7 @@ export function StartApp() {
       const activeFamilyId = localStorage.getItem("xian-kaishi-family-id") || "";
       const revision = familyRevisionRef.current;
       if (!activeFamilyId || revision < 1) { setSyncLabel("网络已恢复"); return; }
-      setSyncLabel("网络已恢复，正在同步…");
+      setSyncLabel("网络已恢复，正在更新云端副本…");
       const syncPromise = (async () => {
         try {
           const response = await familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: familyDataRef.current, revision }) });
@@ -819,10 +819,10 @@ export function StartApp() {
             const retryResult = await readFamilyStateResponse(retry);
             if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
             if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
-            setSyncLabel(retry.ok ? "网络已恢复 · 已合并并同步" : "网络已恢复 · 已保留本机更新"); return;
+            setSyncLabel(retry.ok ? "网络已恢复 · 已合并并更新副本" : "网络已恢复 · 已保留本机更新"); return;
           }
           if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
-          setSyncLabel(response.ok ? "网络已恢复 · 云端已同步" : "网络已恢复 · 已保留本机更新");
+          setSyncLabel(response.ok ? "网络已恢复 · 云端副本已更新" : "网络已恢复 · 已保留本机更新");
         } catch {
           setSyncLabel("仅保存在本机");
         }
@@ -882,7 +882,7 @@ export function StartApp() {
     const revision = Math.max(familyRevisionRef.current, Math.floor(Number(localStorage.getItem(FAMILY_REVISION_KEY)) || 0)) + 1;
     const updatedAt = new Date().toISOString();
     familyDataRef.current = next; familyRevisionRef.current = revision; familyUpdatedAtRef.current = updatedAt;
-    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("本机已保存 · 正在同步…");
+    setData(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); localStorage.setItem(FAMILY_REVISION_KEY, String(revision)); localStorage.setItem(FAMILY_UPDATED_AT_KEY, updatedAt); setSyncLabel("本机已保存 · 正在更新云端副本…");
     if (message) setToast(message);
     const syncPromise = familyStateRequest(activeFamilyId, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: next, revision }) })
       .then(async response => {
@@ -898,11 +898,11 @@ export function StartApp() {
           const retryResult = await readFamilyStateResponse(retry);
           if (retryRevision !== familyRevisionRef.current || deleteInProgressRef.current) return;
           if (retry.ok && retryResult.updatedAt) { familyUpdatedAtRef.current = retryResult.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, retryResult.updatedAt); }
-          setSyncLabel(retry.ok ? "已合并并同步" : "已保留本机更新"); return;
+          setSyncLabel(retry.ok ? "已合并 · 云端副本已更新" : "已保留本机更新"); return;
         }
         if (response.ok && result.updatedAt) { familyUpdatedAtRef.current = result.updatedAt; localStorage.setItem(FAMILY_UPDATED_AT_KEY, result.updatedAt); }
-        setSyncLabel(result.localOnly ? "仅保存在本机" : response.ok ? "云端已同步" : "已保留本机更新");
-      }).catch(() => { if (!deleteInProgressRef.current) setSyncLabel("本机已保存 · 暂未同步"); });
+        setSyncLabel(result.localOnly ? "仅保存在本机" : response.ok ? "云端副本已更新" : "已保留本机更新");
+      }).catch(() => { if (!deleteInProgressRef.current) setSyncLabel("本机已保存 · 云端副本待更新"); });
     void pendingWritesRef.current.track(syncPromise);
   };
 
@@ -1807,7 +1807,7 @@ export function StartApp() {
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef} aria-hidden={deleteArmed || undefined} inert={deleteArmed || undefined}>
       {!isOnline && <div className="offline-ribbon" role="status"><i aria-hidden="true" /><span><strong>离线使用中</strong><small>今晚仍会安全保存在本机</small></span></div>}
-      {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在找回这个家庭的今晚</strong><span>先确认本机记录，再看看是否有更新</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
+      {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在确认这台设备的家庭记录</strong><span>先读取本机，再核对对应的云端副本</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="welcome-brand"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><span>家庭晚间习惯助手</span></div>
         {deletionNotice === "complete" && <div className="pending-delete-note deletion-complete-note" role="status"><AppIcon name="check" /><span><strong>家庭数据已全部删除</strong><small>本机和云端记录都已清理；重新开始时不会带入旧家庭的信息。</small></span></div>}
@@ -1825,10 +1825,10 @@ export function StartApp() {
         <div className="privacy-storage-list">
           <div><span className="big-icon"><AppIcon name="moon" /></span><section><small>仅保存在当前设备</small><strong>今晚计划草稿与进行中状态</strong><p>用于刷新或意外关页后继续；凌晨可以接着昨晚，最迟到次日清晨5点自动失效。</p></section></div>
           <div><span className="big-icon"><AppIcon name="alarm" /></span><section><small>仅保存在当前设备</small><strong>后台提醒开关与浏览器通知权限</strong><p>只有监护人主动开启后才使用；关闭浏览器后不承诺提醒送达。</p></section></div>
-          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会同步到云端</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过保存在当前设备上的高熵随机家庭令牌关联；令牌只经同源请求发送，不放进网址。旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p></section></div>
+          <div><span className="big-icon"><AppIcon name="privacy" /></span><section><small>当前测试版会保存云端副本</small><strong>家庭化名、设置、能量、晚间与期待实现记录</strong><p>通过保存在当前设备上的高熵随机家庭令牌关联；令牌只经同源请求发送，不放进网址。旧状态不会静默覆盖更新的本机记录。最多保留最近730次晚间收尾和120次期待实现，超过后按时间移除最旧记录，可随时提前导出。</p><div className="storage-boundary-note"><strong>不能跨设备找回</strong><span>这不是账号同步：换设备、换浏览器或清除站点数据后无法找回，也不会自动出现在另一台设备。</span></div></section></div>
           <div><span className="big-icon"><AppIcon name="quiet" /></span><section><small>不会收集</small><strong>学校、位置、通讯录、人脸、录音与社交平台数据</strong><p>外部内容只能由监护人主动输入，不读取微信、小红书或学校系统。</p></section></div>
         </div>
-        <div className="privacy-transparency"><strong>受邀测试说明</strong><p>当前版本仅供受邀家庭试用，请不要转发测试入口。正式开放前，我们会增加监护人登录与家庭访问保护；如果无法做到，就停止云端同步。</p></div>
+        <div className="privacy-transparency"><strong>受邀测试说明</strong><p>当前版本仅供受邀家庭试用，请不要转发测试入口。正式开放前，我们会增加监护人登录与家庭访问保护；如果无法做到，就停止保存云端副本。</p></div>
         <div className="data-rights-card"><span className="eyebrow">家庭可以随时</span><h2>导出或删除全部数据</h2><p>导出文件包含家庭状态、本机计划草稿和进行中状态。删除会清除本机数据、云端记录和旧的随机家庭令牌。</p>{data.consent && <div className="two-buttons"><button className="secondary-button" onClick={exportData}>导出数据</button><button className="secondary-button danger-outline" onClick={requestDeleteData}>删除全部家庭数据</button></div>}</div>
         <button className="primary-button" onClick={() => back(privacyReturn)}>{privacyReturn === "welcome" ? "我已了解，返回授权" : "返回设置"}</button>
       </div>}

@@ -38,6 +38,8 @@ test("keeps supporting text readable across the warm card palette", async () => 
   for (const background of ["#fffdf8", "#fff8ec", "#f5b84b", "#75b89b"]) {
     assert.ok(contrastRatio(focusRing, background) >= 3, `${focusRing} should remain visible on ${background}`);
   }
+  assert.ok(contrastRatio("#8a5c14", "#fff9e9") >= 4.5, "the cloud-boundary heading should stay readable");
+  assert.ok(contrastRatio("#725d3e", "#fff9e9") >= 4.5, "the cloud-boundary explanation should stay readable");
   assert.ok(contrastRatio(focusHalo, "#bd4f46") >= 3, `${focusHalo} should separate focus from destructive controls`);
   assert.match(styles, /outline: 3px solid var\(--focus-ring\); outline-offset: 3px; box-shadow: 0 0 0 3px var\(--focus-halo\)/);
   assert.match(styles, /\.stage-summary:focus-visible,[\s\S]*?\.timeline-disclosure summary:focus-visible \{ outline-offset: -4px/);
@@ -202,6 +204,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /只保留随机家庭令牌作为删除凭证/);
   assert.match(app, /高熵随机家庭令牌关联/);
   assert.match(app, /令牌只经同源请求发送，不放进网址/);
+  assert.match(app, /这不是账号同步：换设备、换浏览器或清除站点数据后无法找回/);
+  assert.match(app, /className="storage-boundary-note"><strong>不能跨设备找回/);
+  assert.match(styles, /\.storage-boundary-note \{[^}]*border: 1px solid rgba\(245,184,75,\.32\)[^}]*background: rgba\(255,249,233,\.88\)/);
+  assert.match(styles, /\.privacy-storage-list p \{[^}]*font-size: var\(--type-caption\)[^}]*line-height: 1\.6/);
+  assert.match(styles, /\.storage-boundary-note span \{[^}]*font-size: var\(--type-caption\)/);
+  assert.match(styles, /\.privacy-transparency p \{[^}]*font-size: var\(--type-caption\)/);
+  assert.match(app, /正在确认这台设备的家庭记录/);
+  assert.match(app, /云端副本已更新/);
+  assert.doesNotMatch(app, /云端已同步/);
   assert.doesNotMatch(app, /随机家庭 ID/);
   assert.match(app, /backLabel=\{privacyReturn === "welcome" \? "返回监护人授权页" : "返回设置页"\}/);
   assert.match(app, /backLabel=\{profileReturn === "settings" \? "返回设置页" : "返回监护人授权页"\}/);
@@ -354,7 +365,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /愿意一起停下来/);
   assert.match(app, /哪些数据保存在哪里/);
   assert.match(app, /当前版本仅供受邀家庭试用，请不要转发测试入口/);
-  assert.match(app, /增加监护人登录与家庭访问保护；如果无法做到，就停止云端同步/);
+  assert.match(app, /增加监护人登录与家庭访问保护；如果无法做到，就停止保存云端副本/);
   assert.match(app, /最多保留最近730次晚间收尾和120次期待实现/);
   assert.match(app, /const MAX_SESSION_RECORDS = 730/);
   assert.match(app, /const MAX_REWARD_HISTORY = 120/);
@@ -471,7 +482,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /xian-kaishi-family-revision-v1/);
   assert.match(app, /旧状态不会静默覆盖更新的本机记录/);
   assert.match(app, /正在合并另一处更新/);
-  assert.match(app, /正在找回这个家庭的今晚/);
+  assert.match(app, /正在确认这台设备的家庭记录/);
   assert.match(app, /if \(validLocal\) setAppReady\(true\)/);
   assert.match(app, /catch \{ localStorage\.removeItem\(STORAGE_KEY\)/);
   assert.match(app, /finally\(\(\) => setAppReady\(true\)\)/);
@@ -650,7 +661,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /\(\) => navigator\.onLine, \(\) => true/);
   assert.doesNotMatch(app, /useState\(\(\) => typeof navigator/);
   assert.match(app, /window\.addEventListener\("offline", handleOffline\)/);
-  assert.match(app, /网络已恢复 · 已合并并同步/);
+  assert.match(app, /网络已恢复 · 已合并并更新副本/);
   assert.match(app, /离线使用中/);
   assert.match(app, /xian-kaishi-pending-cloud-delete-v1/);
   assert.match(app, /pendingWritesRef\.current\.drain\(\)/);
