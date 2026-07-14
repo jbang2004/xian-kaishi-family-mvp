@@ -899,6 +899,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.prompt-reflection legend small \{[\s\S]*?white-space: nowrap;/);
   assert.match(styles, /\.prompt-reflection button \{[\s\S]*?min-height: 46px;[\s\S]*?cursor: pointer;/);
   assert.match(styles, /\.prompt-reflection button\.selected \{[\s\S]*?font-weight: 700;[\s\S]*?box-shadow: 0 1px 5px/);
+  assert.match(styles, /v16 — make each reflection choice unmistakably tappable/);
+  assert.match(styles, /\.prompt-reflection button::before \{[\s\S]*?border-radius: 50%;/);
+  assert.match(styles, /\.prompt-reflection button\.selected::before \{[\s\S]*?radial-gradient\(circle/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);

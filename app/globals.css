@@ -3630,3 +3630,62 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
     padding-inline: 9px;
   }
 }
+
+/* v16 — make each reflection choice unmistakably tappable. Three quiet
+   option cards read as one radio group without becoming heavy UI chrome. */
+.prompt-reflection > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 7px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.prompt-reflection button,
+.prompt-reflection button:first-child {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(60,60,67,.16);
+  border-radius: 12px;
+  background: #fff;
+  color: #565b61;
+  box-shadow: 0 1px 2px rgba(0,0,0,.035);
+  font-size: 12px;
+  font-weight: 600;
+}
+.prompt-reflection button::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1.5px solid #a5abb0;
+  border-radius: 50%;
+  background: #fff;
+  box-sizing: border-box;
+}
+.prompt-reflection button:hover {
+  border-color: rgba(70,120,96,.4);
+  background: #fbfdfb;
+  color: #315f83;
+}
+.prompt-reflection button:active { transform: scale(.985); }
+.prompt-reflection button.selected {
+  border-color: rgba(73,137,105,.7);
+  background: #edf7f0;
+  color: #2f6c51;
+  box-shadow: 0 2px 8px rgba(73,137,105,.12);
+}
+.prompt-reflection button.selected::before {
+  border-color: #3f8b67;
+  background: radial-gradient(circle, #3f8b67 0 4px, transparent 4.5px), #fff;
+}
+.prompt-reflection button:focus-visible {
+  outline: 2px solid #6b9bc0;
+  outline-offset: 2px;
+}
+.prompt-reflection > small { display: block; margin-top: 9px; }
