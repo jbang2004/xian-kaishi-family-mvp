@@ -3068,13 +3068,10 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
 /* v11 — repeatable evening templates and an unambiguous route home. */
 .home-header-button { display: grid; place-items: center; }
 .home-mark {
-  width: 23px;
-  height: 23px;
+  width: 30px;
+  height: 30px;
   overflow: visible;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  filter: none;
 }
 
 .plan-template-shortcuts {
@@ -3116,7 +3113,7 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
   font-weight: 650;
   cursor: pointer;
 }
-.plan-template-save[aria-disabled="true"] { color: var(--muted); }
+.plan-template-save:disabled { color: var(--muted); cursor: default; }
 
 .template-icon-group {
   min-width: 74px;
@@ -3180,8 +3177,8 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
 .save-template-callout strong { font-size: 14px; font-weight: 650; }
 .save-template-callout small { margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 450; }
 .save-template-callout > b { flex: 0 0 auto; color: #397259; font-size: 12px; font-weight: 650; }
-.save-template-callout[aria-disabled="true"] { border-color: rgba(60,60,67,.1); background: rgba(255,255,255,.45); }
-.save-template-callout[aria-disabled="true"] > b { color: var(--muted); }
+.save-template-callout:disabled { border-color: rgba(60,60,67,.1); background: rgba(255,255,255,.45); cursor: default; }
+.save-template-callout:disabled > b { color: var(--muted); }
 
 .template-section { margin-top: 24px; }
 .template-section-heading { min-height: 30px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 2px; }
@@ -3261,11 +3258,206 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
 .template-storage-note { margin: 24px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 @media (max-width: 380px) {
-  .plan-template-entry { grid-template-columns: 68px minmax(0,1fr) 12px; }
+  .plan-template-entry { grid-template-columns: 72px minmax(0,1fr) 12px; }
   .template-row-main { grid-template-columns: 74px minmax(0,1fr) auto 10px; gap: 7px; padding-left: 10px; }
   .template-icon-group > span { width: 29px; height: 29px; flex-basis: 29px; }
   .template-icon-group .app-icon { width: 27px; height: 27px; }
   .template-icon-group > span:nth-child(4) { display: none; }
   .template-use-label { font-size: 11px; }
   .template-edit-button { min-width: 48px; padding-inline: 9px; }
+}
+
+/* v12 — one navigation meaning, fewer competing surfaces, clearer actions. */
+.app-header { margin-bottom: 16px; }
+.app-header > strong { font-size: 15px; font-weight: 650; letter-spacing: -.025em; }
+.home-header-button { width: 44px; height: 44px; padding: 5px; border-radius: 50%; }
+.home-header-button .home-mark { width: 30px; height: 30px; }
+
+.plan-template-entry { grid-template-columns: 76px minmax(0,1fr) 12px; gap: 8px; }
+.plan-template-entry > .template-icon-group {
+  width: 75px;
+  min-width: 0;
+  overflow: hidden;
+}
+.plan-template-entry > .template-icon-group > span { flex-basis: 31px; }
+.plan-template-save { min-width: 84px; padding-left: 12px; }
+
+.flow-return-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  padding: 12px 2px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  background: transparent;
+  color: #397259;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.primary-button,
+.home-plan-cta,
+.plan-next-dock button {
+  background: #f6ba3f;
+  box-shadow: 0 5px 14px rgba(178,113,11,.15);
+}
+.primary-button:hover,
+.home-plan-cta:hover,
+.plan-next-dock button:hover { filter: brightness(.985); }
+
+/* Confirmation: one plan list, one reminder row, one agreement band. */
+.summary-strip {
+  gap: 0;
+  padding: 11px 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.summary-strip > span { border-left: 1px solid rgba(60,60,67,.1); }
+.summary-strip > span:first-child { border-left: 0; }
+.confirm-plan-overview { border-color: rgba(60,60,67,.11); background: rgba(255,255,255,.72); box-shadow: none; }
+.confirm-reminder-card {
+  margin-block: 10px;
+  padding-inline: 2px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.family-agreement {
+  gap: 0;
+  padding-block: 5px;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+}
+.family-agreement > div {
+  border: 0;
+  border-left: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.family-agreement > div:first-child { border-left: 0; }
+
+/* Live flow: the current task is the only card; everything else is a row. */
+.running-screen .app-header,
+.transition-screen .app-header { margin-bottom: 4px; }
+.active-stage-card { border-color: rgba(60,60,67,.12); box-shadow: none; }
+.next-stage-preview { padding-inline: 2px; border-top: 1px solid rgba(60,60,67,.09); }
+.transition-hero { margin-top: 4px; }
+.transition-actions .secondary-button,
+.transition-actions .soft-button { box-shadow: none; }
+.transition-actions .text-button { border-top: 1px solid rgba(60,60,67,.1); }
+
+/* Detail pages use separators instead of a card within a card. */
+.effort-screen .current-task-card,
+.effort-screen .support-suggestion,
+.energy-screen .goal-card,
+.energy-screen .empty-goal-card,
+.reward-preview,
+.reward-boundary-note {
+  border-inline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.effort-screen .current-task-card,
+.effort-screen .support-suggestion,
+.energy-screen .goal-card,
+.energy-screen .empty-goal-card,
+.reward-preview { border-color: rgba(60,60,67,.1); }
+.reward-step {
+  margin-top: 18px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.reward-step:first-of-type { margin-top: 8px; }
+.reward-boundary-note { padding-inline: 2px; }
+
+/* Calendar keeps the calendar and one suggestion; secondary dashboards are gone. */
+.review-screen .month-nav { margin-top: 6px; }
+.review-screen .one-change-card {
+  margin-top: 22px;
+  padding: 18px 2px 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.review-screen .rule-transparency { border-radius: 12px; box-shadow: none; }
+
+/* Settings is one native-style list, grouped by typography and spacing. */
+.settings-group {
+  margin: 0 0 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.settings-group h2 { margin: 0 2px 8px; color: var(--muted); font-size: 13px; font-weight: 650; }
+.settings-group .setting-row,
+.settings-group .toggle-row,
+.settings-group .setting-action {
+  min-height: 54px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.settings-group > :last-child { border-bottom: 1px solid rgba(60,60,67,.1); }
+.settings-group .permission-note {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.08);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.risk-entry {
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.risk-list {
+  overflow: hidden;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+}
+.risk-list > div {
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.08);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.risk-list > div:first-child { border-top: 0; }
+.next-actions,
+.support-line,
+.urgent-note { box-shadow: none; }
+
+@media (max-width: 380px) {
+  .plan-template-entry { grid-template-columns: 68px minmax(0,1fr) 10px; gap: 6px; }
+  .plan-template-entry > .template-icon-group { width: 68px; }
+  .plan-template-entry > .template-icon-group > span { width: 29px; height: 29px; flex-basis: 29px; }
+  .plan-template-entry > .template-icon-group .app-icon { width: 27px; height: 27px; }
+  .plan-template-save { min-width: 76px; padding-left: 8px; }
 }
