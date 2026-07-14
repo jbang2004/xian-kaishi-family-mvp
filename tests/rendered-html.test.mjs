@@ -220,7 +220,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /backLabel = "返回上一页"/);
   assert.match(app, /<Header back=\{\(\) => back\("home"\)\} title="一起安排今晚"/);
   assert.match(app, /<Header back=\{\(\) => back\("plan"\)\} title="共同确认"/);
-  assert.match(app, /backLabel="返回共同确认" title="一起点亮"/);
+  assert.match(app, /backLabel="返回共同确认" title="一起确认"/);
   assert.match(app, /backLabel="返回今晚进行中" title="调整今晚"/);
   assert.match(app, /backLabel="返回家庭能量房间" title="家庭期待"/);
   assert.match(app, /backLabel="返回设置页"/);
@@ -760,8 +760,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.profile-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
   assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.undo-shelf \{[\s\S]*?z-index: 45/);
-  assert.match(app, /\{startNowLabel\}—\{dualFirstEndLabel\}/);
-  assert.match(app, /原时长和间隔会保留，事项预计/);
+  assert.match(app, /`\$\{startNowLabel\}—\$\{dualFirstEndLabel\}`/);
+  assert.match(app, /`现在开始 · 预计 \$\{formatPlanClock\(shiftedScheduleEndLabel/);
   assert.doesNotMatch(app, /整晚时间会一起顺延/);
   assert.match(app, /const cleanStages = stages\.map/);
   assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
@@ -770,7 +770,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
   assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
   assert.match(app, /const dualFirstStage = stages\[0\] \?\? FALLBACK_STAGE/);
-  assert.match(app, /确认后开始/);
+  assert.match(app, /一起确认，<br \/>然后出发/);
   assert.match(app, /className="start-contract-meta"/);
   assert.match(styles, /\.start-contract-meta \{/);
   assert.match(app, /const calendarDetailRef = useRef<HTMLDivElement>\(null\)/);
@@ -802,7 +802,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /target\?\.scrollIntoView\(\{ block: "end", behavior: motionReduced \? "auto" : "smooth" \}\)/);
   assert.match(app, /target\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(app, /ref=\{launchCancelRef\} type="button" className="launch-cancel-button"/);
-  assert.match(app, /ref=\{guardianConfirmRef\} aria-describedby="dual-start-status"/);
+  assert.match(app, /ref=\{guardianConfirmRef\} aria-describedby="dual-start-status dual-touch-privacy"/);
   assert.match(app, /约 3 秒后进入/);
   assert.match(styles, /animation: launch-orbit 3\.2s linear both/);
   assert.match(app, /className="energy-link" data-guardian-ready=\{guardianConfirmed\} data-child-ready=\{childConfirmed\}/);
@@ -813,8 +813,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /pendingAfterActiveCount >= 2 \? \[\{ id: "swap" as const/);
   assert.match(app, /pendingAfterActiveCount >= 1 \? \[\{ id: "tomorrow" as const/);
   assert.match(app, /当前阶段 · \{activeTonightOrdinal\}\/\{tonightStageCount\}/);
-  assert.match(app, /这不是指纹或身份验证/);
-  assert.match(app, /卡住时随时可以调整/);
+  assert.match(app, /这里只记录一次点击，不读取或保存指纹/);
+  assert.match(app, /className="fingerprint-ridges"/);
+  assert.match(styles, /\.fingerprint-ridges i:nth-child\(5\)/);
+  assert.match(styles, /\.dual-start-hero h1 \{[\s\S]*?font-size: 34px/);
+  assert.match(styles, /\.press-zone \{[\s\S]*?min-height: 206px/);
   assert.match(app, /可以同时点，也可以轮流点/);
   assert.match(app, /className="launch-cancel-button"/);
   assert.match(app, /className="launch-status-copy"/);

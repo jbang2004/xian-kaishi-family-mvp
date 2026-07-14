@@ -1654,10 +1654,10 @@ export function StartApp() {
     : dualStartPaused
       ? { title: "已经停住，可以再商量一下", detail: "第一步仍然可以调整；准备好了，再各点一次名字。" }
     : guardianConfirmed
-      ? { title: `轮到${data.childAlias}确认`, detail: "如果这一步也可以，就轻点名字；卡住时随时可以调整。" }
+      ? { title: `轮到${data.childAlias}确认`, detail: "看过第一项后，轻点自己的名字。" }
       : childConfirmed
-        ? { title: `轮到${data.guardianAlias}确认`, detail: "大人确认手机仍由自己保管，也确认第一步可以随时调整。" }
-        : { title: `先由${data.guardianAlias}确认`, detail: `这不是指纹或身份验证；先看看第一步是否合适，再请${data.childAlias}轻点名字。` };
+        ? { title: `轮到${data.guardianAlias}确认`, detail: "大人确认时间表和第一项已经商量好。" }
+        : { title: `先由${data.guardianAlias}确认`, detail: `看看第一项是否合适，再请${data.childAlias}确认。` };
   const startsAtPlannedTime = plannedStartOffset === 0;
   const dualFirstStage = stages[0] ?? FALLBACK_STAGE;
   const dualFirstDuration = Math.max(1, durationMinutes(dualFirstStage.start, dualFirstStage.end));
@@ -1964,12 +1964,14 @@ export function StartApp() {
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={leaveDualStart} backLabel="返回共同确认" title="一起点亮" step="3/3" /><div className="dual-start-hero" data-ready={bothParticipantsReady}><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
-        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>确认后开始</small><strong>{dualFirstStage.title || "从第一项开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "从这一项开始；需要时可以调整时间表。" : `原时长和间隔会保留，事项预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束。`}</p></span></div>
+        <Header back={leaveDualStart} backLabel="返回共同确认" title="一起确认" step="3/3" /><div className="dual-start-hero" data-ready={bothParticipantsReady}><div><span className="eyebrow">今晚从这里开始</span><h1>一起确认，<br />然后出发</h1><p>大人和孩子各轻点一次自己的名字。</p></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
+        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>第一项</small><strong>{dualFirstStage.title || "从第一项开始"}</strong><div className="start-contract-meta"><span>{startsAtPlannedTime ? `${startNowLabel}—${dualFirstEndLabel}` : `现在开始 · 预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束`}</span><span>{dualFirstStage.energy ? `完成 +${dualFirstStage.energy} 能量` : "不计能量"}</span></div></span></div>
+        <div className="dual-touch-heading"><strong>各自确认</strong><small>可以同时点，也可以轮流点</small></div>
         <div className="dual-connection-stage">
           <div className="energy-link" data-guardian-ready={guardianConfirmed} data-child-ready={childConfirmed} data-ready={bothParticipantsReady} aria-hidden="true"><span className="energy-side guardian-energy"><i /></span><span className="energy-core"><b>ϟ</b><i /><i /></span><span className="energy-side child-energy"><i /></span><span className="connection-spark spark-a" /><span className="connection-spark spark-b" /><span className="connection-spark spark-c" /></div>
-          <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
+          <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="participant-role">大人</span><span className="finger-tip" aria-hidden="true"><span className="fingerprint-ridges"><i /><i /><i /><i /><i /></span></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已确认" : "轻点确认"}</small></button><button aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.childAlias}${childConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="participant-role">孩子</span><span className="finger-tip" aria-hidden="true"><span className="fingerprint-ridges"><i /><i /><i /><i /><i /></span></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已确认" : "轻点确认"}</small></button></div>
         </div>
+        <p className="touch-privacy-note" id="dual-touch-privacy">这里只记录一次点击，不读取或保存指纹。</p>
         <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button ref={launchCancelRef} type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>
       </div>}
 
