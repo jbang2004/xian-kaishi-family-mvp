@@ -467,7 +467,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setStages\(prepareNextRoundSchedule\(stages, completedStageTitles, baseline\.planStart\)\)/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
-  assert.match(app, /今晚执行感受（可选）/);
+  assert.match(app, /今晚执行感受/);
+  assert.match(app, /可选 · 点选一项/);
   assert.match(app, /只用于家庭复盘，不影响能量/);
   assert.match(app, /规则建议 · 不评价孩子/);
   assert.match(app, /记录过的夜晚会留在这里/);
@@ -891,7 +892,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /v10 — remove nested surfaces/);
   assert.match(styles, /\.wrap-summary,[\s\S]*?\.contribution-grid \{[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;/);
   assert.match(styles, /\.energy-summary,[\s\S]*?\.timeline-disclosure \{[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;/);
-  assert.match(styles, /\.prompt-reflection > div \{[\s\S]*?border-radius: 11px;/);
+  assert.match(styles, /\.prompt-reflection > div \{[\s\S]*?border-radius: 13px;/);
+  assert.match(app, /今晚执行感受选项/);
+  assert.match(app, /可选 · 点选一项/);
+  assert.match(styles, /v15 — clear reflection choice/);
+  assert.match(styles, /\.prompt-reflection legend small \{[\s\S]*?white-space: nowrap;/);
+  assert.match(styles, /\.prompt-reflection button \{[\s\S]*?min-height: 46px;[\s\S]*?cursor: pointer;/);
+  assert.match(styles, /\.prompt-reflection button\.selected \{[\s\S]*?font-weight: 700;[\s\S]*?box-shadow: 0 1px 5px/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
