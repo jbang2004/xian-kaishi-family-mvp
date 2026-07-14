@@ -382,7 +382,7 @@ function Header({ title, home, step }: { title?: string; home?: () => void; step
   </header>;
 }
 
-function TemplateIconGroup({ stages, limit = 4, showRemainder = true }: { stages: TemplateStage[]; limit?: number; showRemainder?: boolean }) {
+function TemplateIconGroup({ stages, limit = 3, showRemainder = true }: { stages: TemplateStage[]; limit?: number; showRemainder?: boolean }) {
   const visible = stages.slice(0, limit);
   return <span className="template-icon-group" aria-hidden="true">{visible.map((stage, index) => <span key={`${stage.icon}-${index}`}><AppIcon name={stage.icon} loading="lazy" /></span>)}{showRemainder && stages.length > visible.length && <b>+{stages.length - visible.length}</b>}</span>;
 }

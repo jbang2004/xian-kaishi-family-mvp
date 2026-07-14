@@ -4388,3 +4388,74 @@ p { line-height: 1.58; }
   .saved-actions { backdrop-filter: blur(22px); }
   .room-scene { height: clamp(180px, 30vh, 230px); }
 }
+
+/* v18 — icon-and-copy breathing rhythm. Icon clusters own a measured column;
+   copy starts on a consistent vertical axis instead of drifting into artwork. */
+.template-row > button.template-row-main {
+  grid-template-columns: 82px minmax(0,1fr) auto 12px;
+  column-gap: 16px;
+  padding-inline: 14px 12px;
+}
+.template-row-main > .template-icon-group {
+  width: 76px;
+  min-width: 76px;
+}
+.template-row-main > .template-icon-group > b { display: none; }
+.template-row-copy { padding-inline-start: 1px; }
+.template-row-copy strong { line-height: 1.42; }
+.template-row-copy small { margin-top: 5px; line-height: 1.4; }
+.template-use-label { margin-left: 1px; }
+
+.plan-template-entry {
+  grid-template-columns: 76px minmax(0,1fr) 12px;
+  column-gap: 13px;
+}
+.plan-template-entry > .template-icon-group {
+  width: 76px;
+  min-width: 76px;
+}
+
+.home-screen .insight-card,
+.home-screen .insight-card.sage,
+.home-screen .insight-card.support-entry {
+  grid-template-columns: 52px minmax(0,1fr) auto;
+  column-gap: 16px;
+}
+.privacy-storage-list > div { grid-template-columns: 42px minmax(0,1fr); column-gap: 16px; }
+.stage-summary { grid-template-columns: 44px minmax(0,1fr) auto 14px; column-gap: 14px; }
+.current-task-card { grid-template-columns: 64px minmax(0,1fr); column-gap: 18px; }
+.stage-kind-picker button { grid-template-columns: 52px minmax(0,1fr); column-gap: 13px; }
+.confirm-plan-row { grid-template-columns: 42px minmax(0,1fr) 44px; column-gap: 14px; }
+.confirm-reminder-card { column-gap: 14px; }
+.family-agreement > div { grid-template-columns: 40px minmax(0,1fr); column-gap: 11px; }
+.start-now-card { grid-template-columns: 42px minmax(0,1fr); column-gap: 14px; }
+.transition-result { grid-template-columns: 52px minmax(0,1fr); column-gap: 14px; }
+.saved-calendar-note { grid-template-columns: 44px minmax(0,1fr); column-gap: 14px; }
+.energy-screen .goal-card { grid-template-columns: 74px minmax(0,1fr); column-gap: 16px; }
+.energy-screen .empty-goal-card { grid-template-columns: 62px minmax(0,1fr); column-gap: 16px; }
+.reward-preview,
+.achievement-card { grid-template-columns: 54px minmax(0,1fr); column-gap: 14px; }
+.reward-saved-card { grid-template-columns: 70px minmax(0,1fr); column-gap: 16px; }
+.reward-idea-grid button { column-gap: 12px; }
+.daily-summary-title { grid-template-columns: 44px minmax(0,1fr); column-gap: 13px; }
+.history-row { grid-template-columns: 52px minmax(0,1fr); column-gap: 14px; }
+.one-change-heading { grid-template-columns: 42px minmax(0,1fr); column-gap: 13px; }
+.settings-group .permission-note { grid-template-columns: 38px minmax(0,1fr); column-gap: 13px; }
+.risk-entry { grid-template-columns: 40px minmax(0,1fr) auto; column-gap: 14px; }
+.risk-list > div { grid-template-columns: 46px minmax(0,1fr); column-gap: 14px; }
+.support-line { grid-template-columns: 40px minmax(0,1fr); column-gap: 14px; }
+
+@media (max-width: 380px) {
+  .template-row > button.template-row-main {
+    grid-template-columns: 76px minmax(0,1fr) auto 10px;
+    column-gap: 14px;
+    padding-inline: 11px 9px;
+  }
+  .template-row-main > .template-icon-group { width: 70px; min-width: 70px; }
+  .plan-template-entry {
+    grid-template-columns: 76px minmax(0,1fr) 10px;
+    column-gap: 11px;
+  }
+  .plan-template-entry > .template-icon-group { width: 70px; min-width: 70px; }
+  .stage-kind-picker button { grid-template-columns: 42px minmax(0,1fr); column-gap: 10px; }
+}

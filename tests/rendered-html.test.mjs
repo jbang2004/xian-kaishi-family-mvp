@@ -911,6 +911,13 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.time-progress i \{ background: #4f7965; \}/);
   assert.match(styles, /\.energy-bar i \{ background: #6f9f88; \}/);
   assert.match(styles, /\.bottom-nav \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(140%\)/);
+  assert.match(styles, /v18 — icon-and-copy breathing rhythm/);
+  assert.match(app, /function TemplateIconGroup\(\{ stages, limit = 3/);
+  assert.match(styles, /\.template-row > button\.template-row-main \{\s*grid-template-columns: 82px minmax\(0,1fr\) auto 12px;\s*column-gap: 16px;/);
+  assert.match(styles, /\.template-row-main > \.template-icon-group \{\s*width: 76px;\s*min-width: 76px;/);
+  assert.match(styles, /\.template-row-main > \.template-icon-group > b \{ display: none; \}/);
+  assert.match(styles, /\.home-screen \.insight-card,[\s\S]*?grid-template-columns: 52px minmax\(0,1fr\) auto;\s*column-gap: 16px;/);
+  assert.match(styles, /\.history-row \{ grid-template-columns: 52px minmax\(0,1fr\); column-gap: 14px; \}/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
