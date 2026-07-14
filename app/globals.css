@@ -2837,3 +2837,230 @@ html {
   .confirm-action-dock .primary-button,
   .confirm-action-dock .confirm-secondary-action { border-radius: 14px; }
 }
+
+/* v10 — remove nested surfaces and replace font glyph arrows with one
+   consistent, optically centred navigation mark. */
+.ui-chevron {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 14px;
+  color: currentColor;
+  font-size: 0;
+  line-height: 0;
+  transition: transform var(--motion-fast) ease;
+}
+.ui-chevron::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform-origin: center;
+}
+.down-chevron::before { transform: translateY(-1px) rotate(45deg); }
+.up-chevron::before { transform: translateY(1px) rotate(225deg); }
+.right-chevron::before { transform: translateX(-1px) rotate(-45deg); }
+.left-chevron::before { transform: translateX(1px) rotate(135deg); }
+[aria-expanded="true"] > .down-chevron,
+[aria-expanded="true"] .down-chevron,
+details[open] summary .down-chevron { transform: rotate(180deg); }
+
+.icon-button .ui-chevron { width: 18px; height: 18px; }
+.icon-button .ui-chevron::before { width: 8px; height: 8px; border-width: 2px; }
+.live-resume-card > b,
+.plan-next-dock button,
+.welcome-boundary > button,
+.setting-action { gap: 7px; }
+.live-resume-card > b { display: inline-flex; align-items: center; }
+.home-plan-cta > .ui-chevron,
+.insight-card > .ui-chevron,
+.risk-entry > .ui-chevron { justify-self: end; color: #77777c; }
+.month-nav button { display: grid; place-items: center; font-size: 0; }
+
+/* Numeric summaries are one typographic band, not cards inside a card. */
+.wrap-summary,
+.settled-home-stats,
+.daily-summary-stats,
+.metric-grid,
+.contribution-grid {
+  gap: 0;
+  padding: 14px 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.wrap-summary { margin: 12px 0 10px; }
+.wrap-summary div,
+.settled-home-stats span,
+.daily-summary-stats span,
+.metric-grid > div,
+.contribution-grid > div {
+  min-height: 52px;
+  padding: 4px 8px;
+  border: 0;
+  border-left: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.wrap-summary div:first-child,
+.settled-home-stats span:first-child,
+.daily-summary-stats span:first-child,
+.metric-grid > div:first-child,
+.contribution-grid > div:first-child { border-left: 0; }
+.wrap-summary .energy-total {
+  border-color: rgba(60,60,67,.1);
+  background: transparent;
+}
+.wrap-summary strong,
+.settled-home-stats b,
+.daily-summary-stats b { font-size: 22px; font-weight: 650; }
+
+/* Disclosure rows sit in the document flow. Expanding reveals content below
+   the same hairline rather than opening another floating white card. */
+.energy-summary,
+.saved-breakdown,
+.timeline-disclosure {
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.energy-summary summary,
+.saved-breakdown summary,
+.timeline-disclosure summary { padding-inline: 2px; }
+.energy-summary summary > b,
+.saved-breakdown summary > b,
+.timeline-disclosure summary > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+.energy-summary[open] summary,
+.saved-breakdown[open] summary,
+.timeline-disclosure[open] summary { background: transparent; }
+.settlement-breakdown-list,
+.saved-breakdown > div,
+.mini-timeline {
+  border-top-color: rgba(60,60,67,.08);
+  background: transparent;
+}
+
+/* Optional reflection is a question plus one segmented choice, not a box
+   containing three more boxes. */
+.prompt-reflection {
+  margin: 12px 0 10px;
+  padding: 14px 2px;
+  border: 0;
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.prompt-reflection legend { padding: 0; font-weight: 600; }
+.prompt-reflection > div {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(60,60,67,.13);
+  border-radius: 11px;
+  background: #ededf0;
+}
+.prompt-reflection button {
+  border: 0;
+  border-left: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  font-weight: 600;
+  box-shadow: none;
+}
+.prompt-reflection button:first-child { border-left: 0; }
+.prompt-reflection button.selected {
+  border-color: rgba(60,60,67,.1);
+  background: #fff;
+  color: #315f83;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* Secondary notices use a line or spacing, avoiding a white surface inside
+   another white surface. */
+.saved-calendar-note,
+.reward-undo-panel,
+.follow-up-plan-note,
+.running-support-strip,
+.next-stage-preview,
+.transition-next,
+.transition-result,
+.change-preview {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.saved-calendar-note,
+.reward-undo-panel,
+.running-support-strip,
+.transition-result {
+  border-inline: 0;
+  border-color: rgba(60,60,67,.1);
+}
+.day-details-toggle,
+.icon-library-toggle,
+.confirm-plan-toggle {
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.day-details-toggle { padding-inline: 2px; }
+
+/* Natural scrolling replaces artificial white action shelves. */
+.wrap-action-dock,
+.reward-save-dock,
+.saved-actions,
+.reward-saved-screen .saved-actions {
+  position: static;
+  margin: auto 0 0;
+  padding: 18px 0 max(8px, env(safe-area-inset-bottom));
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.wrap-action-dock .primary-button,
+.saved-actions .primary-button,
+.saved-actions .secondary-button { border-radius: 14px; }
+
+@media (max-width: 900px) {
+  .wrap-summary div { padding-inline: 5px; }
+  .wrap-summary strong { font-size: 21px; }
+  .wrap-summary small { font-size: 11px; line-height: 1.35; }
+  .wrap-action-dock { margin-top: auto; }
+}
+
+/* Completed-night home state follows the same rule: the page is the surface;
+   the record does not need another white card behind its buttons and stats. */
+.settled-home-card {
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.settled-home-title { padding: 2px 2px 0; }
+.settled-home-stats { margin: 14px 0 12px; }
+.settled-home-card .settled-review-button { margin-top: 0; }
+
+.icon-button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.icon-button .ui-chevron::before { width: 9px; height: 9px; border-width: 1.75px; }

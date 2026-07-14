@@ -872,6 +872,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.primary-button,[\s\S]*?\.secondary-button,[\s\S]*?\.soft-button \{[\s\S]*?border-radius: 14px;[\s\S]*?font-weight: 650;/);
   assert.match(styles, /v9 final cascade[\s\S]*?\.confirm-screen \.summary-strip \{[\s\S]*?border-radius: 0;/);
   assert.match(styles, /v9 final cascade[\s\S]*?\.stage-editor \{[\s\S]*?border-bottom: 1px solid rgba\(60,60,67,\.1\);[\s\S]*?border-radius: 0;/);
+  assert.match(app, /function Chevron\(\{ direction = "down"/);
+  assert.doesNotMatch(app, /[⌄⌃›‹↑↓]/);
+  assert.match(styles, /v10 — remove nested surfaces/);
+  assert.match(styles, /\.wrap-summary,[\s\S]*?\.contribution-grid \{[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;/);
+  assert.match(styles, /\.energy-summary,[\s\S]*?\.timeline-disclosure \{[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;/);
+  assert.match(styles, /\.prompt-reflection > div \{[\s\S]*?border-radius: 11px;/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
