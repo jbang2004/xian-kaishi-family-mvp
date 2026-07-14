@@ -902,6 +902,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /v16 — make each reflection choice unmistakably tappable/);
   assert.match(styles, /\.prompt-reflection button::before \{[\s\S]*?border-radius: 50%;/);
   assert.match(styles, /\.prompt-reflection button\.selected::before \{[\s\S]*?radial-gradient\(circle/);
+  assert.match(styles, /v17 — production visual system/);
+  assert.match(styles, /--surface-radius: 18px/);
+  assert.match(styles, /--page-gutter: 24px/);
+  assert.match(styles, /\.welcome-flow > div \{[\s\S]*?border-radius: 0;[\s\S]*?background: transparent/);
+  assert.match(styles, /\.privacy-storage-list \{[\s\S]*?overflow: hidden;[\s\S]*?border-radius: var\(--surface-radius\);[\s\S]*?background: #fff/);
+  assert.match(styles, /\.home-screen \.insight-card\.sage,[\s\S]*?border-top: 1px solid var\(--hairline\);[\s\S]*?background: transparent/);
+  assert.match(styles, /\.time-progress i \{ background: #4f7965; \}/);
+  assert.match(styles, /\.energy-bar i \{ background: #6f9f88; \}/);
+  assert.match(styles, /\.bottom-nav \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(140%\)/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
