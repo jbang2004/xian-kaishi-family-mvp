@@ -920,6 +920,16 @@ test("ships optimized visual assets and persistent-state migration", async () =>
   assert.match(route, /privateJson\(\{ ok: false, localOnly: true \}, 503\)/);
 });
 
+test("removes local worker state before production packaging", async () => {
+  const [packageSource, cleanupSource] = await Promise.all([
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/clean-generated-state.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(packageSource, /node scripts\/clean-generated-state\.mjs && node scripts\/generate-offline-assets\.mjs/);
+  assert.match(cleanupSource, /dist\/server\/\.wrangler/);
+  assert.match(cleanupSource, /recursive: true, force: true/);
+});
+
 test("validates the family plan before dual confirmation", () => {
   const valid = analyzePlan("18:10", "20:30", [
     { title: "数学练习", start: "18:10", end: "18:40" },
