@@ -1525,6 +1525,360 @@ button.insight-card { cursor: pointer; }
   }
 }
 
+/* v9 — editorial rhythm. Containers are reserved for grouped controls and
+   active states; ordinary information is separated by space and hairlines.
+   Type weight, rather than another rounded rectangle, carries hierarchy. */
+:root {
+  --cream: #f7f7f5;
+  --paper: #ffffff;
+  --navy: #1d1d1f;
+  --muted: #707074;
+  --border: rgba(60, 60, 67, .12);
+  --shadow: none;
+  --shadow-soft: none;
+  --type-micro: 11px;
+  --type-caption: 13px;
+}
+
+body {
+  background: linear-gradient(145deg, #f4f1eb, #eef1ec);
+  color: var(--navy);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: -.006em;
+}
+
+.phone-shell { background: var(--cream); }
+.screen { padding-inline: 22px; }
+
+h1 {
+  margin-bottom: 10px;
+  font-size: clamp(30px, 8vw, 38px);
+  font-weight: 680;
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
+p { font-size: 14px; font-weight: 400; line-height: 1.62; }
+strong { font-weight: 650; }
+.lead { color: #626267; font-size: 15px; font-weight: 400; line-height: 1.58; }
+.eyebrow {
+  margin-bottom: 7px;
+  color: #527160;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .085em;
+}
+.section-label {
+  margin: 24px 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.microcopy { color: #7d7d82; font-size: 11px; font-weight: 400; line-height: 1.5; }
+.app-header { margin-bottom: 20px; }
+.app-header h1,
+.app-header h2,
+.app-header strong { font-weight: 650; letter-spacing: -.025em; }
+
+/* Controls: quiet geometry, clear hierarchy. */
+.primary-button,
+.secondary-button,
+.soft-button {
+  min-height: 54px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.012em;
+  box-shadow: none;
+}
+.primary-button {
+  background: #f4b841;
+  color: #202124;
+}
+.primary-button.large { min-height: 60px; padding-inline: 20px; }
+.secondary-button,
+.soft-button {
+  border: 0;
+  background: #eaeaed;
+  color: #3f5f50;
+}
+.text-button,
+.soft-end-button,
+.setting-action,
+.plan-tools button {
+  font-weight: 600;
+}
+.icon-button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.step-pill {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #f3ead5;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+/* Open sections: these no longer pretend to be independent cards. */
+.form-card,
+.privacy-card,
+.insight-card,
+.review-insight,
+.energy-panel,
+.reward-step,
+.risk-entry,
+.data-rights-card,
+.privacy-transparency,
+.gentle-note,
+.confirm-reminder-card,
+.family-agreement,
+.prompt-reflection,
+.support-suggestion,
+.rest-duration,
+.one-change,
+.urgent-note {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.form-card,
+.privacy-card,
+.data-rights-card,
+.privacy-transparency { padding-inline: 0; }
+.review-insight,
+.risk-entry,
+.confirm-reminder-card,
+.prompt-reflection,
+.support-suggestion {
+  padding-inline: 2px;
+}
+.home-screen .insight-card,
+.review-insight,
+.risk-entry,
+.confirm-reminder-card,
+.support-suggestion {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+}
+.home-screen .insight-card { border-radius: 0; background: transparent; }
+
+/* List groups may use one restrained outer surface. Rows inside stay flat. */
+.settings-group,
+.calendar-card,
+.confirm-plan-overview,
+.daily-summary,
+.settled-home-card,
+.live-resume-card,
+.achievement-card,
+.reward-saved-card,
+.day-detail,
+.energy-summary,
+.current-task-card {
+  border: 1px solid rgba(60,60,67,.1);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none;
+}
+.settings-group { padding: 4px 16px; }
+.settings-group h2 {
+  margin: 14px 0 6px;
+  color: #55555a;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .02em;
+}
+.toggle-row,
+.setting-row,
+.setting-action { border-bottom-color: rgba(60,60,67,.09); }
+.setting-row { font-size: 14px; font-weight: 400; }
+.setting-row strong,
+.setting-action { font-weight: 600; }
+.toggle-row span strong { font-size: 14px; font-weight: 600; }
+.toggle-row span small { font-size: 12px; font-weight: 400; line-height: 1.45; }
+.permission-note,
+.pending-delete-note {
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+/* Planning: a ledger until one row is actively edited. */
+.availability-card {
+  padding: 12px 2px 18px;
+  border: 0;
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.window-inputs input,
+.stage-title-input,
+.time-range input,
+.reward-compact-input input,
+.form-card input {
+  border-color: rgba(60,60,67,.16);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 500;
+  box-shadow: none;
+}
+.stage-editor {
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.stage-summary { padding-inline: 4px 8px; }
+.stage-summary-icon,
+.stage-summary-energy { border-radius: 10px; }
+.stage-summary-copy strong { font-size: 15px; font-weight: 600; }
+.stage-summary-copy small { font-size: 12px; font-weight: 400; }
+.stage-editor.is-expanded {
+  overflow: hidden;
+  border: 1px solid rgba(60,60,67,.12);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0,0,0,.055);
+}
+.stage-editor-body { background: #fafafa; }
+.stage-icon-button,
+.stage-actions button,
+.stage-meta .effort-pill,
+.stage-meta .duration-detail-toggle,
+.stage-meta .energy-detail-toggle { border-radius: 10px; }
+.task-energy { border-radius: 12px; }
+.add-node-button {
+  min-height: 54px;
+  justify-content: flex-start;
+  padding-inline: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.add-node-button span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e7f0ea;
+}
+.add-node-button strong { font-size: 13px; font-weight: 600; }
+.plan-next-dock button { border-radius: 14px; }
+
+/* Confirmation: numbers and rows form the visual rhythm. */
+.confirm-hero h1 { font-size: 31px; font-weight: 680; }
+.confirm-screen .summary-strip {
+  margin: 10px 0 14px;
+  padding: 13px 2px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.summary-strip strong { font-size: 20px; font-weight: 650; letter-spacing: -.025em; }
+.summary-strip small { font-size: 11px; font-weight: 400; }
+.confirm-plan-overview { border-radius: 16px; }
+.confirm-plan-heading h2 { font-size: 15px; font-weight: 650; }
+.confirm-plan-heading button {
+  border-radius: 9px;
+  font-weight: 600;
+}
+.confirm-plan-copy strong { font-size: 14px; font-weight: 600; }
+.confirm-plan-copy small { font-size: 12px; font-weight: 400; }
+.confirm-plan-energy { border-radius: 8px; }
+.confirm-reminder-copy > small,
+.confirm-reminder-copy > strong { font-weight: 600; }
+.confirm-reminder-card > button { border-radius: 10px; font-weight: 600; }
+.family-agreement {
+  gap: 0;
+  margin: 8px 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+}
+.family-agreement > div {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.family-agreement > div + div {
+  border-left: 1px solid rgba(60,60,67,.1);
+  background: transparent;
+}
+.confirm-action-dock .primary-button,
+.confirm-action-dock .confirm-secondary-action { border-radius: 14px; }
+
+/* Rewards and review: steps read like a document, choices like controls. */
+.reward-step {
+  margin: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(60,60,67,.1);
+}
+.reward-step-heading > b { background: #f1eadb; font-weight: 650; }
+.reward-step-heading strong { font-size: 14px; font-weight: 650; }
+.reward-step-heading small { font-size: 12px; font-weight: 400; }
+.reward-idea-grid button {
+  border-color: transparent;
+  border-radius: 12px;
+  background: #ededf0;
+}
+.reward-idea-grid button.selected {
+  border-color: #d4a33a;
+  background: #fff8e6;
+  box-shadow: none;
+}
+.reward-date-chips button {
+  border: 0;
+  border-radius: 10px;
+  background: #ededf0;
+  font-weight: 600;
+}
+.energy-confirm-check { border: 0; border-radius: 10px; }
+.metric-grid { gap: 0; }
+.metric-grid > div {
+  min-height: 112px;
+  padding: 12px;
+  border: 0;
+  border-left: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.metric-grid > div:first-child { border-left: 0; }
+.metric-grid small { font-size: 12px; font-weight: 400; }
+.metric-grid strong { font-size: 20px; font-weight: 650; }
+.calendar-card { border-radius: 16px; }
+.calendar-grid > button { border-radius: 50%; }
+.day-details-toggle { border: 0; border-radius: 10px; background: #eaeaed; font-weight: 600; }
+
+/* Confirmation touch areas are intentionally tactile, but less pill-like. */
+.press-zone { border-radius: 18px; }
+.participant-role { border-radius: 8px; font-weight: 650; }
+.dual-start-screen .start-now-card {
+  border-radius: 0;
+  border-inline: 0;
+  background: transparent;
+}
+.dual-start-screen .launch-status { border-radius: 0; }
+
+@media (max-width: 900px) {
+  .screen { padding-inline: 20px; }
+  .stage-editor.is-expanded { border-radius: 16px; }
+  .confirm-action-dock .primary-button,
+  .confirm-action-dock .confirm-secondary-action { border-radius: 14px; }
+}
+
 @media (max-width: 380px) {
   .undo-shelf span { max-width: 220px; }
   .night-restart-confirm > div { grid-template-columns: 1fr; }
@@ -2398,4 +2752,88 @@ html {
     width: fit-content;
     max-width: calc(100vw - 36px);
   }
+}
+
+/* v9 final cascade — keep the editorial system authoritative over earlier
+   component-specific mobile refinements. */
+.confirm-screen .summary-strip {
+  margin: 10px 0 14px;
+  padding: 13px 2px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.confirm-hero h1 { font-size: 31px; font-weight: 680; line-height: 1.08; }
+.confirm-plan-overview { border-radius: 16px; }
+.confirm-plan-heading button { border-radius: 9px; font-weight: 600; }
+.confirm-plan-copy strong { font-weight: 600; }
+.confirm-plan-copy small { font-size: 12px; font-weight: 400; }
+.confirm-plan-energy { border-radius: 8px; }
+.confirm-reminder-card {
+  padding-inline: 2px;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.family-agreement {
+  gap: 0;
+  border: 0;
+  border-top: 1px solid rgba(60,60,67,.1);
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+}
+.family-agreement > div,
+.family-agreement > div + div {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.family-agreement > div + div { border-left: 1px solid rgba(60,60,67,.1); }
+
+.stage-editor {
+  border: 0;
+  border-bottom: 1px solid rgba(60,60,67,.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.stage-editor.is-expanded {
+  overflow: hidden;
+  border: 1px solid rgba(60,60,67,.12);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0,0,0,.055);
+}
+.stage-summary-copy strong { font-weight: 600; }
+.stage-summary-copy small { font-size: 12px; font-weight: 400; }
+.add-node-button {
+  justify-content: flex-start;
+  padding-inline: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.plan-next-dock button,
+.confirm-action-dock .primary-button,
+.confirm-action-dock .confirm-secondary-action { border-radius: 14px; }
+
+.press-zone { border-radius: 18px; }
+.participant-role { border-radius: 8px; }
+.dual-start-screen .start-now-card {
+  border-radius: 0;
+  border-inline: 0;
+  background: transparent;
+}
+.dual-start-screen .launch-status { border-radius: 0; }
+
+@media (max-width: 900px) {
+  .stage-editor.is-expanded { border-radius: 16px; }
+  .confirm-action-dock .primary-button,
+  .confirm-action-dock .confirm-secondary-action { border-radius: 14px; }
 }

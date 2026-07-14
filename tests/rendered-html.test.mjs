@@ -868,6 +868,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.confirm-plan-list \{[\s\S]*?display: block;[\s\S]*?overflow: visible;/);
   assert.match(styles, /\.confirm-action-dock,[\s\S]*?\.confirm-action-dock\.is-planning-ahead \{[\s\S]*?position: static;/);
   assert.doesNotMatch(app, /补上名称，仍可修改/);
+  assert.match(styles, /v9 — editorial rhythm/);
+  assert.match(styles, /\.primary-button,[\s\S]*?\.secondary-button,[\s\S]*?\.soft-button \{[\s\S]*?border-radius: 14px;[\s\S]*?font-weight: 650;/);
+  assert.match(styles, /v9 final cascade[\s\S]*?\.confirm-screen \.summary-strip \{[\s\S]*?border-radius: 0;/);
+  assert.match(styles, /v9 final cascade[\s\S]*?\.stage-editor \{[\s\S]*?border-bottom: 1px solid rgba\(60,60,67,\.1\);[\s\S]*?border-radius: 0;/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
