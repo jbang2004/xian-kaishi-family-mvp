@@ -75,8 +75,8 @@ export function millisecondsUntilNextMinute(timestamp: number) {
 export function runningTimerUpdateDelay(remainingMilliseconds: number) {
   const remaining = Number.isFinite(remainingMilliseconds) ? Math.max(0, Math.ceil(remainingMilliseconds)) : 0;
   if (!remaining) return 0;
-  const nextMeaningfulBoundary = remaining % 60_000 || Math.min(remaining, 60_000);
-  return Math.max(250, Math.min(remaining, nextMeaningfulBoundary));
+  const nextMeaningfulBoundary = remaining > 60_000 ? remaining - 60_000 : remaining;
+  return Math.max(250, nextMeaningfulBoundary);
 }
 
 export function suggestInitialEveningWindow(now: Date) {

@@ -54,14 +54,14 @@ test("keeps supporting text readable across the warm card palette", async () => 
   assert.match(styles, /\.effort-screen \.rest-duration button \{ min-height: 44px/);
 });
 
-test("aligns calm decision-screen updates to minute boundaries", () => {
+test("wakes the running screen only for soft landing and due transitions", () => {
   assert.equal(millisecondsUntilNextMinute(0), 60_000);
   assert.equal(millisecondsUntilNextMinute(1), 59_999);
   assert.equal(millisecondsUntilNextMinute(59_999), 1);
   assert.equal(millisecondsUntilNextMinute(60_000), 60_000);
   assert.equal(millisecondsUntilNextMinute(Number.NaN), 60_000);
-  assert.equal(runningTimerUpdateDelay(20 * 60_000), 60_000);
-  assert.equal(runningTimerUpdateDelay(20 * 60_000 + 23_000), 23_000);
+  assert.equal(runningTimerUpdateDelay(20 * 60_000), 19 * 60_000);
+  assert.equal(runningTimerUpdateDelay(20 * 60_000 + 23_000), 19 * 60_000 + 23_000);
   assert.equal(runningTimerUpdateDelay(60_001), 250);
   assert.equal(runningTimerUpdateDelay(59_000), 59_000);
   assert.equal(runningTimerUpdateDelay(0), 0);
