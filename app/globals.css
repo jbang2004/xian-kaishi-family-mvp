@@ -3566,3 +3566,42 @@ details[open] summary .down-chevron { transform: rotate(180deg); }
   .achievement-boundary,
   .reward-saved-note { margin-inline: 4px; }
 }
+
+/* v14 — a template row owns one surface. The generic icon-row button rule
+   must not create a second rounded rectangle inside it. */
+.template-row > button.template-row-main {
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 86px minmax(0,1fr) auto 12px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 9px 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.template-row > button.template-edit-button {
+  min-width: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 0;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid rgba(60,60,67,.09);
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 380px) {
+  .template-row > button.template-row-main {
+    grid-template-columns: 74px minmax(0,1fr) auto 10px;
+    gap: 7px;
+    padding-left: 10px;
+  }
+  .template-row > button.template-edit-button {
+    min-width: 48px;
+    padding-inline: 9px;
+  }
+}

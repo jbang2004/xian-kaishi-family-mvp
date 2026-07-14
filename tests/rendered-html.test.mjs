@@ -900,6 +900,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.next-stage-preview,\n\.transition-next \{[^}]*margin: 14px 6px 3px;[^}]*border-top: 1px solid[^}]*border-bottom: 1px solid[^}]*background: transparent;/);
   assert.match(styles, /\.home-screen \.insight-card \{[^}]*width: auto;[^}]*margin: 16px 6px 0;[^}]*padding: 16px 4px;/);
   assert.match(styles, /\.confirm-reminder-card \{[^}]*margin: 14px 6px;[^}]*padding: 14px 4px;/);
+  assert.match(styles, /\/\* v14 — a template row owns one surface[\s\S]*?\.template-row > button\.template-row-main \{[^}]*display: grid;[^}]*border: 0;[^}]*border-radius: 0;[^}]*background: transparent;/);
+  assert.match(styles, /\.template-row > button\.template-edit-button \{[^}]*border: 0;[^}]*border-left: 1px solid[^}]*border-radius: 0;[^}]*background: transparent;/);
   assert.doesNotMatch(app, /前台提示音和震动仍然有效/);
   assert.doesNotMatch(app, /\{data\.childAlias\}：完成事项/);
   assert.doesNotMatch(app, /className="phone-shell" aria-live/);
