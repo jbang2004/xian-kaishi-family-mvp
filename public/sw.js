@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "xian-kaishi-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const OFFLINE_ASSET_MANIFEST = "/offline-assets.json";
 
 function safeStaticUrl(input) {
@@ -39,12 +39,12 @@ async function fetchAndCacheStatic(cache, input) {
 
 async function refreshShell() {
   const cache = await caches.open(CACHE_NAME);
-  let publicAssets = [];
+  let criticalAssets = [];
   try {
     const manifestResponse = await fetch(OFFLINE_ASSET_MANIFEST, { cache: "reload" });
     if (manifestResponse.ok) {
       const manifest = await manifestResponse.clone().json();
-      publicAssets = Array.isArray(manifest.assets) ? manifest.assets.filter(item => typeof item === "string" && safeStaticUrl(item)) : [];
+      criticalAssets = Array.isArray(manifest.criticalAssets) ? manifest.criticalAssets.filter(item => typeof item === "string" && safeStaticUrl(item)) : [];
       await cacheStaticResponse(cache, OFFLINE_ASSET_MANIFEST, manifestResponse);
     }
   } catch { /* the HTML shell can still provide the critical JS and CSS list */ }
@@ -60,7 +60,7 @@ async function refreshShell() {
 
   await Promise.allSettled([
     "/manifest.webmanifest",
-    ...new Set([...publicAssets, ...shellAssets]),
+    ...new Set([...criticalAssets, ...shellAssets]),
   ].map(asset => fetchAndCacheStatic(cache, asset)));
 }
 

@@ -1,5 +1,25 @@
 {
-  "version": 1,
+  "version": 2,
+  "criticalAssets": [
+    "/assets/optimized/icons/alarm.webp",
+    "/assets/optimized/icons/backpack.webp",
+    "/assets/optimized/icons/chart.webp",
+    "/assets/optimized/icons/check.webp",
+    "/assets/optimized/icons/home-heart.webp",
+    "/assets/optimized/icons/moon.webp",
+    "/assets/optimized/icons/move.webp",
+    "/assets/optimized/icons/plant.webp",
+    "/assets/optimized/icons/privacy.webp",
+    "/assets/optimized/icons/quiet.webp",
+    "/assets/optimized/icons/speech.webp",
+    "/assets/optimized/icons/steps.webp",
+    "/assets/optimized/mascot/blink.webp",
+    "/assets/optimized/mascot/breathe.webp",
+    "/assets/optimized/mascot/celebrate.webp",
+    "/assets/optimized/mascot/confirm.webp",
+    "/assets/optimized/mascot/ready.webp",
+    "/assets/optimized/mascot/support.webp"
+  ],
   "assets": [
     "/assets/energy-room-v3.jpg",
     "/assets/icons/abacus.png",

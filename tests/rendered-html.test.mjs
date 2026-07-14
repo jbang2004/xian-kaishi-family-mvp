@@ -804,11 +804,20 @@ test("ships an installable, privacy-preserving app manifest", async () => {
   assert.match(serviceWorker, /caches\.match\("\/"\)/);
   assert.match(serviceWorker, /cache\.match\(request, \{ ignoreSearch: true \}\)/);
   assert.match(serviceWorker, /Only the public app/);
+  assert.equal(offlineAssetManifest.version, 2);
   assert.ok(Array.isArray(offlineAssetManifest.assets));
-  assert.ok(offlineAssetManifest.assets.length > 100, "the complete public icon and mascot library should be available offline");
+  assert.ok(offlineAssetManifest.assets.length > 100, "the build-time catalog should cover the complete public icon and mascot library");
   assert.deepEqual([...offlineAssetManifest.assets].sort((left, right) => left.localeCompare(right, "en")), offlineAssetManifest.assets);
   assert.ok(offlineAssetManifest.assets.every(asset => asset.startsWith("/assets/")));
   assert.ok(offlineAssetManifest.assets.every(asset => !asset.startsWith("/api/")));
+  assert.ok(Array.isArray(offlineAssetManifest.criticalAssets));
+  assert.ok(offlineAssetManifest.criticalAssets.length >= 18, "the core navigation, live-session, and mascot visuals should survive an offline reload");
+  assert.ok(offlineAssetManifest.criticalAssets.every(asset => asset.endsWith(".webp")), "first install should prefer the compact visual format; legacy fallbacks cache when actually requested");
+  assert.ok(offlineAssetManifest.criticalAssets.length < offlineAssetManifest.assets.length / 2, "first install must not compete with the page by downloading the complete visual library");
+  assert.deepEqual([...offlineAssetManifest.criticalAssets].sort((left, right) => left.localeCompare(right, "en")), offlineAssetManifest.criticalAssets);
+  assert.ok(offlineAssetManifest.criticalAssets.every(asset => offlineAssetManifest.assets.includes(asset)));
+  assert.match(serviceWorker, /manifest\.criticalAssets/);
+  assert.doesNotMatch(serviceWorker, /manifest\.assets/);
   await Promise.all(offlineAssetManifest.assets.map(asset => access(new URL(`../public${asset}`, import.meta.url))));
 });
 
