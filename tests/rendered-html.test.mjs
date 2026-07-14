@@ -176,6 +176,15 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /energy-room-v3\.jpg\?v=\$\{ASSET_VERSION\}/);
   assert.match(app, /fetchPriority="high" alt="温暖的家庭学习角"/);
   assert.match(app, /每阶段只提醒一次/);
+  assert.match(app, /const confirmReminderReady = backgroundReminder && notificationPermission === "granted"/);
+  assert.match(app, /准备把手机放到一旁？/);
+  assert.match(app, /锁屏时也会尝试柔和提醒/);
+  assert.match(app, /保持页面打开会提示一次；锁屏提醒需在浏览器设置中重新允许/);
+  assert.match(app, /className=\{`confirm-reminder-card \$\{confirmReminderReady \? "is-ready" : ""\}`\}/);
+  assert.match(app, /aria-describedby="confirm-reminder-detail" onClick=\{\(\) => void changeBackgroundReminder\(true\)\}/);
+  assert.match(styles, /\.confirm-reminder-card \{ min-height: 68px; display: grid;/);
+  assert.match(styles, /\.confirm-reminder-card > button \{ min-width: 68px; min-height: 44px;/);
+  assert.match(styles, /\.confirm-action-dock \{[\s\S]*?background: linear-gradient\(180deg,rgba\(255,248,236,\.985\),var\(--cream\)\);/);
   assert.match(app, /监护人授权与儿童隐私说明/);
   assert.match(app, /删除全部家庭数据/);
   assert.doesNotMatch(app, /删除孩子全部数据/);
