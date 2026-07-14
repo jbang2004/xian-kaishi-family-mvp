@@ -129,6 +129,28 @@ export function removeSessionAndReconcileEnergy<T extends RemovableSession>(sess
   };
 }
 
+export function removeNightAndReconcileEnergy<T extends RemovableSession>(sessions: T[], nightKey: string, currentEnergy: number, rewardDates: string[]) {
+  const removed = sessions.filter(item => item.nightKey === nightKey);
+  if (!removed.length) return { sessions, energy: currentEnergy, removedEnergy: 0, removedCount: 0, currentCycleAdjusted: false };
+
+  const removedEnergy = removed.reduce((sum, record) => {
+    const recordTime = Date.parse(record.date);
+    const hasLaterRewardReset = !Number.isFinite(recordTime) || rewardDates.some(value => {
+      const rewardTime = Date.parse(value);
+      return Number.isFinite(rewardTime) && rewardTime > recordTime;
+    });
+    return hasLaterRewardReset ? sum : sum + Math.max(0, record.energyEarned);
+  }, 0);
+
+  return {
+    sessions: sessions.filter(item => item.nightKey !== nightKey),
+    energy: Math.max(0, currentEnergy - removedEnergy),
+    removedEnergy,
+    removedCount: removed.length,
+    currentCycleAdjusted: removedEnergy > 0,
+  };
+}
+
 export function keepNewestRecords<T>(items: T[], getDate: (item: T) => string, limit: number) {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   return items.map((item, index) => ({ item, index, time: Date.parse(getDate(item)) }))

@@ -9,7 +9,7 @@ import { resolveHistoryTarget } from "./navigation-utils";
 import { shiftCalendarSelection } from "./calendar-utils";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "./reward-utils";
 import { suggestWeeklyFocus } from "./review-utils";
-import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
+import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeNightAndReconcileEnergy, removeSessionAndReconcileEnergy, settlementFooterCopy } from "./session-utils";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "./sync-utils";
 import { cleanShortText } from "./text-utils";
 
@@ -70,6 +70,7 @@ type ShiftedPlanUndo = { times: Array<Pick<Stage, "id" | "start" | "end">>; mess
 type ClearedPlanUndo = { stages: Stage[]; editingStageId: string; planStart: string; planEnd: string };
 type StageAdvanceUndo = { stages: Stage[]; planEnd: string; activeIndex: number; activeEndsAt: number; stageDue: boolean; transitionReason: TransitionReason; nextTitle: string };
 type SessionDeleteUndo = { recordId: string; label: string; sessions: SessionRecord[]; energy: number; message: string };
+type NightResetUndo = { nightKey: string; sessions: SessionRecord[]; energy: number; message: string };
 type LiveSessionDraft = { startedAt: string; updatedAt: string; screen: LiveScreen; planStart: string; planEnd: string; baselinePlanStart: string; baselinePlanEnd: string; stages: Stage[]; activeIndex: number; adjustments: number; activeEndsAt: number; stageDue: boolean; promptReflection: PromptReflection | null; transitionReason: TransitionReason };
 
 type AppData = {
@@ -386,6 +387,8 @@ export function StartApp() {
   const [stageAdvanceUndo, setStageAdvanceUndo] = useState<StageAdvanceUndo | null>(null);
   const [sessionDeleteArmedId, setSessionDeleteArmedId] = useState("");
   const [sessionDeleteUndo, setSessionDeleteUndo] = useState<SessionDeleteUndo | null>(null);
+  const [nightResetUndo, setNightResetUndo] = useState<NightResetUndo | null>(null);
+  const [restartNightArmed, setRestartNightArmed] = useState(false);
   const [promptReflection, setPromptReflection] = useState<PromptReflection | null>(null);
   const [transitionReason, setTransitionReason] = useState<TransitionReason>("completed");
   const [rewardDraft, setRewardDraft] = useState<RewardGoal>(DEFAULT_DATA.rewardGoal);
@@ -422,7 +425,6 @@ export function StartApp() {
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const deleteConfirmRef = useRef<HTMLButtonElement>(null);
   const sessionDeleteCancelRef = useRef<HTMLButtonElement>(null);
-  const sessionDeleteUndoRef = useRef<HTMLButtonElement>(null);
   const calendarDetailRef = useRef<HTMLDivElement>(null);
   const rewardRedeemTriggerRef = useRef<HTMLButtonElement>(null);
   const rewardRedeemCancelRef = useRef<HTMLButtonElement>(null);
@@ -705,9 +707,14 @@ export function StartApp() {
   useEffect(() => {
     if (!sessionDeleteUndo) return;
     const timer = window.setTimeout(() => setSessionDeleteUndo(null), 12000);
-    const focusFrame = window.requestAnimationFrame(() => sessionDeleteUndoRef.current?.focus());
-    return () => { window.clearTimeout(timer); window.cancelAnimationFrame(focusFrame); };
+    return () => window.clearTimeout(timer);
   }, [sessionDeleteUndo]);
+
+  useEffect(() => {
+    if (!nightResetUndo) return;
+    const timer = window.setTimeout(() => setNightResetUndo(null), 30000);
+    return () => window.clearTimeout(timer);
+  }, [nightResetUndo]);
 
   useEffect(() => {
     if (!rewardRedeemUndo) return;
@@ -1318,7 +1325,7 @@ export function StartApp() {
     if (!stageAdvanceUndo) return;
     setStages(stageAdvanceUndo.stages.map(item => ({ ...item })));
     setData(current => ({ ...current, planEnd: stageAdvanceUndo.planEnd }));
-    setActiveIndex(stageAdvanceUndo.activeIndex); setActiveEndsAt(stageAdvanceUndo.activeEndsAt); setClockNow(Date.now());
+    setActiveIndex(stageAdvanceUndo.activeIndex); setActiveEndsAt(stageAdvanceUndo.activeEndsAt); setClockNow(interactionTimestamp());
     setStageDue(stageAdvanceUndo.stageDue); dueReminderPlayed.current = stageAdvanceUndo.stageDue; setTransitionReason(stageAdvanceUndo.transitionReason);
     setStageAdvanceUndo(null); setToast("已返回上一段的选择"); go("transition");
   };
@@ -1684,7 +1691,7 @@ export function StartApp() {
       ? { title: "昨晚的计划还在进行", detail: "进度已经保存；继续执行、调整或结束本次计划。" }
       : { title: "今晚正在按计划进行", detail: "手机由大人保管，到点后一起确认下一步。" }
     : currentNightSummary
-      ? { title: "今晚计划已完成", detail: "记录已经保存，可以回看进度或安排下一轮。" }
+      ? { title: "今晚完成了", detail: "记录已存入日历。还有事情，也可以再排一轮。" }
       : { title: "把今晚定下来，按时开始", detail: "共同排时间、确认任务，到点进入下一阶段。" };
   const liveResumeView = (() => {
     const stageTitle = activeStage?.title || "继续今晚";
@@ -1776,6 +1783,7 @@ export function StartApp() {
     focusSessionDeleteTrigger(undo.recordId);
   };
   const startAnotherPlan = () => {
+    setRestartNightArmed(false);
     setEditingStageId("");
     if (currentNightSummary) {
       const nowTime = clockTimeFromDate(new Date());
@@ -1792,6 +1800,30 @@ export function StartApp() {
     }
     go("plan");
   };
+  const clearCurrentNightAndRestart = () => {
+    const result = removeNightAndReconcileEnergy(data.sessions, currentFamilyNightKey, data.energy, data.rewardHistory.map(item => item.redeemedAt));
+    if (!result.removedCount) { setRestartNightArmed(false); startAnotherPlan(); return; }
+    const freshWindow = suggestInitialEveningWindow(new Date());
+    setNightResetUndo({
+      nightKey: currentFamilyNightKey,
+      sessions: data.sessions.map(item => ({ ...item, stageTitles: [...item.stageTitles] })),
+      energy: data.energy,
+      message: `今晚的记录已清除${result.currentCycleAdjusted ? `，能量已扣回 ${result.removedEnergy} 点` : ""}`,
+    });
+    setSessionDeleteUndo(null); setDeletedStage(null); setShiftedPlanUndo(null); setClearedPlanUndo(null); setStageAdvanceUndo(null);
+    setRestartNightArmed(false); setLastSavedSession(null); setFollowUpPlanMessage("");
+    setStages([]); setEditingStageId(""); setEditingDurationStageId(""); setEditingEnergyStageId("");
+    localStorage.removeItem(PLAN_DRAFT_KEY); localStorage.removeItem(LIVE_SESSION_KEY);
+    setLiveSessionAvailable(false); setLiveSessionStartedAt(""); sessionPlanWindowRef.current = null;
+    persist({ ...data, ...freshWindow, sessions: result.sessions, energy: result.energy });
+    go("plan");
+  };
+  const undoNightReset = () => {
+    if (!nightResetUndo) return;
+    const undo = nightResetUndo;
+    setNightResetUndo(null);
+    persist({ ...data, sessions: undo.sessions, energy: undo.energy }, "今晚的记录和能量已恢复");
+  };
   const savePlanForLater = () => {
     setToast(`已保存，${formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)}再回来一起点亮`);
     go("home");
@@ -1803,10 +1835,33 @@ export function StartApp() {
     persist({ ...data, weeklyFocus: { weekKey: weekStartKey, text: reviewSuggestion.text, createdAt: new Date().toISOString() } }, "已放到首页，这周只试这一件");
   };
 
+  const activeUndoNotice = nightResetUndo
+    ? { message: nightResetUndo.message, action: "恢复记录", label: "恢复刚才清除的今晚记录" }
+    : sessionDeleteUndo
+      ? { message: sessionDeleteUndo.message, action: "撤销", label: `撤销删除${sessionDeleteUndo.label}的收尾记录` }
+      : clearedPlanUndo
+        ? { message: `已清空 ${clearedPlanUndo.stages.length} 个时间节点`, action: "恢复", label: "恢复刚才清空的整晚计划" }
+        : deletedStage
+          ? { message: `已移除“${deletedStage.stage.title.trim() || "未命名事项"}”`, action: "撤销", label: "撤销移除事项" }
+          : shiftedPlanUndo
+            ? { message: shiftedPlanUndo.message, action: "撤销", label: "撤销刚才的时间调整" }
+            : stageAdvanceUndo
+              ? { message: `已进入“${stageAdvanceUndo.nextTitle}”`, action: "撤销", label: "回到上一阶段" }
+              : null;
+  const handleActiveUndo = () => {
+    if (nightResetUndo) undoNightReset();
+    else if (sessionDeleteUndo) undoDeleteSessionRecord();
+    else if (clearedPlanUndo) undoClearPlan();
+    else if (deletedStage) undoRemoveStage();
+    else if (shiftedPlanUndo) undoPlanShift();
+    else if (stageAdvanceUndo) undoContinueToNext();
+  };
+
   return <main className={`site-shell ${motionReduced ? "reduce-motion" : ""}`} data-screen={screen}>
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <section className={`phone-shell ${isOnline ? "" : "is-offline"}`} ref={phoneShellRef} aria-hidden={deleteArmed || undefined} inert={deleteArmed || undefined}>
       {!isOnline && <div className="offline-ribbon" role="status"><i aria-hidden="true" /><span><strong>离线使用中</strong><small>今晚仍会安全保存在本机</small></span></div>}
+      {activeUndoNotice && <div className="undo-shelf" role="status" aria-live="polite" aria-atomic="true"><span>{activeUndoNotice.message}</span><button type="button" aria-label={activeUndoNotice.label} onClick={handleActiveUndo}>{activeUndoNotice.action}</button></div>}
       {!appReady && <div className="screen app-loading-screen" role="status" aria-live="polite"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><Mascot mood="breathe" /><div><strong>正在确认这台设备的家庭记录</strong><span>先读取本机，再核对对应的云端副本</span></div><span className="loading-leaves" aria-hidden="true"><i /><i /><i /></span></div>}
       {appReady && screen === "welcome" && <div className="screen welcome-screen">
         <div className="welcome-brand"><div className="brand-mark"><AppIcon name="home-heart" /><strong>先开始</strong></div><span>家庭晚间习惯助手</span></div>
@@ -1842,7 +1897,7 @@ export function StartApp() {
 
       {screen === "home" && <div className="screen with-nav home-screen">
         <div className="home-hero"><div><span className="eyebrow">{homeContextLabel}</span><h1>{homeHeroCopy.title}</h1><p>{homeHeroCopy.detail}</p></div><Mascot mood={!liveSessionAvailable && currentNightSummary ? "celebrate" : "confirm"} compact /></div>
-        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>家庭日历已记录</small><strong>今晚的共同计划已保存</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "按共同约定完成，就是今晚的进展。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>{currentNightSummary.completionUnit === "tasks" ? "完成事项" : "完成节点"}</small></span><span><b>{currentNightSummary.adjustments}</b><small>主动调整</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看这一晚的记录</button><button className="text-button another-plan-button" onClick={startAnotherPlan}>安排新的任务</button><small className="settled-energy-rule">同一晚再次安排不会重复获得共同收尾能量</small></div> : <button className="home-plan-cta" onClick={() => draftReady ? openConfirmPlan() : startAnotherPlan()}><span className="home-plan-icon"><AppIcon name="moon" /></span><span className="home-plan-copy"><small>{stages.length ? `今晚时间表 · ${draftUpdatedAt ? "已自动保存" : "仅保存在这台设备"}` : "今晚计划"}</small><strong>{draftReady ? `${formatPlanClock(draftStart, data.planStart, data.planEnd)} 一起开始` : stages.length ? "继续安排今晚" : "开始安排今晚"}</strong><em>{stages.length ? `${stages.length}个节点 · ${formatPlanClock(draftStart, data.planStart, data.planEnd)}—${formatPlanClock(draftEnd, data.planStart, data.planEnd)} · ${draftReady ? "确认后按时启动" : "还有内容需要确认"}` : "先添加第一项任务或休息"}</em></span><b aria-hidden="true">›</b></button>}
+        {liveSessionAvailable ? <div className="live-session-panel" data-state={liveResumeView.state}><button className="live-resume-card" onClick={() => go(liveResumeScreen)}><span className="live-pulse"><AppIcon name={liveResumeView.icon} /></span><span><small>{liveResumeView.kicker}</small><strong>{liveResumeView.title}</strong><em>{liveResumeView.detail}</em></span><b>{liveResumeView.cta}</b></button>{liveResumeScreen !== "wrap" && <button className="soft-end-button" onClick={endTonightEarly}>{activeNightLabel}先到这里</button>}</div> : currentNightSummary ? <div className="settled-home-card"><div className="settled-home-title"><span className="settled-check"><AppIcon name="check" /></span><div><small>已存入家庭日历</small><strong>今晚已记录</strong><p>{currentNightSummary.reflection ? promptReflectionCopy[currentNightSummary.reflection] : "今晚的安排已经收好。"}</p></div></div><div className="settled-home-stats"><span><b>{currentNightSummary.completed}</b><small>{currentNightSummary.completionUnit === "tasks" ? "完成事项" : "完成节点"}</small></span><span><b>{currentNightSummary.adjustments}</b><small>调整次数</small></span><span><b>+{currentNightSummary.energy}</b><small>本夜能量</small></span></div><button className="primary-button settled-review-button" onClick={() => openNightRecord(currentFamilyNightKey)}>查看今晚记录</button><button className="secondary-button another-plan-button" onClick={startAnotherPlan}>再安排一轮</button>{restartNightArmed ? <div className="night-restart-confirm" role="group" aria-label="清除今晚记录确认"><strong>清除今晚，重新安排？</strong><p>今晚的日历记录会移除，本轮获得的能量会按规则扣回；以前的记录不受影响。</p><div><button type="button" onClick={() => setRestartNightArmed(false)}>保留记录</button><button type="button" className="confirm" onClick={clearCurrentNightAndRestart}>清除并重新安排</button></div></div> : <button className="quiet-reset-button" type="button" onClick={() => setRestartNightArmed(true)}>清除今晚，重新安排</button>}<small className="settled-energy-rule">再安排一轮会保留今晚记录；清除后可在 30 秒内恢复</small></div> : <button className="home-plan-cta" onClick={() => draftReady ? openConfirmPlan() : startAnotherPlan()}><span className="home-plan-icon"><AppIcon name="moon" /></span><span className="home-plan-copy"><small>{stages.length ? `今晚时间表 · ${draftUpdatedAt ? "已自动保存" : "仅保存在这台设备"}` : "今晚计划"}</small><strong>{draftReady ? `${formatPlanClock(draftStart, data.planStart, data.planEnd)} 一起开始` : stages.length ? "继续安排今晚" : "开始安排今晚"}</strong><em>{stages.length ? `${stages.length}个节点 · ${formatPlanClock(draftStart, data.planStart, data.planEnd)}—${formatPlanClock(draftEnd, data.planStart, data.planEnd)} · ${draftReady ? "确认后按时启动" : "还有内容需要确认"}` : "先添加第一项任务或休息"}</em></span><b aria-hidden="true">›</b></button>}
         <div className="insight-card sage"><span className="big-icon"><AppIcon name="alarm" /></span><div><small>阶段提醒</small><strong>每个阶段到点提醒一次，可完成、继续或调整</strong></div></div>
         {currentWeekFocus && <button className="insight-card weekly-focus-home" onClick={() => go("review")}><span className="big-icon"><AppIcon name="home-heart" /></span><div><small>这周只试这一件 · 给大人的提醒</small><strong>{currentWeekFocus.text}</strong></div><span>›</span></button>}
         <button className={`insight-card support-entry goal-entry-${goalState}`} onClick={goalState === "empty" ? openRewardSetup : goalState === "ready" ? () => openRewardAchieved() : () => go("energy")}><span className="big-icon"><AppIcon name={goalState === "empty" ? "home-heart" : goalState === "ready" ? data.rewardGoal.icon : "plant"} /></span><div><small>{goalState === "empty" ? "下一份家庭期待" : goalState === "ready" ? "家庭期待已点亮" : "家庭期待"}</small><strong>{goalState === "empty" ? "一起定下想共度的家庭时光" : data.rewardGoal.title}</strong><small>{goalState === "empty" ? "从0开始，不用急着定" : goalState === "ready" ? "等你们真的一起实现后再记录" : `还差${progress}点，一起积累`}</small></div><span>›</span></button>
@@ -1877,7 +1932,7 @@ export function StartApp() {
           </div>}
         </div>; })}</div>
         {stages.length > 0 && <button ref={addNodeButtonRef} className="add-node-button" onClick={addStage} disabled={stages.length >= MAX_PLAN_STAGES} aria-describedby="plan-node-guidance" aria-label={stages.length >= MAX_PLAN_STAGES ? `今晚已到${MAX_PLAN_STAGES}个时间节点上限` : "增加一个时间节点"}><span>{stages.length >= MAX_PLAN_STAGES ? "✓" : "＋"}</span><strong>{stages.length >= MAX_PLAN_STAGES ? "今晚事项已满" : "添加下一项"}</strong></button>}
-        <div id="plan-node-guidance" className="gentle-note">{stages.length >= MAX_PLAN_STAGES ? "可以合并相近事项，或删除不需要的一项。" : stages.length ? "按今晚的真实安排继续添加；时间和顺序都能随时调整。" : "从今晚双方都确认的第一项开始。"}</div>
+        <div id="plan-node-guidance" className="gentle-note">{stages.length >= MAX_PLAN_STAGES ? "可以合并相近事项，或删掉暂时不做的一项。" : stages.length ? "继续添加今晚要做的事；时间和顺序随时可改。" : "先添加今晚的第一项。"}</div>
         {stages.length > 0 && <div className={`plan-next-dock ${planHasErrors ? "needs-fix" : "is-ready"}`} role="region" aria-label="安排进度与下一步"><span><small>{planHasErrors ? "完成必要信息后即可确认" : "今晚时间表"}</small><strong>{planHasErrors ? planErrorPrompt : `${stages.length} 项 · ${scheduledMinutes} 分钟`}</strong></span><button type="button" aria-label={planHasErrors ? `${planErrorPrompt}，定位到需要补充的位置` : "一起确认今晚时间表"} onClick={planHasErrors ? focusFirstPlanIssue : openConfirmPlan}>{planHasErrors ? planNeedsTitle ? "去填写" : "去调整" : "共同确认"}<b aria-hidden="true">›</b></button></div>}
       </div>}
 
@@ -1904,13 +1959,13 @@ export function StartApp() {
         {plannedStartOffset !== 0 && <div className={`confirm-timing-note ${plannedStartPassed ? "is-late" : "is-early"}`} role="status"><AppIcon name="alarm" /><span><strong>{plannedStartPassed ? `原定 ${plannedStartLabel} 已过，整晚将顺延` : `现在开始，整晚将比原定 ${plannedStartLabel} 前移`}</strong><small>事项预计 {formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束 · 时长与空档不变</small></span></div>}
         <section className="confirm-plan-overview" aria-labelledby="confirm-plan-heading"><div className="confirm-plan-heading"><div><h2 id="confirm-plan-heading">今晚全程</h2><small>事项预计 {formatPlanClock(draftEnd, data.planStart, data.planEnd)} 结束 · 可用时间到 {formatPlanClock(data.planEnd, data.planStart, data.planEnd)}</small></div><button onClick={() => go("plan")}>修改时间表</button></div><div id="confirm-plan-list" className="confirm-plan-list">{visibleConfirmStages.map((stage, index) => <div className={`confirm-plan-row ${index === 0 ? "is-first" : ""}`} key={stage.id}><span className="confirm-plan-icon"><AppIcon name={stage.icon} /></span><span className="confirm-plan-copy"><strong>{stage.title}</strong><small>{index === 0 ? "先从这里开始 · " : ""}{formatPlanClock(stage.start, data.planStart, data.planEnd)}—{formatPlanClock(stage.end, data.planStart, data.planEnd)} · {stage.kind === "rest" ? "休息放松" : effortCopy[stage.effort]}</small></span><span className={`confirm-plan-energy ${stage.energy ? "" : "is-zero"}`}><b>{stage.energy ? `+${stage.energy}` : "—"}</b><small>{stage.energy ? "能量" : "不计"}</small></span></div>)}</div>{confirmStages.length > 4 && <button className="confirm-plan-toggle" aria-expanded={confirmPlanExpanded} aria-controls="confirm-plan-list" onClick={() => setConfirmPlanExpanded(value => !value)}>{confirmPlanExpanded ? "收起完整时间表" : `查看其余 ${confirmStages.length - 4} 个节点`}</button>}</section>
         <section className={`confirm-reminder-card ${confirmReminderReady ? "is-ready" : ""}`} aria-labelledby="confirm-reminder-title"><span className="confirm-reminder-icon"><AppIcon name={confirmReminderReady ? "check" : "alarm"} /></span><span className="confirm-reminder-copy"><small>阶段提醒 · 可选</small><strong id="confirm-reminder-title">{confirmReminderCopy.title}</strong><span id="confirm-reminder-detail" aria-live="polite">{confirmReminderCopy.detail}</span></span>{canOfferConfirmReminder && <button type="button" disabled={requestingNotificationPermission} aria-busy={requestingNotificationPermission || undefined} aria-describedby="confirm-reminder-detail" onClick={() => void changeBackgroundReminder(true)}>{requestingNotificationPermission ? "等待确认…" : notificationPermission === "granted" ? "开启" : "尝试开启"}</button>}</section>
-        <div className="family-agreement"><div><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>先给第一步留出空间</small></span></div><div><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>卡住时可以主动说</small></span></div></div>
-        <div className="privacy-note">计划可以随时改；休息、换顺序或明天继续，都不算失败。</div><div className={`confirm-action-dock ${planningAhead ? "is-planning-ahead" : ""}`}>{planningAhead ? <><button className="primary-button" onClick={savePlanForLater}>保存时间表，稍后开始</button><button className="confirm-secondary-action" onClick={enterDualStart}>现在开始，时间整体前移</button><small>时间表会留在首页；到 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 再回来一起点亮。</small></> : plannedStartPassed ? <><button className="primary-button" onClick={enterDualStart}>从现在一起开始，时间整体顺延</button><button className="confirm-secondary-action" onClick={() => go("plan")}>先调整时间表</button><small>原定 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 已过；不会压缩或跳过任何一项。</small></> : plannedStartOffset > 0 ? <><button className="primary-button" onClick={enterDualStart}>现在一起开始，时间整体前移</button><button className="confirm-secondary-action" onClick={savePlanForLater}>按原时间保存，稍后开始</button><small>比原计划早 {plannedStartOffset} 分钟；也可以等到 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 再点亮。</small></> : <><button className="primary-button" onClick={enterDualStart}>两个人一起点亮开始</button><button className="confirm-secondary-action" onClick={savePlanForLater}>先保存，稍后再开始</button><small>刚好到约定时间；下一步只需要两个人各点一下自己的名字。</small></>}</div>
+        <div className="family-agreement"><div><AppIcon name="family" /><span><strong>{data.guardianAlias}</strong><small>负责看时间和提醒</small></span></div><div><AppIcon name="home-heart" /><span><strong>{data.childAlias}</strong><small>负责完成和反馈</small></span></div></div>
+        <div className="privacy-note">开始后仍可休息、换顺序，或把事项留到明天。</div><div className={`confirm-action-dock ${planningAhead ? "is-planning-ahead" : ""}`}>{planningAhead ? <><button className="primary-button" onClick={savePlanForLater}>保存时间表，稍后开始</button><button className="confirm-secondary-action" onClick={enterDualStart}>现在开始，时间整体前移</button><small>时间表会留在首页；到 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 再回来一起点亮。</small></> : plannedStartPassed ? <><button className="primary-button" onClick={enterDualStart}>从现在一起开始，时间整体顺延</button><button className="confirm-secondary-action" onClick={() => go("plan")}>先调整时间表</button><small>原定 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 已过；不会压缩或跳过任何一项。</small></> : plannedStartOffset > 0 ? <><button className="primary-button" onClick={enterDualStart}>现在一起开始，时间整体前移</button><button className="confirm-secondary-action" onClick={savePlanForLater}>按原时间保存，稍后开始</button><small>比原计划早 {plannedStartOffset} 分钟；也可以等到 {formatPlanClock(plannedStartLabel, data.planStart, data.planEnd)} 再点亮。</small></> : <><button className="primary-button" onClick={enterDualStart}>两个人一起点亮开始</button><button className="confirm-secondary-action" onClick={savePlanForLater}>先保存，稍后再开始</button><small>下一步，两个人各点一下自己的名字。</small></>}</div>
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
         <Header back={leaveDualStart} backLabel="返回共同确认" title="一起点亮" step="3/3" /><div className="dual-start-hero" data-ready={bothParticipantsReady}><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
-        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>两个名字都亮起后 · 第一小步</small><strong>{dualFirstStage.title || "从第一小步开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "先试这一小步；卡住时随时可以调整，不需要硬撑。" : `原时长和间隔都会保留，事项预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束；卡住仍可以调整。`}</p></span></div>
+        <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>确认后开始</small><strong>{dualFirstStage.title || "从第一项开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "从这一项开始；需要时可以调整时间表。" : `原时长和间隔会保留，事项预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束。`}</p></span></div>
         <div className="dual-connection-stage">
           <div className="energy-link" data-guardian-ready={guardianConfirmed} data-child-ready={childConfirmed} data-ready={bothParticipantsReady} aria-hidden="true"><span className="energy-side guardian-energy"><i /></span><span className="energy-core"><b>ϟ</b><i /><i /></span><span className="energy-side child-energy"><i /></span><span className="connection-spark spark-a" /><span className="connection-spark spark-b" /><span className="connection-spark spark-c" /></div>
           <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
@@ -1929,7 +1984,7 @@ export function StartApp() {
       </div>}
 
       {screen === "transition" && <div className={`screen transition-screen ${transitionReason}-transition`}>
-        <div className="transition-hero"><div><span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}告一段落` : `${activeStage.title}预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "先看见已经做到的，再决定下一步。" : "不用马上切换，看看现在更适合哪一步。"}</p></div><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} compact /></div></div>
+        <div className="transition-hero"><div><span className="eyebrow">{transitionReason === "completed" ? "这一段完成了" : "阶段提醒 · 只提醒一次"}</span><h1>{transitionReason === "completed" ? `${activeStage.title}告一段落` : `${activeStage.title}预计到时间了`}</h1><p className="lead">{transitionReason === "completed" ? "这一项已完成。接下来可以继续、休息或调整。" : "选择完成、继续，或调整计划。"}</p></div><div className="transition-art"><AppIcon name={transitionReason === "completed" ? "check" : "moon"} /><Mascot mood={transitionReason === "completed" ? "celebrate" : "confirm"} compact /></div></div>
         <div className={`transition-result ${transitionReason === "completed" && !activeStage.energy ? "is-zero" : ""}`}><AppIcon name={activeStage.icon} /><span><small>{transitionReason === "completed" ? "完成已标记" : "当前阶段"}</small><strong>{activeStage.title}</strong><em>{transitionReason === "completed" ? activeStage.energy ? `收尾保存后 +${activeStage.energy} 家庭能量` : "这一项不计能量" : canStartRest ? "完成、继续或休息都可以" : "结束、延长或调整都可以"}</em></span></div>{transitionReason === "completed" && <button className="undo-completion-button" onClick={undoStageFinished}>点错了，回到这一段</button>}
         <div className="transition-next"><span><small>接下来</small><strong>{nextPendingStage ? nextPendingStage.title : "完成今晚计划"}</strong></span>{nextPendingStage && <time>{formatPlanClock(nextPendingStage.start, data.planStart, data.planEnd)}</time>}</div>
         <div className="transition-actions"><button className="primary-button" onClick={continueToNext}>{hasNextPending ? `进入${nextPendingStage?.title ?? "下一阶段"}` : "进入今晚收尾"}</button><div><button className="secondary-button" onClick={extendCurrent}>{canStartRest ? (transitionReason === "completed" ? "还想继续 10 分钟" : "再继续 10 分钟") : "再休息 10 分钟"}</button>{canStartRest && <button className="soft-button" onClick={startRestNow}>先休息 10 分钟</button>}</div><button className="text-button" onClick={openAdjust}>调整今晚计划</button></div>
@@ -1943,15 +1998,15 @@ export function StartApp() {
       </div>}
 
       {screen === "wrap" && <div className="screen wrap-screen">
-        <Header title="今晚收尾" /><div className="wrap-hero"><div><span className="eyebrow">共同确认 · 30 秒</span><h1>完成今晚计划</h1><p>一起确认完成情况、保存能量，并把记录留在家庭日历。</p></div><Mascot mood="celebrate" compact /></div>
+        <Header title="今晚收尾" /><div className="wrap-hero"><div><span className="eyebrow">共同确认 · 30 秒</span><h1>完成今晚计划</h1><p>确认完成情况，保存今晚的记录和能量。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="wrap-summary"><div><strong>{settlementCompletedTasks}</strong><small>完成事项</small></div><div><strong>{adjustments}</strong><small>主动调整</small></div><div className="energy-total"><strong>+{settlementTotalEnergy}</strong><small>本次新增能量</small></div></div>
         <details className="energy-summary settlement-breakdown"><summary><span><strong>今晚会这样留下</strong><small>能量属于家庭合作，不给孩子单独打分</small></span><b><em>+{settlementTotalEnergy}</em><small>查看组成</small><i aria-hidden="true">⌄</i></b></summary><div className="settlement-breakdown-list"><span><b>完成事项</b><em>+{settlementTaskEnergy}</em></span><span className={settlementCooperationEnergy ? "" : "already-counted"}><b>{settlementCooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{settlementCooperationEnergy}</em></span>{adjustments > 0 && <span className={settlementAdjustmentEnergy ? "" : "already-counted"}><b>{settlementAdjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{settlementAdjustmentEnergy}</em></span>}</div></details>
-        <fieldset className="prompt-reflection"><legend>给大人记一笔</legend><strong>和往常相比，今晚共同执行顺畅吗？</strong><div>{(["less", "same", "more"] as PromptReflection[]).map(value => <button type="button" key={value} aria-pressed={promptReflection === value} className={promptReflection === value ? "selected" : ""} onClick={() => setPromptReflection(current => current === value ? null : value)}>{({ less: "更顺畅", same: "差不多", more: "更费力" })[value]}</button>)}</div><small>可选，只用于家庭复盘，不影响能量。</small></fieldset>
+        <fieldset className="prompt-reflection"><legend>今晚执行感受（可选）</legend><strong>和往常相比，今晚顺畅吗？</strong><div>{(["less", "same", "more"] as PromptReflection[]).map(value => <button type="button" key={value} aria-pressed={promptReflection === value} className={promptReflection === value ? "selected" : ""} onClick={() => setPromptReflection(current => current === value ? null : value)}>{({ less: "更顺畅", same: "差不多", more: "更费力" })[value]}</button>)}</div><small>只用于家庭复盘，不影响能量。</small></fieldset>
         <div className="wrap-action-dock"><button className="primary-button" onClick={finishNight}>保存记录并结束今晚</button>{hasDeferredStages && <button className="secondary-button wrap-resume-button" onClick={resumeTonightFromWrap}>还想继续今晚</button>}<small>{promptReflection ? settlementFooter : `执行感受可以不填 · ${settlementFooter}`}</small></div>
       </div>}
 
       {screen === "night-saved" && lastSavedSession && <div className="screen night-saved-screen">
-        <div className="saved-hero"><div><span className="eyebrow">已安全保存在家庭日历</span><h1>今晚，已经<br />好好收尾</h1><p>这不是成绩，也不要求连续打卡。</p></div><Mascot mood="celebrate" compact /></div>
+        <div className="saved-hero"><div><span className="eyebrow">已存入家庭日历</span><h1>今晚已保存</h1><p>完成情况和能量都已记录。</p></div><Mascot mood="celebrate" compact /></div>
         <div className="saved-energy"><small>本次家庭能量</small><strong>+{lastSavedSession.energyEarned}</strong><span>现在共有 {data.energy} 点</span><div className="energy-rise" aria-hidden="true"><i /><i /><i /></div></div>
         <details className="saved-breakdown"><summary><span><strong>能量组成</strong><small>完成与合作如何记入本次记录</small></span><b>查看 <i aria-hidden="true">⌄</i></b></summary><div><span><b>完成事项</b><em>+{lastSavedSession.taskEnergy}</em></span><span className={lastSavedSession.cooperationEnergy ? "" : "already-counted"}><b>{lastSavedSession.cooperationEnergy ? "共同商量与收尾" : "共同收尾 · 本夜已记录"}</b><em>+{lastSavedSession.cooperationEnergy}</em></span>{lastSavedSession.adjustments > 0 && <span className={lastSavedSession.adjustmentEnergy ? "" : "already-counted"}><b>{lastSavedSession.adjustmentEnergy ? "主动调整计划" : "主动调整 · 本夜已记录"}</b><em>+{lastSavedSession.adjustmentEnergy}</em></span>}</div></details>
         <div className="saved-calendar-note"><AppIcon name="moon" /><span><strong>{familyNightDisplayLabel(lastSavedSession.nightKey, lastSavedSession.date)}</strong><small>{lastSavedSession.completedCount} 个{lastSavedSession.completionUnit === "tasks" ? "完成事项" : "完成节点"}{lastSavedSession.promptReflection ? ` · ${promptReflectionCopy[lastSavedSession.promptReflection]}` : " · 执行感受可下次再记"}</small></span></div>
@@ -2030,11 +2085,6 @@ export function StartApp() {
       </div>}
 
       {(["home", "review", "energy", "settings"] as Screen[]).includes(screen) && <BottomNav screen={screen} go={go} openCalendar={() => openCalendar(currentFamilyNightKey)} />}
-      {stageAdvanceUndo && <div className="undo-toast live-undo-toast" role="status"><span>已进入“{stageAdvanceUndo.nextTitle}”</span><button onClick={undoContinueToNext}>撤销</button></div>}
-      {deletedStage && <div className="undo-toast" role="status"><span>已移除“{deletedStage.stage.title.trim() || "未命名事项"}”</span><button onClick={undoRemoveStage}>撤销</button></div>}
-      {shiftedPlanUndo && <div className="undo-toast" role="status"><span>{shiftedPlanUndo.message}</span><button onClick={undoPlanShift}>撤销</button></div>}
-      {clearedPlanUndo && <div className="undo-toast" role="status"><span>已清空 {clearedPlanUndo.stages.length} 个时间节点</span><button aria-label="恢复刚才清空的整晚计划" onClick={undoClearPlan}>恢复</button></div>}
-      {sessionDeleteUndo && <div className="undo-toast" role="status"><span>{sessionDeleteUndo.message}</span><button ref={sessionDeleteUndoRef} aria-label={`撤销删除${sessionDeleteUndo.label}的收尾记录`} onClick={undoDeleteSessionRecord}>撤销</button></div>}
       {toast && <div className="toast" role="status" aria-live="polite" aria-atomic="true">{toast}</div>}
     </section>
     {deleteArmed && <div className="destructive-dialog-backdrop"><section className="destructive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><span className="destructive-dialog-icon"><AppIcon name="privacy" /></span><small>不可撤销的操作</small><h2 id="delete-dialog-title">删除这个家庭的全部数据？</h2><p id="delete-dialog-description">将清除家庭化名、今晚计划、日历记录、能量和期待；本机立即删除，云端副本会同步清理。</p><div className="destructive-dialog-actions"><button ref={deleteCancelRef} className="secondary-button" disabled={deletingData} onClick={cancelDeleteData}>取消，保留数据</button><button ref={deleteConfirmRef} className="danger-confirm-button" disabled={deletingData} onClick={() => void deleteData()}>{deletingData ? "正在删除…" : "确认永久删除"}</button></div></section></div>}

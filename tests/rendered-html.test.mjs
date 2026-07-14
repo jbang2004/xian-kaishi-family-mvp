@@ -5,7 +5,7 @@ import { addMinutes, alignLiveStagesToStart, analyzePlan, canInsertRestBreak, cl
 import { foregroundCueStatus, shouldShowSoftLanding, shouldUseBackgroundReminder, shouldUseForegroundCue, shouldUseHapticCue } from "../app/reminder-utils.ts";
 import { normalizeStageEnergy, restoreRewardRedemption, rewardThresholdBounds, stageEnergyLabel } from "../app/reward-utils.ts";
 import { suggestWeeklyFocus } from "../app/review-utils.ts";
-import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
+import { advanceStageStatuses, calculateNightBonus, deferActiveStage, familyNightDisplayLabel, familyNightKey, isLiveSessionFresh, keepNewestRecords, liveNightLabel, removeNightAndReconcileEnergy, removeSessionAndReconcileEnergy, settlementFooterCopy } from "../app/session-utils.ts";
 import { compareSyncSnapshots, mergeUniqueById, PendingWrites } from "../app/sync-utils.ts";
 import { ASSET_VERSION, versionedAsset } from "../app/asset-version.ts";
 import { cleanShortText } from "../app/text-utils.ts";
@@ -148,17 +148,17 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /@media \(max-width: 900px\) \{[\s\S]*?\.phone-shell \{[^}]*height: 100svh;[^}]*height: 100dvh;[^}]*min-height: 100svh;[^}]*min-height: 100dvh/);
   assert.match(styles, /\.screen \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-left\)/);
   assert.match(styles, /\.bottom-nav \{ position: fixed; left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\)/);
-  assert.match(styles, /\.toast, \.undo-toast \{ left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\); width: auto; \}/);
+  assert.match(styles, /\.undo-shelf \{[\s\S]*?position: sticky;[\s\S]*?top: 10px/);
   assert.match(styles, /\.toast \{[^}]*font-size: 13px[^}]*-webkit-line-clamp: 2/);
   assert.match(styles, /@media \(max-width: 380px\) and \(max-height: 640px\) \{[\s\S]*?\.toast \{[^}]*bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)[^}]*font-size: 12px/);
-  assert.match(styles, /\.undo-toast span \{[^}]*white-space: normal;[^}]*-webkit-line-clamp: 2/);
+  assert.match(styles, /\.undo-shelf span \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap/);
   assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
   assert.match(app, /screen !== "confirm" && screen !== "dual-start" && screen !== "adjust"/);
   assert.match(app, /minuteTimer = window\.setInterval\(tick, 60_000\)/);
   assert.equal((app.match(/window\.setInterval\([^;\n]*1000\)/g) ?? []).length, 1);
   assert.match(app, /document\.addEventListener\("visibilitychange", tick\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(orientation: landscape\) and \(min-width: 600px\) \{[\s\S]*?\.screen \{ width: min\(600px, 100%\); margin-inline: auto; \}/);
-  assert.match(styles, /\.offline-ribbon,[\s\S]*?\.undo-toast \{ left: 50%; right: auto; width: min\(560px, calc\(100% - 36px\)\); transform: translateX\(-50%\); \}/);
+  assert.match(app, /className="undo-shelf" role="status" aria-live="polite" aria-atomic="true"/);
   assert.equal(ASSET_VERSION, "2026-07-13-2");
   assert.match(app, /import \{ ASSET_VERSION \} from "\.\/asset-version"/);
   assert.match(layout, /versionedAsset\("\/assets\/icons\/home-heart\.png"\)/);
@@ -174,7 +174,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.active-stage-card\.is-landing::after \{[^}]*animation: soft-landing-arrive/);
   assert.match(styles, /@keyframes soft-landing-arrive \{ 0%, 100% \{ opacity: 0; transform: scale\(\.994\); \} 48% \{ opacity: \.82; transform: scale\(1\.006\); \}/);
   assert.match(app, /现在开始，整晚将比原定 \$\{plannedStartLabel\} 前移/);
-  assert.match(app, /计划可以随时改；休息、换顺序或明天继续，都不算失败/);
+  assert.match(app, /开始后仍可休息、换顺序，或把事项留到明天/);
   assert.match(styles, /\.confirm-hero \{ grid-template-columns: minmax\(0,1fr\) 74px/);
   assert.match(styles, /\.confirm-timing-note \{ min-height: 0; grid-template-columns: 32px minmax\(0,1fr\)/);
   assert.match(styles, /\.family-agreement > div \{ min-height: 54px; grid-template-columns: 32px minmax\(0,1fr\)/);
@@ -272,7 +272,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /stages\.length >= MAX_PLAN_STAGES/);
   assert.match(app, /今晚最多保留\$\{MAX_PLAN_STAGES\}个节点/);
   assert.match(app, /id="plan-node-guidance"/);
-  assert.match(app, /按今晚的真实安排继续添加；时间和顺序都能随时调整/);
+  assert.match(app, /继续添加今晚要做的事；时间和顺序随时可改/);
   assert.match(styles, /\.add-node-button:disabled/);
   assert.match(app, /className=\{`plan-next-dock \$\{planHasErrors \? "needs-fix" : "is-ready"\}`\}/);
   assert.match(app, /aria-label="安排进度与下一步"/);
@@ -304,12 +304,12 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /选择后会保留后续节点的间隔一起移动/);
   assert.match(styles, /\.stage-meta \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.task-duration-scale \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(app, /shiftedPlanUndo && <div className="undo-toast"/);
+  assert.match(app, /const activeUndoNotice = nightResetUndo/);
   assert.match(app, /const \[clearedPlanUndo, setClearedPlanUndo\] = useState<ClearedPlanUndo \| null>\(null\)/);
   assert.match(app, /setClearedPlanUndo\(\{ stages: snapshot, editingStageId, planStart: data\.planStart, planEnd: data\.planEnd \}\)/);
   assert.match(app, /setTimeout\(\(\) => setClearedPlanUndo\(null\), 30000\)/);
-  assert.match(app, /aria-label="恢复刚才清空的整晚计划"/);
-  assert.match(app, /已清空 \{clearedPlanUndo\.stages\.length\} 个时间节点/);
+  assert.match(app, /label: "恢复刚才清空的整晚计划"/);
+  assert.match(app, /message: `已清空 \$\{clearedPlanUndo\.stages\.length\} 个时间节点`/);
   assert.match(app, /setToast\(`已恢复 \$\{undo\.stages\.length\} 个时间节点`\)/);
   assert.match(app, /const updatePlanStart = \(start: string\) =>/);
   assert.match(app, /applyPlanTimes\(shiftTimedItemsFrom\(baselineTimes, 0, delta\)\)/);
@@ -363,7 +363,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.stage-summary-copy small \{[^}]*line-height: 1\.35/);
   assert.match(styles, /\.press-zone > strong \{[^}]*white-space: normal[^}]*-webkit-line-clamp: 2/);
   assert.match(app, /activeNightLabel\}等待共同收尾/);
-  assert.match(app, /一起确认完成情况、保存能量/);
+  assert.match(app, /确认完成情况，保存今晚的记录和能量/);
   assert.match(app, /哪些数据保存在哪里/);
   assert.match(app, /当前版本仅供受邀家庭试用，请不要转发测试入口/);
   assert.match(app, /增加监护人登录与家庭访问保护；如果无法做到，就停止保存云端副本/);
@@ -382,11 +382,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const homeHeroCopy = liveSessionAvailable/);
   assert.match(app, /今晚正在按计划进行/);
   assert.match(app, /进度已经保存；继续执行、调整或结束本次计划/);
-  assert.match(app, /家庭日历已记录/);
+  assert.match(app, /已存入家庭日历/);
   assert.match(app, /className="empty-plan empty-plan-action"/);
   assert.match(app, /增加第一个时间节点/);
   assert.match(app, /stages\.length > 0 && <button ref=\{addNodeButtonRef\} className="add-node-button"/);
-  assert.match(app, /已移除“\{deletedStage\.stage\.title\.trim\(\) \|\| "未命名事项"\}”/);
+  assert.match(app, /已移除“\$\{deletedStage\.stage\.title\.trim\(\) \|\| "未命名事项"\}”/);
   assert.match(app, /已恢复“\$\{stage\.title\.trim\(\) \|\| "未命名事项"\}”/);
   assert.match(app, /resumeTonightFromWrap/);
   assert.match(app, /还想继续今晚/);
@@ -426,9 +426,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const openAdjust = \(\) => \{ setStageAdvanceUndo\(null\)/);
   assert.match(app, /setActiveEndsAt\(stageAdvanceUndo\.activeEndsAt\)/);
   assert.match(app, /planEnd: stageAdvanceUndo\.planEnd/);
-  assert.match(app, /已进入“\{stageAdvanceUndo\.nextTitle\}”/);
-  assert.match(styles, /\.live-undo-toast \{ bottom: calc\(210px/);
-  assert.match(styles, /max-height: 700px[\s\S]*?\.live-undo-toast \{ bottom: calc\(76px/);
+  assert.match(app, /已进入“\$\{stageAdvanceUndo\.nextTitle\}”/);
+  assert.match(styles, /\.undo-shelf \{[\s\S]*?background: rgba\(255, 255, 255, \.94\)/);
+  assert.doesNotMatch(app, /className="undo-toast/);
   assert.match(app, /const resumedCopy = result\.resumedMinutes \? `，之后再试\$\{result\.resumedMinutes\}分钟` : ""/);
   assert.match(app, /先休息10分钟\$\{resumedCopy\}；事项预计\$\{scheduledEndTime\(result\.items, result\.planEnd\)\}结束/);
   assert.match(app, /setData\(current => \(\{ \.\.\.current, planEnd: result\.planEnd \}\)\)/);
@@ -454,7 +454,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /setStages\(prepareNextRoundSchedule\(stages, completedStageTitles, baseline\.planStart\)\)/);
   assert.match(app, /legacyRestIcons/);
   assert.match(app, /promptReflection: normalizePromptReflection/);
-  assert.match(app, /可选，只用于家庭复盘，不影响能量/);
+  assert.match(app, /今晚执行感受（可选）/);
+  assert.match(app, /只用于家庭复盘，不影响能量/);
   assert.match(app, /规则建议 · 不评价孩子/);
   assert.match(app, /顺畅反馈/);
   assert.match(app, /normalizeTransitionReason/);
@@ -549,12 +550,20 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /sessions: undo\.sessions, energy: undo\.energy/);
   assert.match(app, /已恢复这次记录和删除前的能量/);
   assert.match(app, /data-session-delete-id=\{item\.id\}/);
-  assert.match(app, /sessionDeleteUndoRef\.current\?\.focus\(\)/);
+  assert.doesNotMatch(app, /sessionDeleteUndoRef\.current\?\.focus\(\)/);
   assert.match(app, /撤销删除\$\{sessionDeleteUndo\.label\}的收尾记录/);
   assert.match(app, /sessionDeleteCancelRef\.current\?\.focus\(\)/);
   assert.match(app, /const cancelSessionDelete = \(recordId: string\) =>/);
   assert.match(app, /focusSessionDeleteTrigger\(recordId\)/);
   assert.match(app, /ref=\{sessionDeleteCancelRef\}/);
+  assert.match(app, /const clearCurrentNightAndRestart = \(\) =>/);
+  assert.match(app, /removeNightAndReconcileEnergy\(data\.sessions, currentFamilyNightKey/);
+  assert.match(app, /清除今晚，重新安排/);
+  assert.match(app, /清除并重新安排/);
+  assert.match(app, /setTimeout\(\(\) => setNightResetUndo\(null\), 30000\)/);
+  assert.match(app, /const undoNightReset = \(\) =>/);
+  assert.match(app, /今晚的记录和能量已恢复/);
+  assert.match(styles, /\.night-restart-confirm \{/);
   assert.match(styles, /\.record-delete-confirm \{[^}]*background: #fff6f3/);
   assert.match(app, /aria-current=\{isToday \? "date" : undefined\}/);
   assert.match(app, /className="today-jump"/);
@@ -568,8 +577,8 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.calendar-grid > button\.is-today/);
   assert.match(app, /最迟到次日清晨5点自动失效/);
   assert.match(app, /nightKey: \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
-  assert.match(app, /今晚的共同计划已保存/);
-  assert.match(app, /同一晚再次安排不会重复获得共同收尾能量/);
+  assert.match(app, /<strong>今晚已记录<\/strong>/);
+  assert.match(app, /再安排一轮会保留今晚记录；清除后可在 30 秒内恢复/);
   assert.match(app, /item\.nightKey===key/);
   assert.match(app, /selectedIncludesAfterMidnightSession/);
   assert.match(app, /晚间记录 · 凌晨收尾仍归这一晚/);
@@ -727,7 +736,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.wrap-action-dock \{ position: sticky; bottom: 0; display: grid/);
   assert.match(app, /className="energy-summary settlement-breakdown"/);
   assert.match(app, /执行感受可以不填/);
-  assert.match(app, /今晚，已经<br \/>好好收尾/);
+  assert.match(app, /<h1>今晚已保存<\/h1>/);
   assert.match(styles, /\.night-saved-screen \.saved-actions \{ position: sticky; bottom: 0/);
   assert.match(styles, /\.achievement-screen \.achievement-actions \{ position: sticky; bottom: 0/);
   assert.match(styles, /\.achievement-screen \.redeem-confirm \{ position: sticky; bottom: 0/);
@@ -750,9 +759,9 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.profile-essential input \{[^}]*min-height: 48px;[^}]*font-size: 16px; \}/);
   assert.match(styles, /\.profile-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
   assert.match(styles, /\.reward-save-dock \{ position: static; margin-top: 10px; \}/);
-  assert.match(styles, /\.undo-toast \{ z-index: 51/);
+  assert.match(styles, /\.undo-shelf \{[\s\S]*?z-index: 45/);
   assert.match(app, /\{startNowLabel\}—\{dualFirstEndLabel\}/);
-  assert.match(app, /原时长和间隔都会保留，事项预计/);
+  assert.match(app, /原时长和间隔会保留，事项预计/);
   assert.doesNotMatch(app, /整晚时间会一起顺延/);
   assert.match(app, /const cleanStages = stages\.map/);
   assert.match(app, /shiftTimedPlanToStart\(cleanStages, actualStart\)/);
@@ -761,7 +770,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /const enterDualStart = \(\) => \{ setGuardianConfirmed\(false\)/);
   assert.match(app, /const \[dualStartPaused, setDualStartPaused\] = useState\(false\)/);
   assert.match(app, /const dualFirstStage = stages\[0\] \?\? FALLBACK_STAGE/);
-  assert.match(app, /两个名字都亮起后 · 第一小步/);
+  assert.match(app, /确认后开始/);
   assert.match(app, /className="start-contract-meta"/);
   assert.match(styles, /\.start-contract-meta \{/);
   assert.match(app, /const calendarDetailRef = useRef<HTMLDivElement>\(null\)/);
@@ -1508,6 +1517,27 @@ test("deletes one settlement without corrupting nightly bonuses or a later energ
   const invalidLegacy = removeSessionAndReconcileEnergy([{ ...sessions[0], date: "unknown" }], "first", 8, []);
   assert.equal(invalidLegacy.currentCycleAdjusted, false);
   assert.equal(invalidLegacy.energy, 8);
+});
+
+test("clears one family night while preserving history and settled reward cycles", () => {
+  const sessions = [
+    { id: "older", date: "2026-07-12T12:00:00.000Z", nightKey: "2026-07-12", adjustments: 0, cooperationEnergy: 2, adjustmentEnergy: 0, energyEarned: 4 },
+    { id: "first", date: "2026-07-13T12:00:00.000Z", nightKey: "2026-07-13", adjustments: 1, cooperationEnergy: 2, adjustmentEnergy: 1, energyEarned: 6 },
+    { id: "second", date: "2026-07-13T13:00:00.000Z", nightKey: "2026-07-13", adjustments: 0, cooperationEnergy: 0, adjustmentEnergy: 0, energyEarned: 2 },
+  ];
+  const currentCycle = removeNightAndReconcileEnergy(sessions, "2026-07-13", 10, []);
+  assert.equal(currentCycle.removedCount, 2);
+  assert.equal(currentCycle.removedEnergy, 8);
+  assert.equal(currentCycle.energy, 2);
+  assert.deepEqual(currentCycle.sessions.map(item => item.id), ["older"]);
+
+  const afterRewardReset = removeNightAndReconcileEnergy(sessions, "2026-07-13", 3, ["2026-07-14T08:00:00.000Z"]);
+  assert.equal(afterRewardReset.removedEnergy, 0);
+  assert.equal(afterRewardReset.energy, 3);
+
+  const missing = removeNightAndReconcileEnergy(sessions, "2026-07-11", 10, []);
+  assert.equal(missing.sessions, sessions);
+  assert.equal(missing.removedCount, 0);
 });
 
 test("keeps the newest bounded history across imports and sync merges", () => {
