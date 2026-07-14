@@ -407,6 +407,7 @@ export function StartApp() {
   const planStartInputRef = useRef<HTMLInputElement>(null);
   const childAliasInputRef = useRef<HTMLInputElement>(null);
   const guardianAliasInputRef = useRef<HTMLInputElement>(null);
+  const rewardTitleInputRef = useRef<HTMLInputElement>(null);
   const rewardDateInputRef = useRef<HTMLInputElement>(null);
   const rewardEnergyConfirmRef = useRef<HTMLInputElement>(null);
   const clearPlanArmedRef = useRef(false);
@@ -1449,8 +1450,17 @@ export function StartApp() {
 
   const saveRewardDraft = () => {
     const title = cleanShortText(rewardDraft.title, 24); const date = cleanShortText(rewardDraft.date, 16);
-    if (!title || !date) { setToast("先一起写下期待和计划实现时间"); return; }
-    if (!rewardEnergyConfirmed) { setToast("再一起确认一次能量节奏"); return; }
+    if (!title || !date) {
+      const target = (title ? rewardDateInputRef : rewardTitleInputRef).current;
+      target?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      target?.focus({ preventScroll: true });
+      return;
+    }
+    if (!rewardEnergyConfirmed) {
+      rewardEnergyConfirmRef.current?.scrollIntoView({ block: "center", behavior: motionReduced ? "auto" : "smooth" });
+      rewardEnergyConfirmRef.current?.focus({ preventScroll: true });
+      return;
+    }
     const nextGoal: RewardGoal = { ...rewardDraft, title, date, participants: [data.guardianAlias, data.childAlias], redeemed: false, acknowledged: false };
     setRewardRedeemUndo(null);
     persist({ ...data, rewardGoal: nextGoal }, "家庭期待已保存"); go("energy");
@@ -1494,7 +1504,11 @@ export function StartApp() {
   const { minimum: rewardMinimumThreshold, maximum: rewardMaximumThreshold } = rewardThresholdBounds(data.energy);
   const rewardDraftValid = Boolean(rewardDraft.title.trim() && rewardDraft.date.trim());
   const rewardDraftReady = rewardDraftValid && rewardEnergyConfirmed;
-  const rewardEstimatedNights = Math.max(1, Math.ceil(Math.max(1, rewardDraft.threshold - data.energy) / 7));
+  const rewardDraftActionLabel = rewardDraftReady
+    ? data.rewardGoal.redeemed ? "一起确认这个期待" : "保存共同调整"
+    : !rewardDraft.title.trim()
+      ? "去填写家庭期待"
+      : !rewardDraft.date.trim() ? "去填写实现时间" : "去确认能量节奏";
   const goalReady = !data.rewardGoal.redeemed && progress === 0;
   const goalState: "empty" | "building" | "ready" = data.rewardGoal.redeemed ? "empty" : goalReady ? "ready" : "building";
   const hasPastReward = data.rewardHistory.length > 0;
@@ -1922,12 +1936,12 @@ export function StartApp() {
       {screen === "reward-setup" && <div className="screen reward-setup-screen">
         <Header back={() => back("energy")} backLabel="返回家庭能量房间" title="家庭期待" step="一起商量" />
         <div className="reward-setup-hero"><div><span className="eyebrow">不是奖品清单</span><h1>想一起度过怎样的时光？</h1><p>先选家庭时光，再共同商量积累节奏。</p></div><Mascot mood="support" compact /></div>
-        <section className="reward-step"><div className="reward-step-heading"><b>1</b><span><strong>先选想一起做的事</strong><small>优先选择陪伴和共同体验</small></span></div><div className="reward-idea-grid">{REWARD_IDEAS.map(idea => <button type="button" key={idea.label} aria-pressed={rewardDraft.title === idea.title} className={rewardDraft.title === idea.title ? "selected" : ""} onClick={() => reviseRewardDraft({ icon: idea.icon, title: idea.title })}><AppIcon name={idea.icon} /><span><strong>{idea.label}</strong><small>{idea.title}</small></span></button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>也可以写下你们自己的想法</span><small>{rewardDraft.title.length}/24</small></span><input name="reward-title" aria-label="家庭期待" value={rewardDraft.title} placeholder="例如：周末一起去公园" maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="next" onChange={e => reviseRewardDraft({ title: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); rewardDateInputRef.current?.focus(); } }} /></label></section>
+        <section className="reward-step"><div className="reward-step-heading"><b>1</b><span><strong>先选想一起做的事</strong><small>优先选择陪伴和共同体验</small></span></div><div className="reward-idea-grid">{REWARD_IDEAS.map(idea => <button type="button" key={idea.label} aria-pressed={rewardDraft.title === idea.title} className={rewardDraft.title === idea.title ? "selected" : ""} onClick={() => reviseRewardDraft({ icon: idea.icon, title: idea.title })}><AppIcon name={idea.icon} /><span><strong>{idea.label}</strong><small>{idea.title}</small></span></button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>也可以写下你们自己的想法</span><small>{rewardDraft.title.length}/24</small></span><input ref={rewardTitleInputRef} name="reward-title" aria-label="家庭期待" value={rewardDraft.title} placeholder="例如：周末一起去公园" maxLength={24} autoComplete="off" spellCheck={false} enterKeyHint="next" onChange={e => reviseRewardDraft({ title: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); rewardDateInputRef.current?.focus(); } }} /></label></section>
         <section className="reward-step"><div className="reward-step-heading"><b>2</b><span><strong>商量什么时候一起实现</strong><small>这是共同约定，不是限时任务</small></span></div><div className="reward-date-chips">{REWARD_DATE_IDEAS.map(date => <button type="button" key={date} aria-pressed={rewardDraft.date === date} className={rewardDraft.date === date ? "selected" : ""} onClick={() => reviseRewardDraft({ date })}>{date}</button>)}</div><label className="reward-compact-input"><span className="input-label-row"><span>或自己写一个时间</span><small>{rewardDraft.date.length}/16</small></span><input ref={rewardDateInputRef} name="reward-date" aria-label="期待实现时间" value={rewardDraft.date} placeholder="例如：下周六下午" maxLength={16} autoComplete="off" spellCheck={false} enterKeyHint="next" onChange={e => reviseRewardDraft({ date: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); rewardEnergyConfirmRef.current?.focus(); } }} /></label></section>
-        <section className="reward-step energy-step"><div className="reward-step-heading"><b>3</b><span><strong>共同确认积累节奏</strong><small>能量是家庭合作的记号，不是价格</small></span></div><div className="energy-target-row"><button type="button" aria-label="减少5点目标能量" disabled={rewardDraft.threshold <= rewardMinimumThreshold} onClick={() => reviseRewardDraft({ threshold: Math.max(rewardMinimumThreshold, rewardDraft.threshold - 5) })}>−</button><span><strong>{rewardDraft.threshold}</strong><small>点家庭能量</small></span><button type="button" aria-label="增加5点目标能量" disabled={rewardDraft.threshold >= rewardMaximumThreshold} onClick={() => reviseRewardDraft({ threshold: Math.min(rewardMaximumThreshold, rewardDraft.threshold + 5) })}>＋</button></div><input className="energy-target-range branded-range" aria-label="家庭期待目标能量" aria-valuetext={`${rewardDraft.threshold}点家庭能量`} type="range" min={rewardMinimumThreshold} max={rewardMaximumThreshold} step="5" value={rewardDraft.threshold} style={{ "--range-progress": `${(rewardDraft.threshold - rewardMinimumThreshold) / Math.max(1, rewardMaximumThreshold - rewardMinimumThreshold) * 100}%` } as CSSProperties} onChange={e => reviseRewardDraft({ threshold: Number(e.target.value) })} /><p>当前已有 {data.energy} 点；按每晚约 5–10 点估算，还需要约 {rewardEstimatedNights} 个家庭夜晚。可以随时调整，但不用为了更快达成临时加码。</p><label className="energy-confirm-check"><input ref={rewardEnergyConfirmRef} type="checkbox" checked={rewardEnergyConfirmed} onChange={e => setRewardEnergyConfirmed(e.target.checked)} /><span><strong>{data.guardianAlias}和{data.childAlias}一起看过这个节奏</strong><small>这不是孩子单方面必须完成的目标</small></span></label></section>
+        <section className="reward-step energy-step"><div className="reward-step-heading"><b>3</b><span><strong>共同确认积累节奏</strong><small>能量是家庭合作的记号，不是价格</small></span></div><div className="energy-target-row"><button type="button" aria-label="减少5点目标能量" disabled={rewardDraft.threshold <= rewardMinimumThreshold} onClick={() => reviseRewardDraft({ threshold: Math.max(rewardMinimumThreshold, rewardDraft.threshold - 5) })}>−</button><span><strong>{rewardDraft.threshold}</strong><small>点家庭能量</small></span><button type="button" aria-label="增加5点目标能量" disabled={rewardDraft.threshold >= rewardMaximumThreshold} onClick={() => reviseRewardDraft({ threshold: Math.min(rewardMaximumThreshold, rewardDraft.threshold + 5) })}>＋</button></div><input className="energy-target-range branded-range" aria-label="家庭期待目标能量" aria-valuetext={`${rewardDraft.threshold}点家庭能量`} type="range" min={rewardMinimumThreshold} max={rewardMaximumThreshold} step="5" value={rewardDraft.threshold} style={{ "--range-progress": `${(rewardDraft.threshold - rewardMinimumThreshold) / Math.max(1, rewardMaximumThreshold - rewardMinimumThreshold) * 100}%` } as CSSProperties} onChange={e => reviseRewardDraft({ threshold: Number(e.target.value) })} /><p>当前已有 {data.energy} 点。这个数值只帮助理解积累节奏，没有截止时间、不要求连续使用，也不用为了更快达成临时加码。</p><label className="energy-confirm-check"><input ref={rewardEnergyConfirmRef} type="checkbox" checked={rewardEnergyConfirmed} onChange={e => setRewardEnergyConfirmed(e.target.checked)} /><span><strong>{data.guardianAlias}和{data.childAlias}一起看过这个节奏</strong><small>这不是孩子单方面必须完成的目标</small></span></label></section>
         <div className="reward-preview"><AppIcon name={rewardDraft.icon} /><div><small>{rewardDraft.date || "还没定时间"} · {data.guardianAlias}和{data.childAlias}</small><strong>{rewardDraft.title.trim() || "一起写下家庭期待"}</strong><p>积累到约定点数不会自动开始新一轮，实际一起实现并记录后才会。</p></div></div>
         <div className="reward-boundary-note"><AppIcon name="home-heart" /><span><strong>尽量不设置现金、充值或高价商品</strong><small>家庭活动不需要与孩子的表现一一交换。</small></span></div>
-        <div className="reward-save-dock"><button className="primary-button" disabled={!rewardDraftReady} onClick={saveRewardDraft}>{data.rewardGoal.redeemed ? "一起确认这个期待" : "保存共同调整"}</button><small>{!rewardDraftValid ? "先一起写下想做的事和时间" : !rewardEnergyConfirmed ? "还需要两个人一起确认能量节奏" : "保存后，家庭能量继续从当前数值积累"}</small></div>
+        <div className="reward-save-dock"><button className={`primary-button ${rewardDraftReady ? "is-ready" : "needs-input"}`} aria-label={rewardDraftActionLabel} onClick={saveRewardDraft}>{rewardDraftActionLabel}</button><small>{!rewardDraftValid ? "先一起写下想做的事和时间" : !rewardEnergyConfirmed ? "还需要两个人一起确认能量节奏" : "保存后，家庭能量继续从当前数值积累"}</small></div>
       </div>}
 
       {screen === "reward-achieved" && <div className="screen achievement-screen">
@@ -1946,7 +1960,7 @@ export function StartApp() {
         <div className="reset-story" aria-label="能量重新开始"><span><b>{lastRedeemedReward.energyBeforeReset}</b><small>实现前</small></span><i>→</i><span className="fresh-zero"><b>0</b><small>新的开始</small></span></div>
         {rewardRedeemUndo && rewardRedeemUndo.rewardId === lastRedeemedReward.id && <div className="reward-undo-panel" role="status"><div><strong>刚才点错了也没关系</strong><span>30秒内可以恢复原来的家庭期待和 {rewardRedeemUndo.energy} 点能量。</span></div><button onClick={undoRedeemReward}>恢复这一轮</button></div>}
         <div className="reward-saved-note"><AppIcon name="moon" /><p><strong>记录留在日历里</strong><span>以后可以一起回看，不需要连续打卡。</span></p></div>
-        <div className="saved-actions"><button className="primary-button" onClick={openRewardSetup}>设置新的家庭期待</button><button className="secondary-button" onClick={() => { const day = localDateKey(lastRedeemedReward.redeemedAt); setSelectedDay(day); setDayDetailsExpanded(false); const date = new Date(lastRedeemedReward.redeemedAt); setCalendarCursor(new Date(date.getFullYear(), date.getMonth(), 1)); go("review"); }}>查看今天的记录</button></div>
+        <div className="saved-actions"><button className="primary-button" onClick={openRewardSetup}>设置新的家庭期待</button><button className="secondary-button" onClick={() => openNightRecord(localDateKey(lastRedeemedReward.redeemedAt))}>查看今天的记录</button></div>
       </div>}
 
       {screen === "review" && <div className="screen with-nav review-screen">

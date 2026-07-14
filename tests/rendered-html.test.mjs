@@ -662,7 +662,16 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /ref=\{rewardDateInputRef\} name="reward-date"/);
   assert.match(app, /rewardEnergyConfirmRef\.current\?\.focus\(\)/);
   assert.match(app, /ref=\{rewardEnergyConfirmRef\} type="checkbox"/);
-  assert.match(app, /不用为了更快达成临时加码/);
+  assert.match(app, /没有截止时间、不要求连续使用，也不用为了更快达成临时加码/);
+  assert.doesNotMatch(app, /rewardEstimatedNights/);
+  assert.match(app, /const rewardDraftActionLabel = rewardDraftReady/);
+  assert.match(app, /ref=\{rewardTitleInputRef\} name="reward-title"/);
+  assert.match(app, /rewardTitleInputRef\)\.current/);
+  assert.match(app, /rewardEnergyConfirmRef\.current\?\.scrollIntoView/);
+  assert.doesNotMatch(app, /disabled=\{!rewardDraftReady\}/);
+  assert.match(styles, /\.reward-save-dock \.needs-input/);
+  assert.match(app, /onClick=\{\(\) => openNightRecord\(localDateKey\(lastRedeemedReward\.redeemedAt\)\)\}/);
+  assert.doesNotMatch(app, /const day = localDateKey\(lastRedeemedReward\.redeemedAt\)/);
   assert.match(app, /max=\{rewardMaximumThreshold\}/);
   assert.match(styles, /\.branded-range::-webkit-slider-runnable-track/);
   assert.match(styles, /height: min\(860px, calc\(100vh - 68px\)\)/);

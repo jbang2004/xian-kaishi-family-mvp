@@ -1025,6 +1025,7 @@ button.insight-card { cursor: pointer; }
 .reward-boundary-note small { margin-top: 2px; color: var(--muted); font-size: var(--type-micro); }
 .reward-save-dock { position: sticky; bottom: 0; z-index: 8; margin: 4px -8px -36px; padding: 12px 8px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(255,248,236,0), rgba(255,248,236,.97) 18%, var(--cream) 44%); }
 .reward-save-dock small { display: block; color: var(--muted); font-size: var(--type-micro); text-align: center; margin-top: 7px; }
+.reward-save-dock .needs-input { border: 1.5px solid rgba(117,184,155,.62); background: rgba(255,255,255,.88); color: #397259; box-shadow: 0 8px 20px rgba(72,126,103,.08); }
 
 .achievement-screen { text-align: center; background: radial-gradient(circle at 78% 16%, rgba(245,184,75,.28), transparent 27%), var(--cream); }
 .achievement-screen .app-header { margin-bottom: 3px; }
