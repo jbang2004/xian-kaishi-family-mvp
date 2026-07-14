@@ -27,10 +27,26 @@ function contrastRatio(foreground, background) {
 test("keeps supporting text readable across the warm card palette", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const muted = styles.match(/--muted:\s*(#[\da-f]{6})/i)?.[1];
+  const focusRing = styles.match(/--focus-ring:\s*(#[\da-f]{6})/i)?.[1];
+  const focusHalo = styles.match(/--focus-halo:\s*(#[\da-f]{6})/i)?.[1];
   assert.ok(muted, "the supporting-text token should be defined");
+  assert.ok(focusRing, "the keyboard focus-ring token should be defined");
+  assert.ok(focusHalo, "the keyboard focus-halo token should be defined");
   for (const background of ["#fffdf8", "#fff8ec", "#edf6ef", "#edf4fb", "#fff2cb"]) {
     assert.ok(contrastRatio(muted, background) >= 4.5, `${muted} should remain readable on ${background}`);
   }
+  for (const background of ["#fffdf8", "#fff8ec", "#f5b84b", "#75b89b"]) {
+    assert.ok(contrastRatio(focusRing, background) >= 3, `${focusRing} should remain visible on ${background}`);
+  }
+  assert.ok(contrastRatio(focusHalo, "#bd4f46") >= 3, `${focusHalo} should separate focus from destructive controls`);
+  assert.match(styles, /outline: 3px solid var\(--focus-ring\); outline-offset: 3px; box-shadow: 0 0 0 3px var\(--focus-halo\)/);
+  assert.match(styles, /@media \(prefers-contrast: more\)/);
+  assert.match(styles, /@media \(forced-colors: active\)/);
+  assert.match(styles, /outline: 3px solid Highlight; box-shadow: none/);
+  assert.match(styles, /@media \(max-width: 900px\) \{[\s\S]*?\.phone-shell button \{ min-height: 44px; \}/);
+  assert.match(styles, /\.stage-meta \.effort-pill \{[^}]*min-height: 44px/);
+  assert.match(styles, /\.welcome-boundary > button \{ min-height: 44px; margin-top: 4px/);
+  assert.match(styles, /\.effort-screen \.rest-duration button \{ min-height: 44px/);
 });
 
 test("aligns calm decision-screen updates to minute boundaries", () => {
@@ -664,7 +680,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.welcome-action-dock, \.profile-action-dock \{ position: static; margin-top: 10px; \}/);
   assert.match(styles, /\.welcome-screen \{ padding: 14px 18px 22px; \}/);
   assert.match(styles, /\.welcome-hero \{ grid-template-columns: minmax\(0,1fr\) 72px; gap: 4px; \}/);
-  assert.match(styles, /\.welcome-boundary > button \{ min-height: 36px;[^}]*padding-top: 5px; \}/);
+  assert.match(styles, /\.welcome-boundary > button \{ min-height: 44px;[^}]*padding-top: 5px; \}/);
   assert.match(styles, /\.welcome-action-dock \.primary-button \{ min-height: 50px;[^}]*font-size: 15px; \}/);
   assert.match(styles, /\.profile-screen \{ padding-top: 14px; padding-bottom: 16px; \}/);
   assert.match(styles, /\.profile-essential input \{[^}]*min-height: 48px;[^}]*font-size: 16px; \}/);
