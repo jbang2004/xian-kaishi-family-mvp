@@ -1643,7 +1643,7 @@ export function StartApp() {
   const restPreviewScheduledEnd = scheduledEndTime(restPlanPreview.items, restPlanPreview.planEnd);
   const bothParticipantsReady = guardianConfirmed && childConfirmed;
   const dualStartStatus = bothParticipantsReady
-    ? { title: `即将进入“${stages[0]?.title || "第一项"}”`, detail: "约 3 秒后开始；如果还想商量一下，点“先等等”就会停住。" }
+    ? { title: "约定已连接", detail: `约 3 秒后进入“${stages[0]?.title || "第一项"}”；如果还想商量一下，点“先等等”就会停住。` }
     : dualStartPaused
       ? { title: "已经停住，可以再商量一下", detail: "第一步仍然可以调整；准备好了，再各点一次名字。" }
     : guardianConfirmed
@@ -1909,10 +1909,12 @@ export function StartApp() {
       </div>}
 
       {screen === "dual-start" && <div className="screen dual-start-screen">
-        <Header back={leaveDualStart} backLabel="返回共同确认" title="一起点亮" step="3/3" /><div className="dual-start-hero"><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
+        <Header back={leaveDualStart} backLabel="返回共同确认" title="一起点亮" step="3/3" /><div className="dual-start-hero" data-ready={bothParticipantsReady}><div><span className="eyebrow">可以同时点，也可以轮流点</span><h1>两个人都准备好，<br />就一起开始</h1></div><Mascot mood={bothParticipantsReady ? "celebrate" : "ready"} compact /></div>
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>两个名字都亮起后 · 第一小步</small><strong>{dualFirstStage.title || "从第一小步开始"}</strong><div className="start-contract-meta"><span>{startNowLabel}—{dualFirstEndLabel}</span><span>{dualFirstStage.energy ? `完成后 +${dualFirstStage.energy} 能量` : "这一项不计能量"}</span></div><p>{startsAtPlannedTime ? "先试这一小步；卡住时随时可以调整，不需要硬撑。" : `原时长和间隔都会保留，事项预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束；卡住仍可以调整。`}</p></span></div>
-        <div className="light-bridge" data-ready={bothParticipantsReady} />
-        <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
+        <div className="dual-connection-stage">
+          <div className="energy-link" data-guardian-ready={guardianConfirmed} data-child-ready={childConfirmed} data-ready={bothParticipantsReady} aria-hidden="true"><span className="energy-side guardian-energy"><i /></span><span className="energy-core"><b>ϟ</b><i /><i /></span><span className="energy-side child-energy"><i /></span><span className="connection-spark spark-a" /><span className="connection-spark spark-b" /><span className="connection-spark spark-c" /></div>
+          <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="finger-tip"><small>{data.guardianAlias}</small></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已准备" : "点亮准备"}</small></button><button aria-describedby="dual-start-status" aria-label={`${data.childAlias}${childConfirmed ? "已点亮，再点一次取消" : "点一下确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="finger-tip"><small>{data.childAlias}</small></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已准备" : "点亮准备"}</small></button></div>
+        </div>
         <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button ref={launchCancelRef} type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>
       </div>}
 
