@@ -1239,7 +1239,7 @@ button.insight-card { cursor: pointer; }
 .one-change-card > button.saved { border-color: rgba(117,184,155,.5); background: var(--sage-soft); color: #397259; }
 
 .toast, .undo-toast { position: fixed; left: max(24px, calc((100vw - 884px) / 2 + 24px)); width: min(382px, calc(100vw - 48px)); margin: 0; }
-.toast { z-index: 50; bottom: calc(104px + env(safe-area-inset-bottom)); display: -webkit-box; overflow: hidden; padding: 12px 14px; border-radius: 16px; background: rgba(35,50,74,.94); color: white; font-size: 13px; line-height: 1.35; text-align: center; font-weight: 800; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; box-shadow: 0 14px 30px rgba(35,50,74,.25); animation: toast-in .25s ease both; pointer-events: none; }
+.toast { z-index: 50; bottom: calc(104px + env(safe-area-inset-bottom)); display: -webkit-box; overflow: hidden; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.96); color: #3a3a3c; font-size: 13px; line-height: 1.35; text-align: center; font-weight: 700; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; box-shadow: 0 8px 24px rgba(0,0,0,.09); animation: toast-in .25s ease both; pointer-events: none; }
 .undo-toast { z-index: 51; bottom: calc(24px + env(safe-area-inset-bottom)); min-height: 56px; padding: 10px 10px 10px 16px; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(35,50,74,.96); color: white; box-shadow: 0 14px 30px rgba(35,50,74,.25); animation: toast-in .25s ease both; }
 .undo-toast span { min-width: 0; display: -webkit-box; overflow: hidden; font-size: 13px; font-weight: 800; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .undo-toast button { min-width: 64px; min-height: 44px; border: 0; border-radius: 12px; background: #fff2cb; color: #80550f; font-weight: 900; cursor: pointer; }
@@ -2620,8 +2620,8 @@ html {
 }
 
 .toast {
-  top: max(14px, env(safe-area-inset-top));
-  bottom: auto;
+  top: auto;
+  bottom: calc(112px + env(safe-area-inset-bottom));
   left: 50%;
   width: fit-content;
   max-width: min(360px, calc(100vw - 36px));
@@ -2647,7 +2647,7 @@ html {
 }
 .undo-toast button { background: #f2f2f7; color: #7a581d; }
 @keyframes notice-in {
-  from { opacity: 0; transform: translate(-50%,-8px) scale(.985); }
+  from { opacity: 0; transform: translate(-50%,8px) scale(.985); }
   to { opacity: 1; transform: translateX(-50%); }
 }
 
@@ -4337,7 +4337,7 @@ p { line-height: 1.58; }
   box-shadow: 0 5px 18px rgba(0,0,0,.075);
 }
 .undo-shelf button { min-height: 34px; border-radius: 10px; font-weight: 600; }
-.toast { border-radius: 14px; background: rgba(35,35,37,.92); font-weight: 600; }
+.toast { border-color: rgba(60,60,67,.12); border-radius: 14px; background: rgba(255,255,255,.96); color: #3a3a3c; font-weight: 600; }
 .destructive-dialog { border: 0; border-radius: 22px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.22); }
 
 @media (max-width: 900px) {
@@ -4460,14 +4460,48 @@ p { line-height: 1.58; }
   .stage-kind-picker button { grid-template-columns: 42px minmax(0,1fr); column-gap: 10px; }
 }
 
-/* v19 — defer layout and paint for long off-screen collections without
-   changing their accessible structure or scroll order. */
-@supports (content-visibility: auto) {
-  .icon-library,
-  .template-list,
-  .plan-list,
-  .day-session-details {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 520px;
+/* v19 — keep interactive collections immediately renderable. Large icon and
+   template galleries still defer their individual images explicitly. */
+
+/* v20 — transient feedback uses a compact iOS-style light notice above the
+   action area. It must never cover the page title or resemble a loading mask. */
+.toast {
+  top: auto;
+  bottom: calc(112px + env(safe-area-inset-bottom));
+  left: max(24px, calc((100vw - 884px) / 2 + 24px));
+  width: fit-content;
+  max-width: min(340px, calc(100vw - 48px));
+  min-height: 38px;
+  padding: 9px 13px 9px 30px;
+  border: 1px solid rgba(60,60,67,.12);
+  border-radius: 13px;
+  background: rgba(255,255,255,.97);
+  color: #3a3a3c;
+  box-shadow: 0 6px 20px rgba(0,0,0,.085);
+  backdrop-filter: none;
+  transform: none;
+  text-align: left;
+  animation: toast-settle .18s var(--ease-out-soft) both;
+}
+.toast::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5f987c;
+  transform: translateY(-50%);
+}
+@keyframes toast-settle { from { opacity: 0; } }
+
+@media (max-width: 900px) {
+  .toast {
+    right: auto;
+    left: 50%;
+    width: fit-content;
+    max-width: calc(100vw - 36px);
+    transform: translateX(-50%);
   }
 }

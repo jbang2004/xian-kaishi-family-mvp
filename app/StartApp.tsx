@@ -344,7 +344,7 @@ function readFamilyStateResponse(response: Response) {
   return response.json() as Promise<FamilyStateResponse>;
 }
 
-function AppIcon({ name, className = "", loading = "lazy" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
+function AppIcon({ name, className = "", loading = "eager" }: { name: string; className?: string; loading?: "eager" | "lazy" }) {
   return <picture className={`app-icon ${className}`}>
     <source srcSet={`/assets/optimized/icons/${name}.webp?v=${ASSET_VERSION}`} type="image/webp" />
     <img className="app-icon-image" src={`/assets/icons/${name}.png?v=${ASSET_VERSION}`} width="320" height="320" loading={loading} decoding="async" fetchPriority={loading === "eager" ? "auto" : "low"} alt="" aria-hidden="true" />

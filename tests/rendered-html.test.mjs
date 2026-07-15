@@ -158,7 +158,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.screen \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-left\)/);
   assert.match(styles, /\.bottom-nav \{ position: fixed; left: max\(18px, env\(safe-area-inset-left\)\); right: max\(18px, env\(safe-area-inset-right\)\)/);
   assert.match(styles, /\.undo-shelf \{[\s\S]*?position: sticky;[\s\S]*?top: 10px/);
-  assert.match(styles, /\.toast \{[\s\S]*?top: max\(14px, env\(safe-area-inset-top\)\);[\s\S]*?background: rgba\(255,255,255,\.94\);[\s\S]*?color: #3a3a3c;/);
+  assert.match(styles, /v20 — transient feedback[\s\S]*?\.toast \{[\s\S]*?top: auto;[\s\S]*?bottom: calc\(112px \+ env\(safe-area-inset-bottom\)\);[\s\S]*?background: rgba\(255,255,255,\.97\);[\s\S]*?color: #3a3a3c;/);
   assert.match(styles, /@keyframes notice-in/);
   assert.match(styles, /\.undo-shelf span \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap/);
   assert.match(app, /const readableDuration = Math\.min\(5200, Math\.max\(3000, 2000 \+ toast\.length \* 90\)\)/);
@@ -928,9 +928,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.template-row-main > \.template-icon-group > b \{ display: none; \}/);
   assert.match(styles, /\.home-screen \.insight-card,[\s\S]*?grid-template-columns: 52px minmax\(0,1fr\) auto;\s*column-gap: 16px;/);
   assert.match(styles, /\.history-row \{ grid-template-columns: 52px minmax\(0,1fr\); column-gap: 14px; \}/);
-  assert.match(styles, /v19 — defer layout and paint/);
-  assert.match(styles, /content-visibility: auto;/);
-  assert.match(app, /function AppIcon\(\{ name, className = "", loading = "lazy"/);
+  assert.match(styles, /v19 — keep interactive collections immediately renderable/);
+  assert.doesNotMatch(styles, /content-visibility: auto;/);
+  assert.match(app, /function AppIcon\(\{ name, className = "", loading = "eager"/);
+  assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
   assert.match(app, /runningTimerUpdateDelay\(activeEndsAt - now\)/);
   assert.doesNotMatch(app, /setInterval\(tick, 1000\)/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
