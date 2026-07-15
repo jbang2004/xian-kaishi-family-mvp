@@ -370,6 +370,27 @@ function Chevron({ direction = "down", className = "" }: { direction?: "down" | 
   return <i className={`ui-chevron ${direction}-chevron ${className}`} aria-hidden="true" />;
 }
 
+// A hand-drawn touch mark: concentric interrupted ridges, not biometric UI.
+const TOUCH_MARK_RIDGES = [
+  "M31.6 32.1L32.4 32.1",
+  "M32.9 30.7L33.4 30.7L33.9 30.9L34.3 31.1L34.8 31.4L35.2 31.8L35.5 32.3L35.8 32.8L36 33.5L36.1 34.1L36.1 34.8L36 35.5L35.8 36.2L35.4 36.9L34.9 37.5L34.4 38.1L33.7 38.5L33 38.9L32.1 39.1L31.3 39.2L30.4 39.2L29.5 39L28.6 38.6L27.8 38.1",
+  "M25.2 33.9L25 32.8L25.1 31.7L25.3 30.5L25.7 29.4L26.3 28.3L27.1 27.4L28 26.5L29.1 25.8L30.2 25.3L31.5 25L32.8 24.8L34.1 24.9L35.5 25.3L36.8 25.8L38 26.5L39.1 27.5L40 28.6L40.8 29.9L41.4 31.3L41.7 32.9L41.8 34.5L41.7 36.1L41.3 37.7L40.7 39.2L39.8 40.6L38.8 41.9L37.5 43L36 43.9L34.4 44.6L32.7 45L30.9 45.1L29.2 44.9",
+  "M21.7 40.2L20.7 38.5L19.9 36.6L19.5 34.6L19.3 32.6L19.5 30.5L20 28.4L20.8 26.4L21.9 24.6L23.3 22.9L25 21.5L26.8 20.4L28.9 19.6L31.1 19.1L33.3 19L35.6 19.2L37.8 19.8L39.9 20.8L41.8 22.2L43.6 23.8L45 25.7L46.2 27.9L47 30.3L47.5 32.8L47.5 35.3L47.2 37.9L46.5 40.4L45.4 42.7L43.9 44.9L42.1 46.8L40 48.4",
+  "M27.7 50.7L25.1 49.9L22.6 48.7L20.3 47.1L18.3 45.1L16.5 42.8L15.2 40.3L14.2 37.5L13.7 34.6L13.6 31.6L14 28.6L14.8 25.6L16.1 22.9L17.8 20.3L19.9 18.1L22.4 16.2L25.1 14.7L28 13.7L31.1 13.1L34.2 13.1L37.3 13.5L40.4 14.5L43.3 16L45.9 17.9L48.2 20.3L50.2 23L51.7 26L52.7 29.3L53.2 32.7L53.2 36.1L52.7 39.6L51.7 42.9L50.1 46.1L48 49L45.6 51.5L42.7 53.6",
+] as const;
+
+function TouchMark() {
+  return <svg className="touch-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    {TOUCH_MARK_RIDGES.map((ridge, index) => <path key={ridge} d={ridge} pathLength={1} style={{ "--ridge-index": index } as CSSProperties} />)}
+  </svg>;
+}
+
+function CoreHeart() {
+  return <svg className="core-heart" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M12 20.3C6.8 16.7 3.5 13.4 3.5 9.9 3.5 7.4 5.4 5.5 7.8 5.5c1.7 0 3.2.9 4.2 2.3 1-1.4 2.5-2.3 4.2-2.3 2.4 0 4.3 1.9 4.3 4.4 0 3.5-3.3 6.8-8.5 10.4Z" />
+  </svg>;
+}
+
 function HomeMark() {
   return <AppIcon name="home-heart" className="home-mark" loading="eager" />;
 }
@@ -2177,8 +2198,8 @@ export function StartApp() {
         <div className={`start-now-card ${startsAtPlannedTime ? "on-time" : "will-shift"}`}><AppIcon name={dualFirstStage.icon} /><span><small>第一项</small><strong>{dualFirstStage.title || "从第一项开始"}</strong><div className="start-contract-meta"><span>{startsAtPlannedTime ? `${startNowLabel}—${dualFirstEndLabel}` : `现在开始 · 预计 ${formatPlanClock(shiftedScheduleEndLabel, startNowLabel, shiftedAvailabilityEndLabel)} 结束`}</span><span>{dualFirstStage.energy ? `完成 +${dualFirstStage.energy} 能量` : "不计能量"}</span></div></span></div>
         <div className="dual-touch-heading"><strong>各自确认</strong><small>可以同时点，也可以轮流点</small></div>
         <div className="dual-connection-stage">
-          <div className="energy-link" data-guardian-ready={guardianConfirmed} data-child-ready={childConfirmed} data-ready={bothParticipantsReady} aria-hidden="true"><span className="energy-side guardian-energy"><i /></span><span className="energy-core"><b>ϟ</b><i /><i /></span><span className="energy-side child-energy"><i /></span><span className="connection-spark spark-a" /><span className="connection-spark spark-b" /><span className="connection-spark spark-c" /></div>
-          <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="participant-role">大人</span><span className="finger-tip" aria-hidden="true"><picture className="touch-emblem-frame"><img className="touch-emblem" src={`/assets/generated/touch-emblem-v1.png?v=${ASSET_VERSION}`} width="384" height="384" loading="eager" decoding="async" alt="" /></picture></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已确认" : "轻点确认"}</small></button><button aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.childAlias}${childConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="participant-role">孩子</span><span className="finger-tip" aria-hidden="true"><picture className="touch-emblem-frame"><img className="touch-emblem" src={`/assets/generated/touch-emblem-v1.png?v=${ASSET_VERSION}`} width="384" height="384" loading="eager" decoding="async" alt="" /></picture></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已确认" : "轻点确认"}</small></button></div>
+          <div className="energy-link" data-guardian-ready={guardianConfirmed} data-child-ready={childConfirmed} data-ready={bothParticipantsReady} aria-hidden="true"><span className="energy-side guardian-energy"><i /></span><span className="energy-core"><b><CoreHeart /></b><i /><i /></span><span className="energy-side child-energy"><i /></span><span className="connection-spark spark-a" /><span className="connection-spark spark-b" /><span className="connection-spark spark-c" /></div>
+          <div className="dual-press"><button ref={guardianConfirmRef} aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.guardianAlias}${guardianConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={guardianConfirmed} className={`press-zone guardian-zone ${guardianConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("guardian")}><span className="participant-role">大人</span><span className="finger-tip" aria-hidden="true"><TouchMark /></span><strong>{data.guardianAlias}</strong><small>{guardianConfirmed ? "✓ 已确认" : "轻点确认"}</small></button><button aria-describedby="dual-start-status dual-touch-privacy" aria-label={`${data.childAlias}${childConfirmed ? "已确认，再点一次取消" : "轻点确认准备"}`} aria-pressed={childConfirmed} className={`press-zone child-zone ${childConfirmed ? "confirmed" : ""}`} onClick={() => toggleParticipant("child")}><span className="participant-role">孩子</span><span className="finger-tip" aria-hidden="true"><TouchMark /></span><strong>{data.childAlias}</strong><small>{childConfirmed ? "✓ 已确认" : "轻点确认"}</small></button></div>
         </div>
         <p className="touch-privacy-note" id="dual-touch-privacy">这里只记录一次点击，不读取或保存指纹。</p>
         <div className={`launch-status ${bothParticipantsReady ? "is-launching" : ""}`}><div className="launch-status-copy" id="dual-start-status" role="status" aria-live="polite" aria-atomic="true"><strong>{dualStartStatus.title}</strong><small>{dualStartStatus.detail}</small></div>{bothParticipantsReady && <><button ref={launchCancelRef} type="button" className="launch-cancel-button" onClick={cancelDualLaunch}>先等等</button><span className="launch-progress" aria-hidden="true"><i /></span></>}</div>{!bothParticipantsReady && <button className="flow-return-action" onClick={leaveDualStart}>返回共同确认</button>}

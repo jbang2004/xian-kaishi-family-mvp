@@ -839,8 +839,10 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /pendingAfterActiveCount >= 1 \? \[\{ id: "tomorrow" as const/);
   assert.match(app, /当前阶段 · \{activeTonightOrdinal\}\/\{tonightStageCount\}/);
   assert.match(app, /这里只记录一次点击，不读取或保存指纹/);
-  assert.match(app, /className="touch-emblem" src=\{`\/assets\/generated\/touch-emblem-v1\.png\?v=\$\{ASSET_VERSION\}`\}/);
-  assert.match(styles, /\.touch-emblem \{[\s\S]*?object-fit: contain;[\s\S]*?opacity: \.7;/);
+  assert.match(app, /className="touch-mark" viewBox="0 0 64 64" aria-hidden="true"/);
+  assert.match(app, /pathLength=\{1\}/);
+  assert.match(styles, /\.touch-mark path \{[\s\S]*?stroke: currentColor;[\s\S]*?stroke-linecap: round;/);
+  assert.match(styles, /@keyframes ridge-draw/);
   assert.match(styles, /\.dual-start-hero h1 \{[\s\S]*?font-size: 34px/);
   assert.match(styles, /\.press-zone \{[\s\S]*?min-height: 206px/);
   assert.match(app, /可以同时点，也可以轮流点/);
