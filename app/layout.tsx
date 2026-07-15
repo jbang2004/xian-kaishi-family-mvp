@@ -16,7 +16,7 @@ const appIcon = versionedAsset("/assets/icons/home-heart.png");
 // Keep the app shell static and edge-cacheable. Family data is loaded by the
 // client from the separate no-store API and never enters this public document.
 export const metadata: Metadata = {
-  metadataBase: new URL("https://xian-kaishi-family-mvp.jbang20042004.workers.dev"),
+  metadataBase: new URL("https://start.waveshift.net"),
   title,
   description,
   applicationName: "先开始",

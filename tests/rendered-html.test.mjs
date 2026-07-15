@@ -188,7 +188,7 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(styles, /\.confirm-timing-note \{ min-height: 0; grid-template-columns: 32px minmax\(0,1fr\)/);
   assert.match(styles, /\.family-agreement > div \{ min-height: 54px; grid-template-columns: 32px minmax\(0,1fr\)/);
   assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 700px\) \{[\s\S]*?\.confirm-action-dock \{[\s\S]*?grid-template-columns: minmax\(0,1fr\) 106px/);
-  assert.match(layout, /metadataBase: new URL\("https:\/\/xian-kaishi-family-mvp\.jbang20042004\.workers\.dev"\)/);
+  assert.match(layout, /metadataBase: new URL\("https:\/\/start\.waveshift\.net"\)/);
   assert.match(layout, /images: \[\{ url: "\/og\.jpg"/);
   assert.match(app, /<AppIcon name=\{icon\} loading="lazy"/);
   assert.match(app, /当前图标 \+ \$\{commonIconLibrary\.length\} 个家庭高频图标/);

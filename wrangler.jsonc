@@ -25,5 +25,11 @@
   ],
   "observability": {
     "enabled": true
-  }
+  },
+  "routes": [
+    {
+      "pattern": "start.waveshift.net",
+      "custom_domain": true
+    }
+  ]
 }
