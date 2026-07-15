@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "xian-kaishi-family-mvp",
+  "account_id": "1298fa35ac940c688dc1b6d8f5eead72",
+  "compatibility_date": "2026-07-13",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "./worker/index.ts",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "xian-kaishi-family-mvp",
+      "database_id": "aed3ba13-38fa-4ef2-9bc9-d75d0160a57b",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "routes": [
+    {
+      "pattern": "start.waveshift.net",
+      "custom_domain": true
+    }
+  ]
+}
