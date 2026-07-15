@@ -935,6 +935,11 @@ test("contains the complete 先开始 product shell", async () => {
   assert.match(app, /runningTimerUpdateDelay\(activeEndsAt - now\)/);
   assert.doesNotMatch(app, /setInterval\(tick, 1000\)/);
   assert.match(styles, /max-height: 760px[\s\S]*?\.press-zone \{ min-height: 154px;/);
+  assert.match(styles, /v21 — compact-height decision flow/);
+  assert.match(styles, /@media \(max-width: 900px\) and \(max-height: 820px\) \{[\s\S]*?\.dual-start-screen \.dual-connection-stage \{ margin: 12px 0 8px; \}/);
+  assert.match(styles, /max-height: 820px[\s\S]*?\.wrap-hero,[\s\S]*?min-height: 100px/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.prompt-reflection button:first-child \{ min-height: 44px; \}/);
+  assert.match(styles, /max-height: 700px[\s\S]*?\.transition-hero \{[\s\S]*?min-height: 88px/);
   assert.match(styles, /\.active-stage-card\.is-landing/);
   assert.match(styles, /@keyframes soft-landing-arrive/);
   assert.match(styles, /\.next-stage-preview\.is-landing/);
